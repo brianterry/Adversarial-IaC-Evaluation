@@ -1067,6 +1067,150 @@ def compare_tools(experiment_dir: str, output: Optional[str]):
     console.print(f"\n[dim]Results saved to {output_file}[/]")
 
 
+@cli.command("show")
+@click.option(
+    "--experiment",
+    "-e",
+    "experiment_dir",
+    type=click.Path(exists=True),
+    required=True,
+    help="Path to experiment directory",
+)
+@click.option(
+    "--detailed",
+    "-d",
+    is_flag=True,
+    help="Show detailed per-game results",
+)
+def show_results(experiment_dir: str, detailed: bool):
+    """
+    Display results from a completed experiment.
+    
+    Shows aggregate metrics, per-game breakdown, and key insights.
+    """
+    exp_path = Path(experiment_dir)
+    
+    # Load experiment summary
+    summary_file = exp_path / "experiment_summary.json"
+    if not summary_file.exists():
+        console.print(f"[red]No experiment_summary.json found in {exp_path}[/]")
+        raise click.Abort()
+    
+    summary = json.loads(summary_file.read_text())
+    
+    # Header
+    console.print(
+        Panel.fit(
+            f"[bold cyan]📊 EXPERIMENT RESULTS[/]\n"
+            f"Path: {exp_path}\n"
+            f"Timestamp: {summary.get('timestamp', 'N/A')}",
+            title="Experiment Summary",
+        )
+    )
+    
+    # Aggregate metrics
+    agg = summary.get("aggregate_metrics", {})
+    if agg:
+        console.print("\n[bold]Aggregate Metrics:[/]")
+        console.print(f"  Total Games:    {agg.get('total_games', 'N/A')}")
+        console.print(f"  Successful:     {agg.get('successful_games', 'N/A')}")
+        console.print(f"  Avg Precision:  [blue]{agg.get('avg_precision', 0):.1%}[/]")
+        console.print(f"  Avg Recall:     [blue]{agg.get('avg_recall', 0):.1%}[/]")
+        console.print(f"  Avg F1 Score:   [green]{agg.get('avg_f1_score', 0):.1%}[/]")
+        console.print(f"  Avg Evasion:    [red]{agg.get('avg_evasion_rate', 0):.1%}[/]")
+    
+    # By difficulty breakdown
+    by_difficulty = summary.get("by_difficulty", {})
+    if by_difficulty:
+        console.print("\n[bold]By Difficulty:[/]")
+        table = Table()
+        table.add_column("Difficulty", style="cyan")
+        table.add_column("Games", justify="right")
+        table.add_column("Avg F1", justify="right", style="green")
+        table.add_column("Avg Evasion", justify="right", style="red")
+        
+        for diff, stats in by_difficulty.items():
+            table.add_row(
+                diff,
+                str(stats.get("count", 0)),
+                f"{stats.get('avg_f1_score', 0):.1%}",
+                f"{stats.get('avg_evasion_rate', 0):.1%}",
+            )
+        console.print(table)
+    
+    # By model breakdown
+    by_model = summary.get("by_model", {})
+    if by_model:
+        console.print("\n[bold]By Model:[/]")
+        table = Table()
+        table.add_column("Model", style="cyan")
+        table.add_column("Games", justify="right")
+        table.add_column("Avg F1", justify="right", style="green")
+        
+        for model_name, stats in by_model.items():
+            table.add_row(
+                model_name[:30],
+                str(stats.get("count", 0)),
+                f"{stats.get('avg_f1_score', 0):.1%}",
+            )
+        console.print(table)
+    
+    # Per-game results (if detailed)
+    games = summary.get("games", [])
+    if detailed and games:
+        console.print("\n[bold]Per-Game Results:[/]")
+        table = Table()
+        table.add_column("Game ID", style="cyan")
+        table.add_column("Difficulty")
+        table.add_column("Red Vulns", justify="right")
+        table.add_column("Blue Finds", justify="right")
+        table.add_column("F1", justify="right", style="green")
+        table.add_column("Evasion", justify="right", style="red")
+        table.add_column("Status")
+        
+        for game in games[:20]:  # Show first 20
+            status = game.get("status", "unknown")
+            status_display = "[green]✓[/]" if status == "success" else "[red]✗[/]"
+            
+            table.add_row(
+                game.get("game_id", "N/A")[-18:],
+                game.get("difficulty", "N/A"),
+                str(game.get("red_vulns", 0)),
+                str(game.get("blue_findings", 0)),
+                f"{game.get('f1_score', 0):.1%}",
+                f"{game.get('evasion_rate', 0):.1%}",
+                status_display,
+            )
+        
+        if len(games) > 20:
+            console.print(f"[dim]... and {len(games) - 20} more games[/]")
+        
+        console.print(table)
+    elif games:
+        console.print(f"\n[dim]Use --detailed to see {len(games)} individual game results[/]")
+    
+    # Check for tool comparison
+    tool_comp_file = exp_path / "tool_comparison.json"
+    if tool_comp_file.exists():
+        tool_comp = json.loads(tool_comp_file.read_text())
+        tool_summary = tool_comp.get("summary", {})
+        
+        console.print("\n[bold]Tool Comparison:[/]")
+        console.print(f"  LLM Total:     {tool_summary.get('llm_total', 'N/A')}")
+        console.print(f"  Trivy Total:   {tool_summary.get('trivy_total', 'N/A')}")
+        console.print(f"  Checkov Total: {tool_summary.get('checkov_total', 'N/A')}")
+    
+    # Check for hybrid results
+    hybrid_file = exp_path / "hybrid_results" / "hybrid_summary.json"
+    if hybrid_file.exists():
+        hybrid = json.loads(hybrid_file.read_text())
+        hybrid_agg = hybrid.get("aggregate", {})
+        
+        console.print("\n[bold]Hybrid Detection:[/]")
+        console.print(f"  Avg F1 Score:     [green]{hybrid_agg.get('avg_f1_score', 0):.1%}[/]")
+        console.print(f"  Total Findings:   {hybrid_agg.get('total_hybrid_findings', 'N/A')}")
+
+
 @cli.command("hybrid-experiment")
 @click.option(
     "--experiment",
