@@ -1,0 +1,72 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "aws_s3_bucket.cicd_artifacts",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "encryption",
+    "severity": "high",
+    "title": "S3 Bucket Missing Server-Side Encryption",
+    "description": "The CI/CD artifacts bucket is not configured with default server-side encryption, potentially exposing sensitive build artifacts to unauthorized access if compromised.",
+    "evidence": "No aws_s3_bucket_server_side_encryption_configuration resource defined for the bucket",
+    "line_number_estimate": 18,
+    "confidence": 0.95,
+    "reasoning": "1. CI/CD artifacts often contain sensitive information\n2. No encryption configuration is specified\n3. AWS S3 buckets should use encryption by default\n4. Missing encryption violates security best practices",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "aws_s3_bucket_public_access_block.cicd_artifacts",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "access_control",
+    "severity": "critical",
+    "title": "S3 Bucket Public Access Blocks Disabled",
+    "description": "All public access block settings are intentionally disabled, allowing potential public exposure of CI/CD artifacts.",
+    "evidence": "block_public_acls = false\nblock_public_policy = false\nignore_public_acls = false\nrestrict_public_buckets = false",
+    "line_number_estimate": 29,
+    "confidence": 0.99,
+    "reasoning": "1. All public access blocks are explicitly disabled\n2. CI/CD artifacts should never be public\n3. This configuration allows both ACL and policy-based public access\n4. Marked as intentionally permissive in comments",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "aws_security_group.pipeline_access",
+    "resource_type": "aws_security_group",
+    "vulnerability_type": "network",
+    "severity": "critical",
+    "title": "Open SSH Access from Any Source",
+    "description": "Security group allows SSH access (port 22) from any IP address (0.0.0.0/0)",
+    "evidence": "cidr_blocks = [\"0.0.0.0/0\"]",
+    "line_number_estimate": 45,
+    "confidence": 0.99,
+    "reasoning": "1. SSH access is allowed from any IP address\n2. No source IP restrictions\n3. SSH should be limited to known IPs/ranges\n4. Creates potential for brute force attacks",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F4",
+    "resource_name": "aws_db_instance.build_metadata",
+    "resource_type": "aws_db_instance",
+    "vulnerability_type": "encryption",
+    "severity": "high",
+    "title": "RDS Instance Missing Encryption",
+    "description": "The RDS instance storing build metadata is not configured with storage encryption",
+    "evidence": "storage_encrypted parameter is missing, defaults to false",
+    "line_number_estimate": 66,
+    "confidence": 0.95,
+    "reasoning": "1. Database contains build metadata which may be sensitive\n2. Storage encryption is not enabled\n3. AWS recommends encryption for all database instances\n4. Missing encryption violates data protection best practices",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F5",
+    "resource_name": "aws_iam_role_policy_attachment.cicd_policy",
+    "resource_type": "aws_iam_role_policy",
+    "vulnerability_type": "iam",
+    "severity": "high",
+    "title": "Overly Permissive S3 IAM Policy",
+    "description": "CI/CD role is granted full S3 access (AmazonS3FullAccess) instead of limited permissions",
+    "evidence": "policy_arn = \"arn:aws:iam::aws:policy/AmazonS3FullAccess\"",
+    "line_number_estimate": 102,
+    "confidence": 0.95,
+    "reasoning": "1. Role has full access to all S3 buckets\n2. Violates principle of least privilege\n3. CI/CD pipeline likely only needs access to specific buckets\n4. AWS managed policy is too permissive for this use case",
+    "source": "llm"
+  }
+]

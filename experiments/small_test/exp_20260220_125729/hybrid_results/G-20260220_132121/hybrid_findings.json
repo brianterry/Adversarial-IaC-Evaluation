@@ -1,0 +1,74 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "cicd_artifacts",
+    "vulnerability_type": "access_control",
+    "severity": "critical",
+    "title": "Public S3 Bucket Exposure",
+    "source": "llm",
+    "confidence": 0.95
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "pipeline_access",
+    "vulnerability_type": "network",
+    "severity": "critical",
+    "title": "Open SSH Access from Anywhere",
+    "source": "llm",
+    "confidence": 0.95
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "build_metadata",
+    "vulnerability_type": "encryption",
+    "severity": "high",
+    "title": "Unencrypted Database Instance",
+    "source": "llm",
+    "confidence": 0.9
+  },
+  {
+    "finding_id": "F4",
+    "resource_name": "cicd_role",
+    "vulnerability_type": "iam",
+    "severity": "high",
+    "title": "Overly Permissive IAM Role",
+    "source": "llm",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-1",
+    "resource_name": "aws_s3_bucket_public_access_block.cicd_artifacts",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure S3 bucket has block public ACLS enabled",
+    "source": "checkov",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-5",
+    "resource_name": "aws_security_group.pipeline_access",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure no security groups allow ingress from 0.0.0.0:0 to port 22",
+    "source": "checkov",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-7",
+    "resource_name": "aws_db_instance.build_metadata",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure RDS database has IAM authentication enabled",
+    "source": "checkov",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-17",
+    "resource_name": "aws_s3_bucket.cicd_artifacts",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure S3 buckets should have event notifications enabled",
+    "source": "checkov",
+    "confidence": 0.85
+  }
+]

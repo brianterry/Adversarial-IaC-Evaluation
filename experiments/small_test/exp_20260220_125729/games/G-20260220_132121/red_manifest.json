@@ -1,0 +1,54 @@
+[
+  {
+    "vuln_id": "V1",
+    "rule_id": "",
+    "title": "S3 bucket lacks server-side encryption, exposing data at rest",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "cicd_artifacts",
+    "resource_type": "aws_s3_bucket",
+    "line_number_estimate": 15,
+    "vulnerable_attribute": "encryption_configuration",
+    "vulnerable_value": "not_set",
+    "stealth_technique": "Omitting encryption settings under performance pretext"
+  },
+  {
+    "vuln_id": "V2",
+    "rule_id": "",
+    "title": "Allows SSH access from any IP address",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "pipeline_access",
+    "resource_type": "aws_security_group",
+    "line_number_estimate": 35,
+    "vulnerable_attribute": "cidr_blocks",
+    "vulnerable_value": "0.0.0.0/0",
+    "stealth_technique": "Broad network access for 'development convenience'"
+  },
+  {
+    "vuln_id": "V3",
+    "rule_id": "",
+    "title": "Disables all public access protections",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "cicd_artifacts_public_access",
+    "resource_type": "aws_s3_bucket_public_access_block",
+    "line_number_estimate": 25,
+    "vulnerable_attribute": "block_public_acls",
+    "vulnerable_value": "false",
+    "stealth_technique": "Misconfigured access controls"
+  },
+  {
+    "vuln_id": "V5",
+    "rule_id": "",
+    "title": "Database storage not encrypted by default",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "build_metadata",
+    "resource_type": "aws_db_instance",
+    "line_number_estimate": 50,
+    "vulnerable_attribute": "storage_encrypted",
+    "vulnerable_value": "not_set",
+    "stealth_technique": "Skipping encryption for perceived low-risk environment"
+  }
+]

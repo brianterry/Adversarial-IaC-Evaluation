@@ -1,0 +1,66 @@
+{
+  "metrics": {
+    "precision": 1.0,
+    "recall": 0.6,
+    "f1_score": 0.7499999999999999,
+    "evasion_rate": 0.4
+  },
+  "counts": {
+    "total_red_vulns": 5,
+    "total_blue_findings": 5,
+    "true_positives": 3,
+    "false_positives": 0,
+    "false_negatives": 2,
+    "exact_matches": 0,
+    "partial_matches": 3
+  },
+  "details": {
+    "true_positive_ids": [
+      "F1",
+      "F2",
+      "F5"
+    ],
+    "false_positive_ids": [],
+    "false_negative_ids": [
+      "V3",
+      "V5"
+    ]
+  },
+  "matches": [
+    {
+      "red_vuln_id": "V1",
+      "blue_finding_id": "F1",
+      "match_type": "partial",
+      "confidence": 0.55,
+      "explanation": "Partial match: Red Team's 'Allows public read access to sensitive transaction logs' on transaction_logs was partially detected as 'Public Read Access Enabled on Sensitive S3 Bucket' on aws_s3_bucket.transaction_logs"
+    },
+    {
+      "red_vuln_id": "V2",
+      "blue_finding_id": "F2",
+      "match_type": "partial",
+      "confidence": 0.55,
+      "explanation": "Partial match: Red Team's 'Allows unrestricted network access to Lambda function' on lambda_network was partially detected as 'Overly Permissive Security Group Ingress' on aws_security_group.lambda_network"
+    },
+    {
+      "red_vuln_id": "V3",
+      "blue_finding_id": "F3",
+      "match_type": "missed",
+      "confidence": 0.35,
+      "explanation": "Missed: Red Team's 'No encryption for sensitive financial data storage' on transaction_storage was not detected"
+    },
+    {
+      "red_vuln_id": "V4",
+      "blue_finding_id": "F5",
+      "match_type": "partial",
+      "confidence": 0.55,
+      "explanation": "Partial match: Red Team's 'No logging configuration for audit trail' on transaction_audit was partially detected as 'Missing S3 Access Logging' on aws_s3_bucket.transaction_audit"
+    },
+    {
+      "red_vuln_id": "V5",
+      "blue_finding_id": "F4",
+      "match_type": "missed",
+      "confidence": 0.35,
+      "explanation": "Missed: Red Team's 'Database not encrypted at rest' on transaction_db was not detected"
+    }
+  ]
+}

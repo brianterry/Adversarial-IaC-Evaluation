@@ -1,0 +1,83 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "aws_rds_cluster.transaction_history",
+    "vulnerability_type": "encryption",
+    "severity": "high",
+    "title": "Missing RDS Cluster Encryption",
+    "source": "llm",
+    "confidence": 0.95
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "aws_security_group.lambda_sg",
+    "vulnerability_type": "network",
+    "severity": "critical",
+    "title": "Overly Permissive Security Group",
+    "source": "llm",
+    "confidence": 0.98
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "aws_s3_bucket.transaction_logs",
+    "vulnerability_type": "logging",
+    "severity": "high",
+    "title": "Missing S3 Logging Configuration",
+    "source": "llm",
+    "confidence": 0.9
+  },
+  {
+    "finding_id": "F4",
+    "resource_name": "aws_lambda_function.payment_processor",
+    "vulnerability_type": "data_protection",
+    "severity": "medium",
+    "title": "Sensitive Environment Variables in Lambda",
+    "source": "llm",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-1",
+    "resource_name": "aws_lambda_function.payment_processor",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "X-Ray tracing is enabled for Lambda",
+    "source": "checkov",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-7",
+    "resource_name": "aws_rds_cluster.transaction_history",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure RDS cluster configured to copy tags to snapshots",
+    "source": "checkov",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-15",
+    "resource_name": "aws_security_group.lambda_sg",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure no security groups allow ingress from 0.0.0.0:0 to port 80",
+    "source": "checkov",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-18",
+    "resource_name": "aws_security_group.rds_sg",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure every security group and rule has a description",
+    "source": "checkov",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-20",
+    "resource_name": "aws_s3_bucket.transaction_logs",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure S3 buckets should have event notifications enabled",
+    "source": "checkov",
+    "confidence": 0.85
+  }
+]

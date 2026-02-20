@@ -1,0 +1,72 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "aws_s3_bucket.transaction_logs",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "access_control",
+    "severity": "critical",
+    "title": "Public Read Access Enabled on Sensitive S3 Bucket",
+    "description": "The S3 bucket containing credit card transaction logs is configured with public read access (acl = 'public-read'), exposing potentially sensitive financial data to anyone on the internet.",
+    "evidence": "acl = \"public-read\"",
+    "line_number_estimate": 9,
+    "confidence": 0.99,
+    "reasoning": "1. Bucket contains sensitive transaction logs (per tags)\n2. ACL is explicitly set to public-read\n3. Financial transaction data should never be publicly accessible",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "aws_security_group.lambda_network",
+    "resource_type": "aws_security_group",
+    "vulnerability_type": "network",
+    "severity": "critical",
+    "title": "Overly Permissive Security Group Ingress",
+    "description": "Security group allows unrestricted inbound access on all ports (0-65535) from any source IP (0.0.0.0/0)",
+    "evidence": "cidr_blocks = [\"0.0.0.0/0\"]",
+    "line_number_estimate": 24,
+    "confidence": 0.99,
+    "reasoning": "1. All ports are open (0-65535)\n2. Allows access from any IP\n3. Lambda functions rarely need inbound access, especially not unrestricted",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "aws_s3_bucket.transaction_storage",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "encryption",
+    "severity": "high",
+    "title": "Missing Server-Side Encryption for Sensitive Data",
+    "description": "S3 bucket storing credit card transactions lacks server-side encryption configuration",
+    "evidence": "# VULNERABILITY: No encryption configuration",
+    "line_number_estimate": 41,
+    "confidence": 0.95,
+    "reasoning": "1. Bucket stores credit card transactions (highly sensitive)\n2. No encryption configuration present\n3. PCI-DSS requires encryption of cardholder data",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F4",
+    "resource_name": "aws_db_instance.transaction_db",
+    "resource_type": "aws_db_instance",
+    "vulnerability_type": "encryption",
+    "severity": "high",
+    "title": "Unencrypted RDS Database Instance",
+    "description": "RDS instance storing financial transactions is not configured with storage encryption",
+    "evidence": "# VULNERABILITY: No storage encryption",
+    "line_number_estimate": 63,
+    "confidence": 0.95,
+    "reasoning": "1. Database likely contains sensitive financial data\n2. Storage encryption not enabled\n3. Financial data requires encryption at rest",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F5",
+    "resource_name": "aws_s3_bucket.transaction_audit",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "logging",
+    "severity": "medium",
+    "title": "Missing S3 Access Logging",
+    "description": "Audit bucket for financial transactions has no access logging enabled",
+    "evidence": "# VULNERABILITY: No logging configuration",
+    "line_number_estimate": 78,
+    "confidence": 0.9,
+    "reasoning": "1. Audit data requires access tracking\n2. No logging configuration present\n3. Regulatory compliance often requires access logging",
+    "source": "llm"
+  }
+]

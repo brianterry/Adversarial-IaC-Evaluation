@@ -1,0 +1,72 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "aws_s3_bucket.pipeline_artifacts",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "encryption",
+    "severity": "high",
+    "title": "Missing S3 Bucket Encryption",
+    "description": "The S3 bucket used for pipeline artifacts lacks server-side encryption configuration, potentially exposing sensitive deployment artifacts.",
+    "evidence": "# V1: Intentionally missing encryption configuration",
+    "line_number_estimate": 15,
+    "confidence": 0.99,
+    "reasoning": "1. S3 buckets should have default encryption enabled\n2. Pipeline artifacts often contain sensitive information\n3. No aws_s3_bucket_server_side_encryption_configuration resource is defined",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "aws_s3_bucket.pipeline_artifacts",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "logging",
+    "severity": "medium",
+    "title": "Missing S3 Access Logging",
+    "description": "The pipeline artifacts bucket does not have access logging enabled, reducing audit capabilities for security incidents.",
+    "evidence": "# V3: Missing logging configuration",
+    "line_number_estimate": 15,
+    "confidence": 0.95,
+    "reasoning": "1. Access logging is crucial for security audit trails\n2. No aws_s3_bucket_logging configuration is present\n3. Pipeline artifacts require audit capability",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "aws_iam_role.pipeline_execution_role",
+    "resource_type": "aws_iam_role",
+    "vulnerability_type": "iam",
+    "severity": "critical",
+    "title": "Overly Permissive Trust Relationship",
+    "description": "The pipeline execution role can be assumed by any AWS principal (*), creating a significant security risk.",
+    "evidence": "AWS = \"*\"",
+    "line_number_estimate": 35,
+    "confidence": 0.99,
+    "reasoning": "1. Trust policy allows any AWS principal to assume the role\n2. This violates least privilege principle\n3. Could allow unauthorized access to pipeline resources",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F4",
+    "resource_name": "aws_iam_role_policy.pipeline_execution_policy",
+    "resource_type": "aws_iam_role_policy",
+    "vulnerability_type": "iam",
+    "severity": "critical",
+    "title": "Overly Permissive IAM Policy",
+    "description": "The pipeline execution policy grants full access (*) to multiple AWS services with no resource restrictions.",
+    "evidence": "Action = [\"s3:*\", \"ec2:*\", \"iam:*\", \"lambda:*\"]",
+    "line_number_estimate": 80,
+    "confidence": 0.99,
+    "reasoning": "1. Policy grants full access to multiple critical services\n2. No resource restrictions (Resource = \"*\")\n3. Violates least privilege principle",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F5",
+    "resource_name": "aws_iam_role.deployment_role",
+    "resource_type": "aws_iam_role",
+    "vulnerability_type": "iam",
+    "severity": "high",
+    "title": "Potential Role Chaining Risk",
+    "description": "The deployment role can be assumed by the build role, which could lead to privilege escalation through role chaining.",
+    "evidence": "Principal = { AWS = aws_iam_role.build_agent_role.arn }",
+    "line_number_estimate": 60,
+    "confidence": 0.9,
+    "reasoning": "1. Role assumption chain between build and deployment roles\n2. Could lead to privilege escalation\n3. Requires careful review of combined permissions",
+    "source": "llm"
+  }
+]

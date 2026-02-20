@@ -1,0 +1,29 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "medical_records_bucket",
+    "vulnerability_type": "access_control",
+    "severity": "critical",
+    "title": "Completely Disabled Public Access Controls for PHI Data",
+    "source": "llm",
+    "confidence": 0.99
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "medical_records_bucket",
+    "vulnerability_type": "encryption",
+    "severity": "high",
+    "title": "Missing Encryption for Sensitive Healthcare Data",
+    "source": "llm",
+    "confidence": 0.9
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "medical_records_access_policy",
+    "vulnerability_type": "iam",
+    "severity": "medium",
+    "title": "Overly Broad S3 Access Policy",
+    "source": "llm",
+    "confidence": 0.85
+  }
+]

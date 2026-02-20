@@ -1,0 +1,44 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "cicd_artifacts",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "encryption",
+    "severity": "high",
+    "title": "Unencrypted S3 Bucket",
+    "description": "S3 bucket lacks server-side encryption, exposing sensitive artifacts to potential unauthorized access",
+    "evidence": "aws_s3_bucket.cicd_artifacts without encryption_configuration",
+    "line_number_estimate": 35,
+    "confidence": 0.95,
+    "reasoning": "No encryption configuration means data is stored in plaintext, vulnerable to unauthorized read access",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "cicd_runner",
+    "resource_type": "aws_security_group",
+    "vulnerability_type": "network",
+    "severity": "critical",
+    "title": "Unrestricted SSH Access",
+    "description": "Security group allows SSH access from any IP address (0.0.0.0/0)",
+    "evidence": "ingress rule with cidr_blocks = [\"0.0.0.0/0\"]",
+    "line_number_estimate": 50,
+    "confidence": 0.95,
+    "reasoning": "Allows potential brute force and unauthorized remote access attempts from any global IP",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "cicd_role",
+    "resource_type": "aws_iam_role",
+    "vulnerability_type": "iam",
+    "severity": "medium",
+    "title": "Overly Broad IAM Role Assumption",
+    "description": "IAM role allows EC2 service to assume role without additional restrictions",
+    "evidence": "Principal = { Service = \"ec2.amazonaws.com\" }",
+    "line_number_estimate": 20,
+    "confidence": 0.85,
+    "reasoning": "Allows any EC2 instance in the account to potentially assume this role, violating least-privilege principle",
+    "source": "llm"
+  }
+]

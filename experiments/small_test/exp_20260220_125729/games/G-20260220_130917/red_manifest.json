@@ -1,0 +1,67 @@
+[
+  {
+    "vuln_id": "V1",
+    "rule_id": "",
+    "title": "S3 bucket lacks server-side encryption",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "cicd_artifacts",
+    "resource_type": "aws_s3_bucket",
+    "line_number_estimate": 12,
+    "vulnerable_attribute": "encryption",
+    "vulnerable_value": "not_configured",
+    "stealth_technique": "Omitting encryption settings looks like oversight"
+  },
+  {
+    "vuln_id": "V2",
+    "rule_id": "",
+    "title": "SSH port open to entire internet",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "build_agents",
+    "resource_type": "aws_security_group",
+    "line_number_estimate": 32,
+    "vulnerable_attribute": "ingress.cidr_blocks",
+    "vulnerable_value": "0.0.0.0/0",
+    "stealth_technique": "Common mistake during initial setup"
+  },
+  {
+    "vuln_id": "V3",
+    "rule_id": "",
+    "title": "No logging for sensitive artifact bucket",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "cicd_artifacts",
+    "resource_type": "aws_s3_bucket",
+    "line_number_estimate": 12,
+    "vulnerable_attribute": "logging",
+    "vulnerable_value": "not_configured",
+    "stealth_technique": "Logging seen as unnecessary overhead"
+  },
+  {
+    "vuln_id": "V4",
+    "rule_id": "",
+    "title": "No explicit public access restrictions",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "cicd_artifacts",
+    "resource_type": "aws_s3_bucket",
+    "line_number_estimate": 12,
+    "vulnerable_attribute": "public_access_block",
+    "vulnerable_value": "not_configured",
+    "stealth_technique": "Relying on default AWS settings"
+  },
+  {
+    "vuln_id": "V5",
+    "rule_id": "",
+    "title": "Database storage not encrypted",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "build_metadata",
+    "resource_type": "aws_db_instance",
+    "line_number_estimate": 52,
+    "vulnerable_attribute": "storage_encrypted",
+    "vulnerable_value": "false",
+    "stealth_technique": "Performance/cost considerations override security"
+  }
+]

@@ -1,0 +1,72 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "pipeline_artifacts",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "encryption",
+    "severity": "high",
+    "title": "S3 Bucket Lacks Encryption Configuration",
+    "description": "S3 bucket for pipeline artifacts is not configured with server-side encryption",
+    "evidence": "Missing encryption_configuration block in aws_s3_bucket resource",
+    "line_number_estimate": 15,
+    "confidence": 0.95,
+    "reasoning": "Unencrypted S3 buckets expose sensitive build artifacts to potential unauthorized access",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "build_agents",
+    "resource_type": "aws_security_group",
+    "vulnerability_type": "network",
+    "severity": "critical",
+    "title": "Overly Permissive Security Group",
+    "description": "Security group allows unrestricted inbound access from any IP address",
+    "evidence": "ingress rule with cidr_blocks = [\"0.0.0.0/0\"]",
+    "line_number_estimate": 28,
+    "confidence": 0.95,
+    "reasoning": "Allowing all TCP ports from any source creates significant network exposure and potential attack surface",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "pipeline_role",
+    "resource_type": "aws_iam_role_policy",
+    "vulnerability_type": "iam",
+    "severity": "critical",
+    "title": "Overly Broad IAM Permissions",
+    "description": "IAM role policy grants full access across multiple AWS services",
+    "evidence": "Policy with wildcard (*) permissions for s3, ec2, iam, cloudformation",
+    "line_number_estimate": 65,
+    "confidence": 0.95,
+    "reasoning": "Granting full service permissions violates least-privilege principle and increases potential blast radius of credential compromise",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F4",
+    "resource_name": "pipeline_role",
+    "resource_type": "aws_iam_role",
+    "vulnerability_type": "iam",
+    "severity": "high",
+    "title": "Insecure Cross-Account Role Trust",
+    "description": "Cross-account role trust lacks external ID for additional security",
+    "evidence": "assume_role_policy missing ExternalId parameter",
+    "line_number_estimate": 50,
+    "confidence": 0.85,
+    "reasoning": "Without an external ID, the cross-account role is more susceptible to confused deputy attacks",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F5",
+    "resource_name": "pipeline_artifacts",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "logging",
+    "severity": "medium",
+    "title": "Missing S3 Access Logging",
+    "description": "S3 bucket lacks access logging configuration",
+    "evidence": "No aws_s3_bucket_logging resource defined",
+    "line_number_estimate": 15,
+    "confidence": 0.9,
+    "reasoning": "Without access logging, it's difficult to audit and track potential unauthorized access attempts",
+    "source": "llm"
+  }
+]

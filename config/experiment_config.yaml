@@ -1,0 +1,141 @@
+# Adversarial IaC Evaluation - Experiment Configuration
+# ==========================================================
+
+# General settings
+experiment:
+  name: "adversarial_iac_baseline"
+  description: "Baseline adversarial evaluation of LLMs for IaC security"
+  output_dir: "experiments"
+  random_seed: 42
+
+# AWS Bedrock settings
+aws:
+  region: "us-east-1"
+  # Models will use cross-region inference profiles (us. prefix)
+
+# Models to evaluate
+models:
+  # Claude models
+  - id: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+    name: "Claude 3.5 Sonnet v2"
+    provider: "anthropic"
+    
+  - id: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+    name: "Claude 3.5 Haiku"
+    provider: "anthropic"
+    
+  # Amazon Nova models
+  - id: "amazon.nova-pro-v1:0"
+    name: "Amazon Nova Pro"
+    provider: "amazon"
+    
+  - id: "amazon.nova-lite-v1:0"
+    name: "Amazon Nova Lite"
+    provider: "amazon"
+
+# Difficulty levels
+difficulty_levels:
+  - easy
+  - medium
+  - hard
+
+# IaC languages to test
+languages:
+  - terraform
+  - cloudformation
+
+# Cloud providers
+cloud_providers:
+  - aws
+  # - azure  # Future
+  # - gcp    # Future
+
+# Scenarios per domain
+scenarios:
+  domains:
+    - storage
+    - compute
+    - network
+    - iam
+    - multi_service
+  scenarios_per_domain: 2  # Total: 5 domains × 2 = 10 scenarios
+
+# Game configuration
+game:
+  # Number of rounds per game
+  rounds_per_game: 1
+  
+  # Time limits (seconds)
+  red_team_timeout: 120
+  blue_team_timeout: 120
+  
+  # Retry settings
+  max_retries: 2
+  retry_delay: 5
+
+# Evaluation metrics
+metrics:
+  # Red Team metrics
+  red_team:
+    - evasion_rate          # % of vulns that evaded detection
+    - stealth_score         # passes syntax validation
+    - code_quality          # realistic code quality rating
+    
+  # Blue Team metrics  
+  blue_team:
+    - detection_recall      # % of vulns detected
+    - detection_precision   # accuracy of detections
+    - f1_score              # harmonic mean
+    - response_time         # seconds to analyze
+    
+  # Combined metrics
+  combined:
+    - security_coverage     # overall coverage
+    - cost_efficiency       # findings per dollar
+
+# Tool integrations (Blue Team)
+tools:
+  trivy:
+    enabled: true
+    severity_filter: ["CRITICAL", "HIGH", "MEDIUM"]
+    
+  checkov:
+    enabled: true
+    framework: ["terraform", "cloudformation"]
+
+# Experiment variations
+experiments:
+  # Symmetric: Same model attacks and defends
+  symmetric:
+    enabled: true
+    description: "Same model plays Red and Blue Team"
+    
+  # Asymmetric: Different models attack and defend  
+  asymmetric:
+    enabled: true
+    description: "Different models for Red vs Blue Team"
+    model_pairs:
+      - red: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+        blue: "amazon.nova-pro-v1:0"
+      - red: "amazon.nova-pro-v1:0"
+        blue: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+        
+  # Tool-assisted: Blue Team uses Trivy/Checkov
+  tool_assisted:
+    enabled: true
+    description: "Blue Team can use static analysis tools"
+
+# Logging and output
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+output:
+  save_code: true           # Save generated IaC
+  save_manifests: true      # Save vulnerability manifests
+  save_findings: true       # Save Blue Team findings
+  save_raw_llm: true        # Save raw LLM responses
+  formats:
+    - json
+    - csv
+    - latex  # For paper tables

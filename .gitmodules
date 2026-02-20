@@ -1,0 +1,3 @@
+[submodule "vendor/vulnerable-iac-generator"]
+	path = vendor/vulnerable-iac-generator
+	url = https://github.com/SymbioticSec/vulnerable-iac-dataset-generator.git

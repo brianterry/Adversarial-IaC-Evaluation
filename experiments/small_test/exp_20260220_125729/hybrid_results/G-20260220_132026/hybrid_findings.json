@@ -1,0 +1,65 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "cicd_artifacts",
+    "vulnerability_type": "access_control",
+    "severity": "critical",
+    "title": "Public Read Access on S3 Bucket",
+    "source": "llm",
+    "confidence": 0.95
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "cicd_artifacts",
+    "vulnerability_type": "encryption",
+    "severity": "high",
+    "title": "Missing Server-Side Encryption",
+    "source": "llm",
+    "confidence": 0.9
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "cicd_sg",
+    "vulnerability_type": "network",
+    "severity": "critical",
+    "title": "Unrestricted Network Access",
+    "source": "llm",
+    "confidence": 0.95
+  },
+  {
+    "finding_id": "F4",
+    "resource_name": "cicd_pipeline_role",
+    "vulnerability_type": "iam",
+    "severity": "medium",
+    "title": "Incorrect IAM Role Trust Relationship",
+    "source": "llm",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "F5",
+    "resource_name": "cicd_artifacts",
+    "vulnerability_type": "data_protection",
+    "severity": "medium",
+    "title": "Versioning Disabled",
+    "source": "llm",
+    "confidence": 0.8
+  },
+  {
+    "finding_id": "CHECKOV-1",
+    "resource_name": "aws_security_group.cicd_sg",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure no security groups allow ingress from 0.0.0.0:0 to port 80",
+    "source": "checkov",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-7",
+    "resource_name": "aws_s3_bucket.cicd_artifacts",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure S3 buckets should have event notifications enabled",
+    "source": "checkov",
+    "confidence": 0.85
+  }
+]

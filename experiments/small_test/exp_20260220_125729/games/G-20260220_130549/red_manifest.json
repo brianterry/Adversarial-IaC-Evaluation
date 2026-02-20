@@ -1,0 +1,54 @@
+[
+  {
+    "vuln_id": "V1",
+    "rule_id": "",
+    "title": "No server-side encryption configured for sensitive PHI data",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "medical_records",
+    "resource_type": "aws_s3_bucket",
+    "line_number_estimate": 12,
+    "vulnerable_attribute": "encryption",
+    "vulnerable_value": "unset",
+    "stealth_technique": "Looks like standard bucket creation without explicit encryption"
+  },
+  {
+    "vuln_id": "V2",
+    "rule_id": "",
+    "title": "Allows potential public exposure of sensitive healthcare data",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "medical_records_public_access",
+    "resource_type": "aws_s3_bucket_public_access_block",
+    "line_number_estimate": 20,
+    "vulnerable_attribute": "public_access_settings",
+    "vulnerable_value": "all_public_access_disabled",
+    "stealth_technique": "Configures access block with all restrictions set to false"
+  },
+  {
+    "vuln_id": "V4",
+    "rule_id": "",
+    "title": "Allows database access from any IP address",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "database_security_group",
+    "resource_type": "aws_security_group",
+    "line_number_estimate": 50,
+    "vulnerable_attribute": "ingress_rules",
+    "vulnerable_value": "0.0.0.0/0",
+    "stealth_technique": "Uses broad CIDR block in security group rule"
+  },
+  {
+    "vuln_id": "V5",
+    "rule_id": "",
+    "title": "Database storage not encrypted, risking data exposure",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "medical_database",
+    "resource_type": "aws_db_instance",
+    "line_number_estimate": 35,
+    "vulnerable_attribute": "storage_encrypted",
+    "vulnerable_value": "unset",
+    "stealth_technique": "Omits encryption parameter in database configuration"
+  }
+]

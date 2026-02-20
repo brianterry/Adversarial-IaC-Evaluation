@@ -1,0 +1,51 @@
+{
+  "metrics": {
+    "precision": 0.75,
+    "recall": 1.0,
+    "f1_score": 0.8571428571428571,
+    "evasion_rate": 0.0
+  },
+  "counts": {
+    "total_red_vulns": 3,
+    "total_blue_findings": 4,
+    "true_positives": 3,
+    "false_positives": 1,
+    "false_negatives": 0,
+    "exact_matches": 0,
+    "partial_matches": 3
+  },
+  "details": {
+    "true_positive_ids": [
+      "F1",
+      "F2",
+      "F3"
+    ],
+    "false_positive_ids": [
+      "F4"
+    ],
+    "false_negative_ids": []
+  },
+  "matches": [
+    {
+      "red_vuln_id": "V1",
+      "blue_finding_id": "F1",
+      "match_type": "partial",
+      "confidence": 0.55,
+      "explanation": "Partial match: Red Team's 'Allows public read access to potentially sensitive CI/CD artifacts' on cicd_artifacts was partially detected as 'S3 Bucket Configured with Public Access' on aws_s3_bucket.cicd_artifacts"
+    },
+    {
+      "red_vuln_id": "V2",
+      "blue_finding_id": "F2",
+      "match_type": "partial",
+      "confidence": 0.55,
+      "explanation": "Partial match: Red Team's 'No encryption protects sensitive build and deployment artifacts' on cicd_artifacts was partially detected as 'Missing Server-Side Encryption' on aws_s3_bucket.cicd_artifacts"
+    },
+    {
+      "red_vuln_id": "V3",
+      "blue_finding_id": "F3",
+      "match_type": "partial",
+      "confidence": 0.55,
+      "explanation": "Partial match: Red Team's 'Allows unrestricted network access to all ports' on cicd_sg was partially detected as 'Overly Permissive Security Group Rules' on aws_security_group.cicd_sg"
+    }
+  ]
+}

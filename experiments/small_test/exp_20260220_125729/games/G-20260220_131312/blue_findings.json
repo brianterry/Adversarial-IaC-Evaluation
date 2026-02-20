@@ -1,0 +1,58 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "aws_rds_cluster.payment_db",
+    "resource_type": "aws_rds_cluster",
+    "vulnerability_type": "encryption",
+    "severity": "critical",
+    "title": "Database Storage Encryption Disabled",
+    "description": "RDS cluster has storage encryption explicitly disabled",
+    "evidence": "storage_encrypted = false",
+    "line_number_estimate": 25,
+    "confidence": 0.95,
+    "reasoning": "Disabling storage encryption exposes sensitive transaction data to potential unauthorized access, violating PCI-DSS requirements",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "aws_s3_bucket.transaction_logs",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "encryption|data_protection|logging",
+    "severity": "high",
+    "title": "Unencrypted S3 Bucket with Sensitive Logs",
+    "description": "Transaction logs bucket lacks encryption and logging configurations",
+    "evidence": "Missing server_side_encryption and logging configuration",
+    "line_number_estimate": 35,
+    "confidence": 0.9,
+    "reasoning": "Sensitive transaction logs are stored without encryption, potentially exposing financial data",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "aws_security_group.lambda_sg",
+    "resource_type": "aws_security_group",
+    "vulnerability_type": "network|access_control",
+    "severity": "critical",
+    "title": "Overly Permissive Lambda Security Group",
+    "description": "Security group allows unrestricted inbound access from any IP",
+    "evidence": "ingress { cidr_blocks = [\"0.0.0.0/0\"] }",
+    "line_number_estimate": 60,
+    "confidence": 0.95,
+    "reasoning": "Allows unrestricted network access to Lambda function, creating significant attack surface",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F4",
+    "resource_name": "aws_lambda_function.payment_processor",
+    "resource_type": "aws_lambda_function",
+    "vulnerability_type": "iam|data_protection",
+    "severity": "medium",
+    "title": "Potential Sensitive Data Exposure in Lambda Environment",
+    "description": "Lambda function environment variables contain database endpoint",
+    "evidence": "environment { variables = { DB_ENDPOINT = ... } }",
+    "line_number_estimate": 50,
+    "confidence": 0.8,
+    "reasoning": "Hardcoded database endpoint in environment variables could be exposed through misconfiguration",
+    "source": "llm"
+  }
+]

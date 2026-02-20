@@ -1,0 +1,41 @@
+[
+  {
+    "vuln_id": "V1",
+    "rule_id": "",
+    "title": "Allows public read access to potentially sensitive CI/CD artifacts",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "cicd_artifacts",
+    "resource_type": "aws_s3_bucket",
+    "line_number_estimate": 22,
+    "vulnerable_attribute": "acl",
+    "vulnerable_value": "public-read",
+    "stealth_technique": "Using common 'convenience' ACL setting that seems harmless"
+  },
+  {
+    "vuln_id": "V2",
+    "rule_id": "",
+    "title": "No encryption protects sensitive build and deployment artifacts",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "cicd_artifacts",
+    "resource_type": "aws_s3_bucket",
+    "line_number_estimate": 25,
+    "vulnerable_attribute": "server_side_encryption",
+    "vulnerable_value": "not_specified",
+    "stealth_technique": "Omitting encryption configuration looks like a default setup"
+  },
+  {
+    "vuln_id": "V3",
+    "rule_id": "",
+    "title": "Allows unrestricted network access to all ports",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "cicd_sg",
+    "resource_type": "aws_security_group",
+    "line_number_estimate": 44,
+    "vulnerable_attribute": "cidr_blocks",
+    "vulnerable_value": "0.0.0.0/0",
+    "stealth_technique": "Using broad network rules that appear like a quick development setup"
+  }
+]

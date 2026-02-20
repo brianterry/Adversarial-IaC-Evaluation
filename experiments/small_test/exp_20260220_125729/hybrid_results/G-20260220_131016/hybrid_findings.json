@@ -1,0 +1,56 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "phi_storage",
+    "vulnerability_type": "access_control",
+    "severity": "critical",
+    "title": "Public Read Access for PHI Bucket",
+    "source": "llm",
+    "confidence": 0.95
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "phi_public_access",
+    "vulnerability_type": "access_control",
+    "severity": "high",
+    "title": "Incomplete Public Access Blocking",
+    "source": "llm",
+    "confidence": 0.9
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "phi_storage",
+    "vulnerability_type": "encryption",
+    "severity": "critical",
+    "title": "Missing Server-Side Encryption",
+    "source": "llm",
+    "confidence": 0.95
+  },
+  {
+    "finding_id": "F4",
+    "resource_name": "phi_storage",
+    "vulnerability_type": "logging",
+    "severity": "high",
+    "title": "Missing Access Logging",
+    "source": "llm",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-1",
+    "resource_name": "aws_s3_bucket_public_access_block.phi_public_access",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure S3 bucket has block public policy enabled",
+    "source": "checkov",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-3",
+    "resource_name": "aws_s3_bucket.phi_storage",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure S3 buckets should have event notifications enabled",
+    "source": "checkov",
+    "confidence": 0.85
+  }
+]

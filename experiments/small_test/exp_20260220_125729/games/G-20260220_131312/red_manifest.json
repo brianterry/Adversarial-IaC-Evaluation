@@ -1,0 +1,67 @@
+[
+  {
+    "vuln_id": "V1",
+    "rule_id": "",
+    "title": "RDS cluster storing credit card data must have encryption enabled for PCI-DSS compliance",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "payment_db",
+    "resource_type": "aws_rds_cluster",
+    "line_number_estimate": 35,
+    "vulnerable_attribute": "storage_encrypted",
+    "vulnerable_value": "false",
+    "stealth_technique": "Developer prioritized quick deployment over security, relying on default settings"
+  },
+  {
+    "vuln_id": "V2",
+    "rule_id": "",
+    "title": "S3 bucket containing sensitive transaction logs lacks encryption",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "transaction_logs",
+    "resource_type": "aws_s3_bucket",
+    "line_number_estimate": 45,
+    "vulnerable_attribute": "server_side_encryption_configuration",
+    "vulnerable_value": "missing",
+    "stealth_technique": "Developer assumed logs were less sensitive than primary transaction data"
+  },
+  {
+    "vuln_id": "V3",
+    "rule_id": "",
+    "title": "Security group allows unrestricted inbound access to Lambda function",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "lambda_sg",
+    "resource_type": "aws_security_group",
+    "line_number_estimate": 80,
+    "vulnerable_attribute": "ingress.cidr_blocks",
+    "vulnerable_value": "[\"0.0.0.0/0\"]",
+    "stealth_technique": "Temporary testing configuration left in production code"
+  },
+  {
+    "vuln_id": "V4",
+    "rule_id": "",
+    "title": "No access logging configured for sensitive transaction data bucket",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "transaction_logs",
+    "resource_type": "aws_s3_bucket",
+    "line_number_estimate": 45,
+    "vulnerable_attribute": "logging",
+    "vulnerable_value": "missing",
+    "stealth_technique": "Logging considered optional feature rather than security requirement"
+  },
+  {
+    "vuln_id": "V5",
+    "rule_id": "",
+    "title": "Combination of unencrypted database, overly permissive security group, and Lambda VPC access creates elevated risk",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "multiple",
+    "resource_type": "multiple",
+    "line_number_estimate": 0,
+    "vulnerable_attribute": "configuration_combination",
+    "vulnerable_value": "lambda_vpc_access+unencrypted_rds+broad_sg",
+    "stealth_technique": "Each component configured by different teams without holistic security review"
+  }
+]

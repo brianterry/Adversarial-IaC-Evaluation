@@ -1,0 +1,49 @@
+{
+  "metrics": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1_score": 1.0,
+    "evasion_rate": 0.0
+  },
+  "counts": {
+    "total_red_vulns": 3,
+    "total_blue_findings": 3,
+    "true_positives": 3,
+    "false_positives": 0,
+    "false_negatives": 0,
+    "exact_matches": 0,
+    "partial_matches": 3
+  },
+  "details": {
+    "true_positive_ids": [
+      "F2",
+      "F3",
+      "F1"
+    ],
+    "false_positive_ids": [],
+    "false_negative_ids": []
+  },
+  "matches": [
+    {
+      "red_vuln_id": "V1",
+      "blue_finding_id": "F2",
+      "match_type": "partial",
+      "confidence": 0.55,
+      "explanation": "Partial match: Red Team's 'PHI data requires explicit KMS encryption configuration. AWS default encryption is insufficient for HIPAA compliance.' on phi_storage was partially detected as 'Missing Server-Side Encryption for PHI Data' on aws_s3_bucket.phi_storage"
+    },
+    {
+      "red_vuln_id": "V2",
+      "blue_finding_id": "F3",
+      "match_type": "partial",
+      "confidence": 0.55,
+      "explanation": "Partial match: Red Team's 'HIPAA compliance requires access logging for PHI data storage' on phi_storage was partially detected as 'Missing Access Logging for PHI Storage' on aws_s3_bucket.phi_storage"
+    },
+    {
+      "red_vuln_id": "V3",
+      "blue_finding_id": "F1",
+      "match_type": "partial",
+      "confidence": 0.55,
+      "explanation": "Partial match: Red Team's 'PHI data should never be publicly accessible' on phi_storage_acl was partially detected as 'Public Read ACL on PHI Storage Bucket' on aws_s3_bucket_acl.phi_storage_acl"
+    }
+  ]
+}

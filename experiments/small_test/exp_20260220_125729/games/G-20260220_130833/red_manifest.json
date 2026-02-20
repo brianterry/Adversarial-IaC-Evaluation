@@ -1,0 +1,28 @@
+[
+  {
+    "vuln_id": "V1",
+    "rule_id": "",
+    "title": "S3 bucket lacks encryption, exposing potentially sensitive CI/CD artifacts",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "cicd_artifacts",
+    "resource_type": "aws_s3_bucket",
+    "line_number_estimate": 25,
+    "vulnerable_attribute": "server_side_encryption_configuration",
+    "vulnerable_value": "missing",
+    "stealth_technique": "Omitting optional encryption block makes code look clean"
+  },
+  {
+    "vuln_id": "V2",
+    "rule_id": "",
+    "title": "Allows SSH access from any IP address, creating significant network exposure",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "cicd_runner",
+    "resource_type": "aws_security_group",
+    "line_number_estimate": 40,
+    "vulnerable_attribute": "cidr_blocks",
+    "vulnerable_value": "0.0.0.0/0",
+    "stealth_technique": "Common misconfiguration that seems convenient during initial setup"
+  }
+]

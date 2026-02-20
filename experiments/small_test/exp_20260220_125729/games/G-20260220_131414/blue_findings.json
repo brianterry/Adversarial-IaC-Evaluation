@@ -1,0 +1,44 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "pipeline_policy",
+    "resource_type": "aws_iam_role_policy",
+    "vulnerability_type": "iam",
+    "severity": "high",
+    "title": "Overly Permissive IAM Policy with Wildcard Resource Access",
+    "description": "IAM policy grants unrestricted access to S3 and ECR resources using wildcard (*) permissions",
+    "evidence": "\"Resource\": [\"arn:aws:s3:::*\", \"Resource\": \"*\"",
+    "line_number_estimate": 45,
+    "confidence": 0.95,
+    "reasoning": "Wildcard resources allow access to ALL S3 buckets and ECR repositories, violating least privilege principle",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "ci_artifacts",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "data_protection",
+    "severity": "medium",
+    "title": "Missing S3 Bucket Encryption",
+    "description": "S3 bucket lacks server-side encryption configuration",
+    "evidence": "No encryption_enabled or kms_master_key_id specified",
+    "line_number_estimate": 15,
+    "confidence": 0.85,
+    "reasoning": "Unencrypted S3 buckets expose sensitive CI/CD artifacts to potential unauthorized access",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "pipeline_role",
+    "resource_type": "aws_iam_role",
+    "vulnerability_type": "iam",
+    "severity": "medium",
+    "title": "Overly Broad IAM Role Assumption Policy",
+    "description": "IAM role allows assumption only by CodeBuild service, limiting flexibility",
+    "evidence": "Principal restricted to \"codebuild.amazonaws.com\"",
+    "line_number_estimate": 35,
+    "confidence": 0.75,
+    "reasoning": "Restricting role assumption to single service reduces cross-service integration capabilities",
+    "source": "llm"
+  }
+]

@@ -1,0 +1,83 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "aws_s3_bucket.cicd_artifacts",
+    "vulnerability_type": "encryption|data_protection",
+    "severity": "high",
+    "title": "Unencrypted S3 Bucket with Sensitive Artifacts",
+    "source": "llm",
+    "confidence": 0.95
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "aws_security_group.build_agents",
+    "vulnerability_type": "network|access_control",
+    "severity": "critical",
+    "title": "Unrestricted SSH Access from Any IP",
+    "source": "llm",
+    "confidence": 0.99
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "aws_db_instance.build_metadata",
+    "vulnerability_type": "encryption|data_protection",
+    "severity": "high",
+    "title": "Unencrypted Database Instance",
+    "source": "llm",
+    "confidence": 0.95
+  },
+  {
+    "finding_id": "F4",
+    "resource_name": "aws_iam_role_policy.cicd_policy",
+    "vulnerability_type": "iam|access_control",
+    "severity": "critical",
+    "title": "Overly Permissive IAM Role Policy",
+    "source": "llm",
+    "confidence": 0.95
+  },
+  {
+    "finding_id": "F5",
+    "resource_name": "aws_s3_bucket.cicd_artifacts",
+    "vulnerability_type": "logging|data_protection",
+    "severity": "medium",
+    "title": "Missing S3 Bucket Logging",
+    "source": "llm",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-1",
+    "resource_name": "aws_security_group.build_agents",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure no security groups allow ingress from 0.0.0.0:0 to port 22",
+    "source": "checkov",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-4",
+    "resource_name": "aws_db_instance.build_metadata",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure RDS database has IAM authentication enabled",
+    "source": "checkov",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-12",
+    "resource_name": "aws_iam_role_policy.cicd_policy",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure IAM policies does not allow data exfiltration",
+    "source": "checkov",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-19",
+    "resource_name": "aws_s3_bucket.cicd_artifacts",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure S3 buckets should have event notifications enabled",
+    "source": "checkov",
+    "confidence": 0.85
+  }
+]

@@ -1,0 +1,58 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "aws_s3_bucket.ci_artifacts",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "encryption",
+    "severity": "high",
+    "title": "Missing S3 Bucket Encryption",
+    "description": "The S3 bucket used for CI/CD artifacts does not have server-side encryption configured, potentially exposing sensitive build artifacts and deployment data.",
+    "evidence": "resource \"aws_s3_bucket\" \"ci_artifacts\" { ... }",
+    "line_number_estimate": 10,
+    "confidence": 0.95,
+    "reasoning": "1. S3 buckets should encrypt sensitive CI/CD artifacts\n2. No encryption configuration is specified\n3. AWS default encryption is not explicitly enabled",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "aws_s3_bucket.ci_artifacts",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "data_protection",
+    "severity": "medium",
+    "title": "Missing S3 Versioning",
+    "description": "The CI/CD artifacts bucket does not have versioning enabled, risking accidental deletion or modification of build artifacts.",
+    "evidence": "resource \"aws_s3_bucket\" \"ci_artifacts\" { ... }",
+    "line_number_estimate": 10,
+    "confidence": 0.9,
+    "reasoning": "1. CI/CD artifacts should be version controlled\n2. No versioning configuration is specified\n3. Critical pipeline artifacts need protection against accidental deletion",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "aws_iam_role_policy.pipeline_policy",
+    "resource_type": "aws_iam_role_policy",
+    "vulnerability_type": "iam",
+    "severity": "critical",
+    "title": "Overly Permissive S3 and CodeCommit Permissions",
+    "description": "The pipeline IAM role has overly broad permissions allowing access to all S3 buckets and all CodeCommit repositories.",
+    "evidence": "Resource = [\"arn:aws:s3:::*\"] ... Resource = \"*\"",
+    "line_number_estimate": 55,
+    "confidence": 0.95,
+    "reasoning": "1. Policy allows access to all S3 buckets with wildcard\n2. CodeCommit permissions granted on all repositories\n3. Violates principle of least privilege",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F4",
+    "resource_name": "aws_s3_bucket.ci_artifacts",
+    "resource_type": "access_control",
+    "vulnerability_type": "unknown",
+    "severity": "high",
+    "title": "Missing S3 Bucket Access Controls",
+    "description": "No explicit bucket policy or access controls are defined, potentially allowing unintended access to CI/CD artifacts.",
+    "evidence": "resource \"aws_s3_bucket\" \"ci_artifacts\" { ... }",
+    "line_number_estimate": 10,
+    "confidence": 0.9,
+    "reasoning": "1. No bucket policy defined\n2. No public access block configuration\n3. CI/CD artifacts require strict access controls",
+    "source": "llm"
+  }
+]

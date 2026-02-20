@@ -1,0 +1,58 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "aws_s3_bucket.transaction_logs",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "encryption",
+    "severity": "critical",
+    "title": "S3 Bucket Missing Server-Side Encryption",
+    "description": "The S3 bucket storing credit card transaction logs lacks server-side encryption configuration. Given this bucket stores sensitive financial data, this violates PCI DSS requirements and puts sensitive data at risk.",
+    "evidence": "resource \"aws_s3_bucket\" \"transaction_logs\" { bucket = \"credit-card-transactions-logs-${var.environment}\" }",
+    "line_number_estimate": 29,
+    "confidence": 0.99,
+    "reasoning": "1. Bucket stores credit card transaction data (high sensitivity)\n2. No encryption configuration is specified\n3. PCI DSS requires encryption of cardholder data\n4. Tags indicate this is production and high sensitivity data",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "aws_security_group.lambda_network",
+    "resource_type": "aws_security_group",
+    "vulnerability_type": "network",
+    "severity": "critical",
+    "title": "Overly Permissive Security Group Rules",
+    "description": "Security group allows unrestricted inbound access (0.0.0.0/0) on all ports (0-65535). This creates a significant security risk by exposing the Lambda function to potential attacks from any source.",
+    "evidence": "ingress { from_port = 0, to_port = 65535, protocol = \"tcp\", cidr_blocks = [\"0.0.0.0/0\"] }",
+    "line_number_estimate": 45,
+    "confidence": 0.99,
+    "reasoning": "1. Opens ALL TCP ports to the internet\n2. No IP restrictions\n3. Lambda functions typically don't need inbound access\n4. Violates principle of least privilege",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "aws_s3_bucket.transaction_logs",
+    "resource_type": "data_protection",
+    "vulnerability_type": "unknown",
+    "severity": "high",
+    "title": "Missing S3 Versioning and Lifecycle Policies",
+    "description": "The S3 bucket containing sensitive financial data lacks versioning and lifecycle policies, which could lead to data loss or unauthorized modifications without audit trail.",
+    "evidence": "resource \"aws_s3_bucket\" \"transaction_logs\" { ... }",
+    "line_number_estimate": 29,
+    "confidence": 0.95,
+    "reasoning": "1. Stores critical financial data\n2. No versioning configuration\n3. No lifecycle policies\n4. No backup configuration",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F4",
+    "resource_name": "aws_s3_bucket.transaction_logs",
+    "resource_type": "access_control",
+    "vulnerability_type": "unknown",
+    "severity": "high",
+    "title": "Missing S3 Bucket Access Logging",
+    "description": "Access logging is not enabled for the S3 bucket containing sensitive financial data, making it difficult to track and audit access patterns.",
+    "evidence": "resource \"aws_s3_bucket\" \"transaction_logs\" { ... }",
+    "line_number_estimate": 29,
+    "confidence": 0.9,
+    "reasoning": "1. Contains sensitive financial data\n2. No access logging configuration\n3. PCI DSS requires access logging\n4. Security best practices require audit trails",
+    "source": "llm"
+  }
+]

@@ -1,0 +1,182 @@
+{
+  "timestamp": "2026-02-20T14:24:27.547440",
+  "experiment": "experiments/small_test/exp_20260220_125729",
+  "summary": {
+    "total_games": 24,
+    "games_with_vulns": 20,
+    "total_ground_truth": 78,
+    "llm_total": 101,
+    "trivy_total": 0,
+    "checkov_total": 87
+  },
+  "per_game": [
+    {
+      "game": "G-20260220_125729",
+      "ground_truth": 3,
+      "llm": 3,
+      "trivy": 0,
+      "checkov": 1
+    },
+    {
+      "game": "G-20260220_125839",
+      "ground_truth": 5,
+      "llm": 5,
+      "trivy": 0,
+      "checkov": 3
+    },
+    {
+      "game": "G-20260220_130002",
+      "ground_truth": 3,
+      "llm": 4,
+      "trivy": 0,
+      "checkov": 2
+    },
+    {
+      "game": "G-20260220_130110",
+      "ground_truth": 5,
+      "llm": 5,
+      "trivy": 0,
+      "checkov": 3
+    },
+    {
+      "game": "G-20260220_130229",
+      "ground_truth": 3,
+      "llm": 4,
+      "trivy": 0,
+      "checkov": 2
+    },
+    {
+      "game": "G-20260220_130334",
+      "ground_truth": 5,
+      "llm": 5,
+      "trivy": 0,
+      "checkov": 2
+    },
+    {
+      "game": "G-20260220_130503",
+      "ground_truth": 0,
+      "llm": 3,
+      "trivy": 0,
+      "checkov": 0
+    },
+    {
+      "game": "G-20260220_130549",
+      "ground_truth": 4,
+      "llm": 4,
+      "trivy": 0,
+      "checkov": 6
+    },
+    {
+      "game": "G-20260220_130644",
+      "ground_truth": 0,
+      "llm": 4,
+      "trivy": 0,
+      "checkov": 0
+    },
+    {
+      "game": "G-20260220_130736",
+      "ground_truth": 5,
+      "llm": 5,
+      "trivy": 0,
+      "checkov": 6
+    },
+    {
+      "game": "G-20260220_130833",
+      "ground_truth": 2,
+      "llm": 3,
+      "trivy": 0,
+      "checkov": 3
+    },
+    {
+      "game": "G-20260220_130917",
+      "ground_truth": 5,
+      "llm": 5,
+      "trivy": 0,
+      "checkov": 4
+    },
+    {
+      "game": "G-20260220_131016",
+      "ground_truth": 3,
+      "llm": 4,
+      "trivy": 0,
+      "checkov": 4
+    },
+    {
+      "game": "G-20260220_131105",
+      "ground_truth": 5,
+      "llm": 5,
+      "trivy": 0,
+      "checkov": 3
+    },
+    {
+      "game": "G-20260220_131211",
+      "ground_truth": 3,
+      "llm": 4,
+      "trivy": 0,
+      "checkov": 5
+    },
+    {
+      "game": "G-20260220_131312",
+      "ground_truth": 5,
+      "llm": 4,
+      "trivy": 0,
+      "checkov": 6
+    },
+    {
+      "game": "G-20260220_131414",
+      "ground_truth": 3,
+      "llm": 3,
+      "trivy": 0,
+      "checkov": 2
+    },
+    {
+      "game": "G-20260220_131502",
+      "ground_truth": 5,
+      "llm": 5,
+      "trivy": 0,
+      "checkov": 5
+    },
+    {
+      "game": "G-20260220_131610",
+      "ground_truth": 0,
+      "llm": 4,
+      "trivy": 0,
+      "checkov": 0
+    },
+    {
+      "game": "G-20260220_131704",
+      "ground_truth": 0,
+      "llm": 4,
+      "trivy": 0,
+      "checkov": 0
+    },
+    {
+      "game": "G-20260220_131813",
+      "ground_truth": 2,
+      "llm": 4,
+      "trivy": 0,
+      "checkov": 6
+    },
+    {
+      "game": "G-20260220_131911",
+      "ground_truth": 5,
+      "llm": 5,
+      "trivy": 0,
+      "checkov": 10
+    },
+    {
+      "game": "G-20260220_132026",
+      "ground_truth": 3,
+      "llm": 4,
+      "trivy": 0,
+      "checkov": 7
+    },
+    {
+      "game": "G-20260220_132121",
+      "ground_truth": 4,
+      "llm": 5,
+      "trivy": 0,
+      "checkov": 7
+    }
+  ]
+}

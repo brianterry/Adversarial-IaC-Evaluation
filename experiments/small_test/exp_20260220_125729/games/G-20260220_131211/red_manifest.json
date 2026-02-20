@@ -1,0 +1,41 @@
+[
+  {
+    "vuln_id": "V1",
+    "rule_id": "",
+    "title": "RDS cluster storing credit card transaction data is not encrypted at rest",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "aws_rds_cluster.transaction_history",
+    "resource_type": "aws_rds_cluster",
+    "line_number_estimate": 39,
+    "vulnerable_attribute": "storage_encrypted",
+    "vulnerable_value": "parameter omitted",
+    "stealth_technique": "Relying on AWS defaults without explicit encryption configuration - common in quick deployments"
+  },
+  {
+    "vuln_id": "V2",
+    "rule_id": "",
+    "title": "Security group allows unrestricted inbound access to Lambda function",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "aws_security_group.lambda_sg",
+    "resource_type": "aws_security_group",
+    "line_number_estimate": 65,
+    "vulnerable_attribute": "cidr_blocks",
+    "vulnerable_value": "['0.0.0.0/0']",
+    "stealth_technique": "Appears as temporary testing configuration that was never removed"
+  },
+  {
+    "vuln_id": "V3",
+    "rule_id": "",
+    "title": "S3 bucket containing sensitive transaction logs has no audit logging enabled",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "aws_s3_bucket.transaction_logs",
+    "resource_type": "aws_s3_bucket",
+    "line_number_estimate": 52,
+    "vulnerable_attribute": "logging",
+    "vulnerable_value": "no logging configuration",
+    "stealth_technique": "Logging often overlooked as non-functional requirement during initial deployment"
+  }
+]

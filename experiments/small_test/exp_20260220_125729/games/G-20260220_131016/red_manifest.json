@@ -1,0 +1,41 @@
+[
+  {
+    "vuln_id": "V1",
+    "rule_id": "",
+    "title": "Missing server-side encryption configuration for PHI data, violating HIPAA requirements",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "aws_s3_bucket.phi_storage",
+    "resource_type": "aws_s3_bucket",
+    "line_number_estimate": 13,
+    "vulnerable_attribute": "server_side_encryption_configuration",
+    "vulnerable_value": "missing",
+    "stealth_technique": "Reliance on AWS defaults without explicit encryption configuration makes this look like a simple oversight"
+  },
+  {
+    "vuln_id": "V2",
+    "rule_id": "",
+    "title": "No access logging configured for PHI data access auditing",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "aws_s3_bucket.phi_storage",
+    "resource_type": "aws_s3_bucket",
+    "line_number_estimate": 13,
+    "vulnerable_attribute": "logging",
+    "vulnerable_value": "missing",
+    "stealth_technique": "Functional code that passes basic testing but fails compliance requirements"
+  },
+  {
+    "vuln_id": "V3",
+    "rule_id": "",
+    "title": "Bucket ACL allows public read access to PHI data",
+    "type": "unknown",
+    "severity": "medium",
+    "resource_name": "aws_s3_bucket_acl.phi_bucket_acl",
+    "resource_type": "aws_s3_bucket_acl",
+    "line_number_estimate": 38,
+    "vulnerable_attribute": "acl",
+    "vulnerable_value": "public-read",
+    "stealth_technique": "Explicit configuration that looks intentional and might pass code review if reviewer isn't security-focused"
+  }
+]

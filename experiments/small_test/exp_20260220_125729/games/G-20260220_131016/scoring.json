@@ -1,0 +1,51 @@
+{
+  "metrics": {
+    "precision": 0.75,
+    "recall": 1.0,
+    "f1_score": 0.8571428571428571,
+    "evasion_rate": 0.0
+  },
+  "counts": {
+    "total_red_vulns": 3,
+    "total_blue_findings": 4,
+    "true_positives": 3,
+    "false_positives": 1,
+    "false_negatives": 0,
+    "exact_matches": 3,
+    "partial_matches": 0
+  },
+  "details": {
+    "true_positive_ids": [
+      "F3",
+      "F4",
+      "F1"
+    ],
+    "false_positive_ids": [
+      "F2"
+    ],
+    "false_negative_ids": []
+  },
+  "matches": [
+    {
+      "red_vuln_id": "V1",
+      "blue_finding_id": "F3",
+      "match_type": "exact",
+      "confidence": 0.7000000000000001,
+      "explanation": "Exact match: Red Team's 'Missing server-side encryption configuration for PHI data, violating HIPAA requirements' on aws_s3_bucket.phi_storage was detected as 'Missing Server-Side Encryption' on aws_s3_bucket.phi_storage"
+    },
+    {
+      "red_vuln_id": "V2",
+      "blue_finding_id": "F4",
+      "match_type": "exact",
+      "confidence": 0.7000000000000001,
+      "explanation": "Exact match: Red Team's 'No access logging configured for PHI data access auditing' on aws_s3_bucket.phi_storage was detected as 'Missing Access Logging' on aws_s3_bucket.phi_storage"
+    },
+    {
+      "red_vuln_id": "V3",
+      "blue_finding_id": "F1",
+      "match_type": "exact",
+      "confidence": 0.7000000000000001,
+      "explanation": "Exact match: Red Team's 'Bucket ACL allows public read access to PHI data' on aws_s3_bucket_acl.phi_bucket_acl was detected as 'Public Read Access for PHI Bucket' on aws_s3_bucket_acl.phi_bucket_acl"
+    }
+  ]
+}

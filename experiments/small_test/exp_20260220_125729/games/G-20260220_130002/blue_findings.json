@@ -1,0 +1,58 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "aws_rds_cluster.payment_history",
+    "resource_type": "aws_rds_cluster",
+    "vulnerability_type": "encryption",
+    "severity": "critical",
+    "title": "RDS Cluster Encryption Disabled",
+    "description": "The RDS cluster storing credit card transaction history has encryption explicitly disabled. For financial data, encryption at rest is mandatory for compliance and security.",
+    "evidence": "storage_encrypted = false",
+    "line_number_estimate": 45,
+    "confidence": 0.99,
+    "reasoning": "1. Resource processes financial data (credit card transactions)\n2. storage_encrypted explicitly set to false\n3. Tags indicate financial data classification\n4. Production environment handling sensitive data requires encryption",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "aws_s3_bucket.transaction_receipts",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "encryption",
+    "severity": "high",
+    "title": "S3 Bucket Missing Encryption Configuration",
+    "description": "S3 bucket storing transaction receipts lacks server-side encryption configuration. Financial documents require encryption at rest.",
+    "evidence": "Missing aws_s3_bucket_server_side_encryption_configuration resource",
+    "line_number_estimate": 52,
+    "confidence": 0.95,
+    "reasoning": "1. Bucket stores financial transaction receipts\n2. No encryption configuration specified\n3. Financial data classification indicated in tags\n4. Missing standard S3 security controls",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "aws_s3_bucket.transaction_receipts",
+    "resource_type": "logging",
+    "vulnerability_type": "logging",
+    "severity": "high",
+    "title": "Missing S3 Access Logging",
+    "description": "S3 bucket handling financial data lacks access logging configuration, which is essential for audit and compliance requirements.",
+    "evidence": "Missing aws_s3_bucket_logging configuration",
+    "line_number_estimate": 52,
+    "confidence": 0.95,
+    "reasoning": "1. Financial data requires audit trails\n2. No logging configuration present\n3. Production environment requires monitoring\n4. Compliance requirements typically mandate access logging",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F4",
+    "resource_name": "aws_iam_role.lambda_role",
+    "resource_type": "aws_iam_role",
+    "vulnerability_type": "iam",
+    "severity": "high",
+    "title": "Missing IAM Role Permissions Definition",
+    "description": "Lambda IAM role is created but no permission policies are attached, potentially leading to either broken functionality or overly permissive policies being added later.",
+    "evidence": "Missing aws_iam_role_policy_attachment or aws_iam_role_policy",
+    "line_number_estimate": 67,
+    "confidence": 0.9,
+    "reasoning": "1. Lambda requires specific permissions to access RDS and S3\n2. No IAM policies defined for the role\n3. Missing least-privilege access controls\n4. Could lead to runtime errors or security issues",
+    "source": "llm"
+  }
+]

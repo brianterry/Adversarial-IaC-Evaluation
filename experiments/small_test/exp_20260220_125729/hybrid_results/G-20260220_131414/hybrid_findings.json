@@ -1,0 +1,47 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "pipeline_policy",
+    "vulnerability_type": "iam",
+    "severity": "high",
+    "title": "Overly Permissive IAM Policy with Wildcard Resource Access",
+    "source": "llm",
+    "confidence": 0.95
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "ci_artifacts",
+    "vulnerability_type": "data_protection",
+    "severity": "medium",
+    "title": "Missing S3 Bucket Encryption",
+    "source": "llm",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "pipeline_role",
+    "vulnerability_type": "iam",
+    "severity": "medium",
+    "title": "Overly Broad IAM Role Trust Relationship",
+    "source": "llm",
+    "confidence": 0.75
+  },
+  {
+    "finding_id": "CHECKOV-1",
+    "resource_name": "aws_iam_role_policy.pipeline_policy",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure IAM policies does not allow write access without constraints",
+    "source": "checkov",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-3",
+    "resource_name": "aws_s3_bucket.ci_artifacts",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure S3 buckets should have event notifications enabled",
+    "source": "checkov",
+    "confidence": 0.85
+  }
+]

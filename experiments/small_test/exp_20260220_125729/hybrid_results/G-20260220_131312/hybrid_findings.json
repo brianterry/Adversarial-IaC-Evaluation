@@ -1,0 +1,83 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "aws_rds_cluster.payment_db",
+    "vulnerability_type": "encryption",
+    "severity": "critical",
+    "title": "Database Storage Encryption Disabled",
+    "source": "llm",
+    "confidence": 0.95
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "aws_s3_bucket.transaction_logs",
+    "vulnerability_type": "encryption|data_protection|logging",
+    "severity": "high",
+    "title": "Unencrypted S3 Bucket with Sensitive Logs",
+    "source": "llm",
+    "confidence": 0.9
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "aws_security_group.lambda_sg",
+    "vulnerability_type": "network|access_control",
+    "severity": "critical",
+    "title": "Overly Permissive Lambda Security Group",
+    "source": "llm",
+    "confidence": 0.95
+  },
+  {
+    "finding_id": "F4",
+    "resource_name": "aws_lambda_function.payment_processor",
+    "vulnerability_type": "iam|data_protection",
+    "severity": "medium",
+    "title": "Potential Sensitive Data Exposure in Lambda Environment",
+    "source": "llm",
+    "confidence": 0.8
+  },
+  {
+    "finding_id": "CHECKOV-1",
+    "resource_name": "aws_rds_cluster.payment_db",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure RDS cluster configured to copy tags to snapshots",
+    "source": "checkov",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-7",
+    "resource_name": "aws_lambda_function.payment_processor",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "X-Ray tracing is enabled for Lambda",
+    "source": "checkov",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-12",
+    "resource_name": "aws_security_group.lambda_sg",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure no security groups allow ingress from 0.0.0.0:0 to port 80",
+    "source": "checkov",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-17",
+    "resource_name": "aws_vpc.payment_vpc",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure the default security group of every VPC restricts all traffic",
+    "source": "checkov",
+    "confidence": 0.85
+  },
+  {
+    "finding_id": "CHECKOV-18",
+    "resource_name": "aws_s3_bucket.transaction_logs",
+    "vulnerability_type": "misconfiguration",
+    "severity": "medium",
+    "title": "Ensure S3 buckets should have event notifications enabled",
+    "source": "checkov",
+    "confidence": 0.85
+  }
+]

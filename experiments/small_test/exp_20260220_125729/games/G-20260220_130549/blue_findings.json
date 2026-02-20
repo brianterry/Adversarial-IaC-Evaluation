@@ -1,0 +1,58 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "medical_records",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "access_control",
+    "severity": "critical",
+    "title": "Public S3 Bucket Exposure for PHI Data",
+    "description": "S3 bucket containing medical records is configured with completely open public access controls",
+    "evidence": "block_public_acls = false\nblock_public_policy = false\nignore_public_acls = false\nrestrict_public_buckets = false",
+    "line_number_estimate": 25,
+    "confidence": 0.99,
+    "reasoning": "All public access block settings are disabled, allowing unrestricted public access to potentially sensitive healthcare data",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "medical_database",
+    "resource_type": "aws_db_instance",
+    "vulnerability_type": "encryption",
+    "severity": "high",
+    "title": "Unencrypted Database Storing PHI",
+    "description": "Database storing medical records lacks storage encryption",
+    "evidence": "storage_encrypted parameter is not set",
+    "line_number_estimate": 40,
+    "confidence": 0.95,
+    "reasoning": "No encryption at rest for database containing sensitive medical information violates HIPAA requirements",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "database",
+    "resource_type": "aws_security_group",
+    "vulnerability_type": "network",
+    "severity": "critical",
+    "title": "Unrestricted Database Network Access",
+    "description": "Database security group allows connections from any IP address",
+    "evidence": "cidr_blocks = [\"0.0.0.0/0\"]",
+    "line_number_estimate": 55,
+    "confidence": 0.97,
+    "reasoning": "Open ingress rule on PostgreSQL port allows potential unauthorized database access from any network",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F4",
+    "resource_name": "medical_records",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "data_protection",
+    "severity": "medium",
+    "title": "Missing S3 Bucket Encryption",
+    "description": "S3 bucket lacks server-side encryption configuration",
+    "evidence": "No encryption_at_rest configuration defined",
+    "line_number_estimate": 15,
+    "confidence": 0.85,
+    "reasoning": "No explicit encryption mechanism for stored medical records",
+    "source": "llm"
+  }
+]

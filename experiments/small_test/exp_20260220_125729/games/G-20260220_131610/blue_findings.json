@@ -1,0 +1,58 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "aws_s3_bucket.medical_records",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "access_control",
+    "severity": "critical",
+    "title": "S3 Bucket Public Access Protections Disabled",
+    "description": "The S3 bucket containing sensitive PHI (Protected Health Information) has all public access block protections explicitly disabled, potentially allowing public access to medical records. This is a severe HIPAA compliance violation.",
+    "evidence": "block_public_acls = false\nblock_public_policy = false\nignore_public_acls = false\nrestrict_public_buckets = false",
+    "line_number_estimate": 22,
+    "confidence": 0.99,
+    "reasoning": "1. The bucket is tagged as containing PHI data\n2. All four public access block settings are explicitly set to false\n3. This configuration allows potential public access to sensitive medical data\n4. This violates HIPAA requirements for PHI protection",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "aws_s3_bucket.medical_records",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "encryption",
+    "severity": "high",
+    "title": "Missing S3 Bucket Encryption Configuration",
+    "description": "The S3 bucket containing PHI data does not have encryption configured, despite having a KMS key created. Server-side encryption is essential for HIPAA compliance.",
+    "evidence": "Missing aws_s3_bucket_server_side_encryption_configuration resource",
+    "line_number_estimate": 1,
+    "confidence": 0.95,
+    "reasoning": "1. A KMS key is created but not applied to the bucket\n2. No server-side encryption configuration is specified\n3. PHI data requires encryption at rest per HIPAA requirements",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "aws_s3_bucket.medical_records",
+    "resource_type": "logging",
+    "vulnerability_type": "logging",
+    "severity": "high",
+    "title": "Missing S3 Bucket Access Logging",
+    "description": "Access logging is not enabled for the medical records bucket. HIPAA requires audit logging of all access to PHI data.",
+    "evidence": "Missing aws_s3_bucket_logging configuration",
+    "line_number_estimate": 1,
+    "confidence": 0.95,
+    "reasoning": "1. No logging configuration is present\n2. PHI data access must be logged for compliance\n3. Access patterns cannot be audited without logging",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F4",
+    "resource_name": "aws_s3_bucket.medical_records",
+    "resource_type": "data_protection",
+    "vulnerability_type": "data_protection",
+    "severity": "medium",
+    "title": "Missing Versioning Configuration",
+    "description": "Bucket versioning is not enabled, which could lead to accidental deletion or modification of medical records without recovery ability.",
+    "evidence": "Missing aws_s3_bucket_versioning configuration",
+    "line_number_estimate": 1,
+    "confidence": 0.9,
+    "reasoning": "1. No versioning configuration is specified\n2. Medical records require protection against accidental deletion\n3. Version history is important for audit trails",
+    "source": "llm"
+  }
+]

@@ -1,0 +1,72 @@
+[
+  {
+    "finding_id": "F1",
+    "resource_name": "aws_db_instance.transaction_db",
+    "resource_type": "aws_db_instance",
+    "vulnerability_type": "encryption",
+    "severity": "critical",
+    "title": "RDS Instance Storage Encryption Disabled",
+    "description": "The RDS instance storing credit card transaction data has storage encryption explicitly disabled. This violates PCI-DSS requirements and puts sensitive payment data at risk.",
+    "evidence": "storage_encrypted = false",
+    "line_number_estimate": 48,
+    "confidence": 0.99,
+    "reasoning": "1. Resource is tagged as 'pci-sensitive'\n2. Handles credit card transactions\n3. Storage encryption explicitly disabled\n4. Violates PCI-DSS requirement 3.4 for encrypted storage",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F2",
+    "resource_name": "aws_s3_bucket.transaction_logs",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "encryption",
+    "severity": "high",
+    "title": "S3 Bucket Missing Encryption Configuration",
+    "description": "The S3 bucket storing financial transaction logs lacks server-side encryption configuration, potentially exposing sensitive financial data.",
+    "evidence": "Missing aws_s3_bucket_server_side_encryption_configuration resource",
+    "line_number_estimate": 55,
+    "confidence": 0.95,
+    "reasoning": "1. Bucket contains financial transaction logs\n2. No encryption configuration specified\n3. Financial data requires encryption at rest",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F3",
+    "resource_name": "aws_security_group.lambda_sg",
+    "resource_type": "aws_security_group",
+    "vulnerability_type": "network",
+    "severity": "high",
+    "title": "Overly Permissive Security Group Ingress",
+    "description": "The Lambda security group allows inbound HTTPS access from any IP address (0.0.0.0/0), creating unnecessary exposure.",
+    "evidence": "cidr_blocks = [\"0.0.0.0/0\"]",
+    "line_number_estimate": 73,
+    "confidence": 0.95,
+    "reasoning": "1. Opens port 443 to the entire internet\n2. Lambda functions typically don't need inbound access\n3. Comment suggests this is for testing purposes",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F4",
+    "resource_name": "aws_s3_bucket.transaction_logs",
+    "resource_type": "aws_s3_bucket",
+    "vulnerability_type": "logging",
+    "severity": "medium",
+    "title": "Missing S3 Access Logging",
+    "description": "The bucket containing financial transaction logs does not have access logging enabled, reducing audit capabilities.",
+    "evidence": "Missing aws_s3_bucket_logging configuration",
+    "line_number_estimate": 55,
+    "confidence": 0.9,
+    "reasoning": "1. Contains sensitive financial data\n2. No access logging configuration\n3. Audit trail required for financial data",
+    "source": "llm"
+  },
+  {
+    "finding_id": "F5",
+    "resource_name": "aws_iam_role.lambda_role",
+    "resource_type": "aws_iam_role",
+    "vulnerability_type": "iam",
+    "severity": "medium",
+    "title": "Missing IAM Role Permissions Definition",
+    "description": "The Lambda IAM role is created but no permission policies are attached, potentially leading to either over-permissive or non-functional configuration.",
+    "evidence": "Missing aws_iam_role_policy_attachment or inline policies",
+    "line_number_estimate": 89,
+    "confidence": 0.85,
+    "reasoning": "1. IAM role created for Lambda\n2. No permission policies defined\n3. May lead to overly permissive policies being added later",
+    "source": "llm"
+  }
+]
