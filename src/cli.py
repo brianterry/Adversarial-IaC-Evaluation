@@ -1098,30 +1098,53 @@ def show_results(experiment_dir: str, detailed: bool):
     
     summary = json.loads(summary_file.read_text())
     
+    # Get games list (support both "results" and "games" keys)
+    games = summary.get("results", summary.get("games", []))
+    
     # Header
     console.print(
         Panel.fit(
             f"[bold cyan]📊 EXPERIMENT RESULTS[/]\n"
+            f"Name: {summary.get('experiment_name', exp_path.name)}\n"
             f"Path: {exp_path}\n"
             f"Timestamp: {summary.get('timestamp', 'N/A')}",
             title="Experiment Summary",
         )
     )
     
-    # Aggregate metrics
-    agg = summary.get("aggregate_metrics", {})
-    if agg:
-        console.print("\n[bold]Aggregate Metrics:[/]")
-        console.print(f"  Total Games:    {agg.get('total_games', 'N/A')}")
-        console.print(f"  Successful:     {agg.get('successful_games', 'N/A')}")
-        console.print(f"  Avg Precision:  [blue]{agg.get('avg_precision', 0):.1%}[/]")
-        console.print(f"  Avg Recall:     [blue]{agg.get('avg_recall', 0):.1%}[/]")
-        console.print(f"  Avg F1 Score:   [green]{agg.get('avg_f1_score', 0):.1%}[/]")
-        console.print(f"  Avg Evasion:    [red]{agg.get('avg_evasion_rate', 0):.1%}[/]")
+    # Calculate aggregate metrics from games if not present
+    total_games = summary.get("total_games", len(games))
+    successful_games = summary.get("successful_games", len([g for g in games if g.get("f1_score") is not None]))
     
-    # By difficulty breakdown
-    by_difficulty = summary.get("by_difficulty", {})
-    if by_difficulty:
+    if games:
+        valid_games = [g for g in games if g.get("f1_score") is not None]
+        avg_precision = sum(g.get("precision", 0) for g in valid_games) / len(valid_games) if valid_games else 0
+        avg_recall = sum(g.get("recall", 0) for g in valid_games) / len(valid_games) if valid_games else 0
+        avg_f1 = sum(g.get("f1_score", 0) for g in valid_games) / len(valid_games) if valid_games else 0
+        avg_evasion = sum(g.get("evasion_rate", 0) for g in valid_games) / len(valid_games) if valid_games else 0
+    else:
+        avg_precision = avg_recall = avg_f1 = avg_evasion = 0
+    
+    console.print("\n[bold]Aggregate Metrics:[/]")
+    console.print(f"  Total Games:    {total_games}")
+    console.print(f"  Successful:     {successful_games}")
+    console.print(f"  Avg Precision:  [blue]{avg_precision:.1%}[/]")
+    console.print(f"  Avg Recall:     [blue]{avg_recall:.1%}[/]")
+    console.print(f"  Avg F1 Score:   [green]{avg_f1:.1%}[/]")
+    console.print(f"  Avg Evasion:    [red]{avg_evasion:.1%}[/]")
+    
+    # By difficulty breakdown (calculate from games)
+    if games:
+        difficulties = {}
+        for g in games:
+            diff = g.get("difficulty", "unknown")
+            if diff not in difficulties:
+                difficulties[diff] = {"games": [], "f1_scores": [], "evasion_rates": []}
+            difficulties[diff]["games"].append(g)
+            if g.get("f1_score") is not None:
+                difficulties[diff]["f1_scores"].append(g["f1_score"])
+                difficulties[diff]["evasion_rates"].append(g.get("evasion_rate", 0))
+        
         console.print("\n[bold]By Difficulty:[/]")
         table = Table()
         table.add_column("Difficulty", style="cyan")
@@ -1129,57 +1152,64 @@ def show_results(experiment_dir: str, detailed: bool):
         table.add_column("Avg F1", justify="right", style="green")
         table.add_column("Avg Evasion", justify="right", style="red")
         
-        for diff, stats in by_difficulty.items():
-            table.add_row(
-                diff,
-                str(stats.get("count", 0)),
-                f"{stats.get('avg_f1_score', 0):.1%}",
-                f"{stats.get('avg_evasion_rate', 0):.1%}",
-            )
+        for diff in sorted(difficulties.keys()):
+            stats = difficulties[diff]
+            avg_f1 = sum(stats["f1_scores"]) / len(stats["f1_scores"]) if stats["f1_scores"] else 0
+            avg_ev = sum(stats["evasion_rates"]) / len(stats["evasion_rates"]) if stats["evasion_rates"] else 0
+            table.add_row(diff, str(len(stats["games"])), f"{avg_f1:.1%}", f"{avg_ev:.1%}")
         console.print(table)
     
-    # By model breakdown
-    by_model = summary.get("by_model", {})
-    if by_model:
+    # By model breakdown (calculate from games)
+    if games:
+        models = {}
+        for g in games:
+            # Use red_model or blue_model
+            model = g.get("red_model", g.get("blue_model", "unknown"))
+            # Shorten model name
+            short_name = model.split(".")[-1][:25] if "." in model else model[:25]
+            if short_name not in models:
+                models[short_name] = {"games": [], "f1_scores": []}
+            models[short_name]["games"].append(g)
+            if g.get("f1_score") is not None:
+                models[short_name]["f1_scores"].append(g["f1_score"])
+        
         console.print("\n[bold]By Model:[/]")
         table = Table()
         table.add_column("Model", style="cyan")
         table.add_column("Games", justify="right")
         table.add_column("Avg F1", justify="right", style="green")
         
-        for model_name, stats in by_model.items():
-            table.add_row(
-                model_name[:30],
-                str(stats.get("count", 0)),
-                f"{stats.get('avg_f1_score', 0):.1%}",
-            )
+        for model_name in sorted(models.keys()):
+            stats = models[model_name]
+            avg_f1 = sum(stats["f1_scores"]) / len(stats["f1_scores"]) if stats["f1_scores"] else 0
+            table.add_row(model_name, str(len(stats["games"])), f"{avg_f1:.1%}")
         console.print(table)
     
     # Per-game results (if detailed)
-    games = summary.get("games", [])
     if detailed and games:
         console.print("\n[bold]Per-Game Results:[/]")
         table = Table()
         table.add_column("Game ID", style="cyan")
+        table.add_column("Domain")
         table.add_column("Difficulty")
-        table.add_column("Red Vulns", justify="right")
-        table.add_column("Blue Finds", justify="right")
+        table.add_column("Red", justify="right")
+        table.add_column("Blue", justify="right")
+        table.add_column("Precision", justify="right")
+        table.add_column("Recall", justify="right")
         table.add_column("F1", justify="right", style="green")
         table.add_column("Evasion", justify="right", style="red")
-        table.add_column("Status")
         
         for game in games[:20]:  # Show first 20
-            status = game.get("status", "unknown")
-            status_display = "[green]✓[/]" if status == "success" else "[red]✗[/]"
-            
             table.add_row(
                 game.get("game_id", "N/A")[-18:],
+                game.get("scenario_domain", "N/A")[:8],
                 game.get("difficulty", "N/A"),
                 str(game.get("red_vulns", 0)),
                 str(game.get("blue_findings", 0)),
-                f"{game.get('f1_score', 0):.1%}",
-                f"{game.get('evasion_rate', 0):.1%}",
-                status_display,
+                f"{game.get('precision', 0):.0%}",
+                f"{game.get('recall', 0):.0%}",
+                f"{game.get('f1_score', 0):.0%}",
+                f"{game.get('evasion_rate', 0):.0%}",
             )
         
         if len(games) > 20:
