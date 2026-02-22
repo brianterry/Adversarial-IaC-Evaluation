@@ -100,8 +100,8 @@ cd Adversarial-IaC-Evaluation
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Install the package (includes CLI and dependencies)
+pip install -e .
 ```
 
 ### If You Already Cloned (without --recursive)

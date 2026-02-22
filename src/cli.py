@@ -789,6 +789,11 @@ async def _run_game(
         
         result = await engine.run_game(test_scenario, config)
         
+        progress.update(task, description="Saving results...")
+        
+        # Save results to disk
+        engine._save_game_result(result)
+        
         progress.update(task, description="Game complete!")
     
     # Display results
