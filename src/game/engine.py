@@ -11,12 +11,13 @@ Part of the Adversarial IaC Evaluation framework.
 """
 
 import asyncio
+import io
 import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from ..agents.red_team_agent import RedTeamAgent, RedTeamOutput, Difficulty, create_red_team_agent
 from ..agents.blue_team_agent import BlueTeamAgent, BlueTeamOutput, DetectionMode, create_blue_team_agent
@@ -57,6 +58,9 @@ class GameResult:
     
     # Metadata
     timestamp: str
+    
+    # Log content (captured during game execution)
+    log_content: str = ""
 
 
 class GameEngine:
@@ -85,6 +89,68 @@ class GameEngine:
         self.region = region
         self.logger = logging.getLogger("GameEngine")
         self.judge = JudgeAgent()
+        self._game_log_buffer: Optional[io.StringIO] = None
+        self._game_log_handler: Optional[logging.Handler] = None
+
+    def _start_game_logging(self, game_id: str) -> None:
+        """
+        Start capturing logs for the current game.
+        
+        Creates a StringIO buffer and attaches a handler to the root logger
+        to capture all log output during the game.
+        """
+        # Create a string buffer to capture logs
+        self._game_log_buffer = io.StringIO()
+        
+        # Create a handler that writes to the buffer
+        self._game_log_handler = logging.StreamHandler(self._game_log_buffer)
+        self._game_log_handler.setLevel(logging.DEBUG)
+        
+        # Use a detailed format for the log file
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        self._game_log_handler.setFormatter(formatter)
+        
+        # Attach to root logger to capture all logs
+        root_logger = logging.getLogger()
+        root_logger.addHandler(self._game_log_handler)
+        
+        # Write header to log
+        self._game_log_buffer.write(f"{'='*80}\n")
+        self._game_log_buffer.write(f"ADVERSARIAL IAC GAME LOG\n")
+        self._game_log_buffer.write(f"Game ID: {game_id}\n")
+        self._game_log_buffer.write(f"Started: {datetime.now().isoformat()}\n")
+        self._game_log_buffer.write(f"{'='*80}\n\n")
+
+    def _stop_game_logging(self) -> str:
+        """
+        Stop capturing logs and return the captured log content.
+        
+        Returns:
+            The complete log content as a string
+        """
+        log_content = ""
+        
+        if self._game_log_handler:
+            # Remove handler from root logger
+            root_logger = logging.getLogger()
+            root_logger.removeHandler(self._game_log_handler)
+            self._game_log_handler.close()
+            self._game_log_handler = None
+        
+        if self._game_log_buffer:
+            # Add footer and get content
+            self._game_log_buffer.write(f"\n{'='*80}\n")
+            self._game_log_buffer.write(f"Game completed: {datetime.now().isoformat()}\n")
+            self._game_log_buffer.write(f"{'='*80}\n")
+            
+            log_content = self._game_log_buffer.getvalue()
+            self._game_log_buffer.close()
+            self._game_log_buffer = None
+        
+        return log_content
 
     async def run_game(
         self,
@@ -102,7 +168,13 @@ class GameEngine:
             GameResult with all outputs and scores
         """
         game_id = f"G-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        # Start capturing logs for this game
+        self._start_game_logging(game_id)
+        
         self.logger.info(f"Starting game {game_id}: {scenario.description[:50]}...")
+        self.logger.info(f"Configuration: red_model={config.red_model}, blue_model={config.blue_model}")
+        self.logger.info(f"Settings: difficulty={config.difficulty}, language={config.language}, provider={config.cloud_provider}")
         
         start_time = datetime.now()
         
@@ -189,6 +261,13 @@ class GameEngine:
             f"time={total_time:.1f}s"
         )
         
+        # Log summary of results
+        self.logger.info(f"Summary: {len(red_output.manifest)} vulnerabilities injected, {len(blue_output.findings)} findings detected")
+        self.logger.info(f"Evasion rate: {scoring.evasion_rate:.2%} ({len(scoring.false_negatives)} evaded)")
+        
+        # Stop capturing logs and get content
+        log_content = self._stop_game_logging()
+        
         # Compile result
         result = GameResult(
             game_id=game_id,
@@ -201,6 +280,7 @@ class GameEngine:
             blue_time_seconds=blue_time,
             total_time_seconds=total_time,
             timestamp=datetime.now().isoformat(),
+            log_content=log_content,
         )
         
         return result
@@ -332,6 +412,10 @@ class GameEngine:
             "timestamp": result.timestamp,
         }
         (game_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
+        
+        # Save game log
+        if result.log_content:
+            (game_dir / "game.log").write_text(result.log_content)
         
         self.logger.info(f"Saved game result to {game_dir}")
         return game_dir

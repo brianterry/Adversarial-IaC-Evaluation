@@ -320,8 +320,22 @@ class ScenarioTemplates:
 
     @classmethod
     def get_scenario(cls, domain: str, index: int = 0) -> str:
-        """Get a scenario by domain and index"""
-        scenarios = cls.SCENARIOS.get(domain, cls.SCENARIOS["storage"])
+        """Get a scenario by domain and index.
+        
+        Args:
+            domain: One of 'storage', 'compute', 'network', 'iam', 'multi_service'
+            index: Which scenario within the domain (wraps around)
+            
+        Returns:
+            Scenario description string
+            
+        Raises:
+            ValueError: If domain is not valid
+        """
+        if domain not in cls.SCENARIOS:
+            valid_domains = list(cls.SCENARIOS.keys())
+            raise ValueError(f"Invalid domain '{domain}'. Valid domains: {valid_domains}")
+        scenarios = cls.SCENARIOS[domain]
         return scenarios[index % len(scenarios)]
 
     @classmethod

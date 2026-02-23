@@ -643,6 +643,22 @@ A good Red Team generates code that:
 - Has realistic resource names and comments
 - Hides vulnerabilities in plain sight
 
+### Game Output Files
+
+After each game, the following files are saved to `output/games/<game_id>/`:
+
+| File | Description |
+|------|-------------|
+| `code/main.tf` | Generated IaC code (Terraform or CloudFormation) |
+| `code/variables.tf` | Variable definitions |
+| `red_manifest.json` | Ground truth - vulnerabilities injected by Red Team |
+| `blue_findings.json` | Vulnerabilities detected by Blue Team |
+| `scoring.json` | Match results with precision, recall, F1 score |
+| `metadata.json` | Game configuration and summary metrics |
+| `game.log` | Complete text log of the game execution |
+
+The `game.log` file contains a detailed trace of everything that happened during the game, including LLM calls, tool execution, and timing information - useful for debugging and analysis.
+
 ### Reading Judge Output Files
 
 After each game, the Judge produces a `scoring.json` file with detailed results:
