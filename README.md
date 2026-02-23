@@ -189,6 +189,75 @@ adversarial-iac game \
     --difficulty medium
 ```
 
+### Multi-Agent Game Modes
+
+The framework supports three game modes for both Red and Blue teams, enabling research on multi-agent collaboration:
+
+```bash
+# Standard game (single agent per team)
+adversarial-iac game \
+    --scenario "Create S3 bucket for PHI" \
+    --red-model claude-sonnet \
+    --blue-model claude-sonnet \
+    --red-team-mode single \
+    --blue-team-mode single
+
+# Red Team Pipeline (4-stage attack chain)
+adversarial-iac game \
+    --scenario "Create S3 bucket for PHI" \
+    --red-model claude-sonnet \
+    --blue-model claude-sonnet \
+    --red-team-mode pipeline
+
+# Blue Team Ensemble (3 specialists + consensus)
+adversarial-iac game \
+    --scenario "Create S3 bucket for PHI" \
+    --red-model claude-sonnet \
+    --blue-model claude-sonnet \
+    --blue-team-mode ensemble \
+    --consensus-method debate
+
+# Adversarial Debate Verification
+adversarial-iac game \
+    --scenario "Create S3 bucket for PHI" \
+    --red-model claude-sonnet \
+    --blue-model claude-sonnet \
+    --verification-mode debate
+
+# Full Multi-Agent Game (all modes enabled)
+adversarial-iac game \
+    --scenario "Create secure VPC with public/private subnets" \
+    --red-model claude-sonnet \
+    --blue-model claude-sonnet \
+    --red-team-mode pipeline \
+    --blue-team-mode ensemble \
+    --consensus-method vote \
+    --verification-mode debate \
+    --difficulty hard
+```
+
+#### Red Team Pipeline (Attack Chain)
+```
+Scenario → Architect → Vulnerability Selector → Code Generator → Stealth Reviewer → Output
+              │                  │                    │                  │
+        Design infra      Choose vulns         Write IaC code     Apply evasion
+```
+
+#### Blue Team Ensemble (Defense)
+```
+Code → Security Expert  ─┐
+       Compliance Agent ─┼→ Consensus Agent → Unified Findings
+       Architecture Agent┘     (debate/vote/union/intersection)
+```
+
+#### Adversarial Debate Verification
+```
+For each finding:
+  Prosecutor → "This IS a real vulnerability because..."
+  Defender   → "This is a FALSE POSITIVE because..."
+  Judge      → Verdict: TRUE_POSITIVE | FALSE_POSITIVE | PARTIAL_MATCH
+```
+
 ### Run Full Experiment
 
 ```bash

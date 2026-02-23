@@ -20,7 +20,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..agents.red_team_agent import RedTeamAgent, RedTeamOutput, Difficulty, create_red_team_agent
+from ..agents.red_team_pipeline import RedTeamPipeline, PipelineRedTeamOutput, create_red_team_pipeline
 from ..agents.blue_team_agent import BlueTeamAgent, BlueTeamOutput, DetectionMode, create_blue_team_agent
+from ..agents.blue_team_ensemble import BlueTeamEnsemble, EnsembleOutput, create_blue_team_ensemble
+from ..agents.debate_verification import DebateVerificationAgent, DebateVerificationOutput, create_debate_verification_agent
 from ..agents.judge_agent import JudgeAgent, ScoringResult, score_results_to_dict
 from .scenarios import Scenario, ScenarioGenerator
 
@@ -37,6 +40,14 @@ class GameConfig:
     use_trivy: bool = False
     use_checkov: bool = False
     region: str = "us-east-1"
+    # Red Team mode configuration
+    red_team_mode: str = "single"  # "single" or "pipeline"
+    # Blue Team mode configuration
+    blue_team_mode: str = "single"  # "single" or "ensemble"
+    ensemble_specialists: Optional[List[str]] = None  # ["security", "compliance", "architecture"]
+    consensus_method: str = "debate"  # "debate", "vote", "union", "intersection"
+    # Verification mode configuration
+    verification_mode: str = "standard"  # "standard" or "debate"
 
 
 @dataclass
@@ -61,6 +72,24 @@ class GameResult:
     
     # Log content (captured during game execution)
     log_content: str = ""
+    
+    # Mode tracking
+    red_team_mode: str = "single"
+    blue_team_mode: str = "single"
+    verification_mode: str = "standard"
+    
+    # Red Team Pipeline fields (populated when red_team_mode="pipeline")
+    pipeline_stages: Optional[Dict[str, Any]] = None
+    architecture_design: Optional[Dict[str, Any]] = None
+    
+    # Blue Team Ensemble fields (populated when blue_team_mode="ensemble")
+    specialist_findings: Optional[Dict[str, List[Dict]]] = None
+    consensus_stats: Optional[Dict[str, Any]] = None
+    
+    # Debate Verification fields (populated when verification_mode="debate")
+    debate_results: Optional[List[Dict[str, Any]]] = None
+    verified_findings: Optional[List[Dict[str, Any]]] = None
+    rejected_findings: Optional[List[Dict[str, Any]]] = None
 
 
 class GameEngine:
@@ -179,48 +208,94 @@ class GameEngine:
         start_time = datetime.now()
         
         # Phase 1: Red Team Attack
-        self.logger.info("Phase 1: Red Team generating adversarial IaC")
+        self.logger.info(f"Phase 1: Red Team generating adversarial IaC (mode={config.red_team_mode})")
         red_start = datetime.now()
         
-        red_agent = create_red_team_agent(
-            model_id=config.red_model,
-            region=config.region,
-            difficulty=config.difficulty,
-            cloud_provider=config.cloud_provider,
-            language=config.language,
-        )
+        # Track pipeline-specific data
+        pipeline_stages = None
+        architecture_design = None
         
-        red_output = await red_agent.execute(scenario.to_dict())
+        if config.red_team_mode == "pipeline":
+            self.logger.info("Using multi-agent pipeline attack")
+            red_agent = create_red_team_pipeline(
+                model_id=config.red_model,
+                region=config.region,
+                cloud_provider=config.cloud_provider,
+                language=config.language,
+                difficulty=config.difficulty,
+            )
+            
+            pipeline_output = await red_agent.execute(scenario.to_dict())
+            red_output = pipeline_output  # PipelineRedTeamOutput extends RedTeamOutput
+            
+            # Extract pipeline-specific data
+            if isinstance(pipeline_output, PipelineRedTeamOutput):
+                pipeline_stages = {
+                    name: {"success": stage.success, "data_keys": list(stage.data.keys()) if stage.data else []}
+                    for name, stage in pipeline_output.pipeline_stages.items()
+                }
+                architecture_design = pipeline_output.architecture_design
+        else:
+            red_agent = create_red_team_agent(
+                model_id=config.red_model,
+                region=config.region,
+                difficulty=config.difficulty,
+                cloud_provider=config.cloud_provider,
+                language=config.language,
+            )
+            
+            red_output = await red_agent.execute(scenario.to_dict())
+        
         red_time = (datetime.now() - red_start).total_seconds()
         
         self.logger.info(
             f"Red Team complete: {len(red_output.manifest)} vulns, "
-            f"stealth={red_output.stealth_score}, time={red_time:.1f}s"
+            f"mode={config.red_team_mode}, stealth={red_output.stealth_score}, time={red_time:.1f}s"
         )
         
         # Phase 2: Blue Team Defense
-        self.logger.info("Phase 2: Blue Team analyzing code")
+        self.logger.info(f"Phase 2: Blue Team analyzing code (mode={config.blue_team_mode})")
         blue_start = datetime.now()
         
-        blue_agent = create_blue_team_agent(
-            model_id=config.blue_model,
-            region=config.region,
-            mode=config.detection_mode,
-            language=config.language,
-            use_trivy=config.use_trivy,
-            use_checkov=config.use_checkov,
-        )
+        # Choose between single agent and ensemble
+        specialist_findings = None
+        consensus_stats = None
         
-        blue_output = await blue_agent.execute(red_output.code)
+        if config.blue_team_mode == "ensemble":
+            self.logger.info("Using multi-agent ensemble detection")
+            blue_agent = create_blue_team_ensemble(
+                model_id=config.blue_model,
+                region=config.region,
+                language=config.language,
+                specialists=config.ensemble_specialists,
+                consensus_method=config.consensus_method,
+            )
+            
+            ensemble_output = await blue_agent.execute(red_output.code)
+            blue_output = ensemble_output  # EnsembleOutput extends BlueTeamOutput
+            
+            # Extract ensemble-specific data
+            if isinstance(ensemble_output, EnsembleOutput):
+                specialist_findings = ensemble_output.specialist_findings
+                consensus_stats = ensemble_output.consensus_stats
+        else:
+            blue_agent = create_blue_team_agent(
+                model_id=config.blue_model,
+                region=config.region,
+                mode=config.detection_mode,
+                language=config.language,
+                use_trivy=config.use_trivy,
+                use_checkov=config.use_checkov,
+            )
+            
+            blue_output = await blue_agent.execute(red_output.code)
+        
         blue_time = (datetime.now() - blue_start).total_seconds()
         
         self.logger.info(
             f"Blue Team complete: {len(blue_output.findings)} findings, "
-            f"time={blue_time:.1f}s"
+            f"mode={config.blue_team_mode}, time={blue_time:.1f}s"
         )
-        
-        # Phase 3: Judge Scoring
-        self.logger.info("Phase 3: Judge scoring match")
         
         # Convert manifest to dict format for judge
         manifest_dicts = [
@@ -251,7 +326,56 @@ class GameEngine:
             for f in blue_output.findings
         ]
         
-        scoring = self.judge.score(manifest_dicts, findings_dicts)
+        # Phase 3: Verification and Scoring
+        debate_results = None
+        verified_findings = None
+        rejected_findings = None
+        
+        if config.verification_mode == "debate":
+            # Phase 3a: Adversarial Debate Verification
+            self.logger.info("Phase 3: Adversarial debate verification")
+            
+            debate_agent = create_debate_verification_agent(
+                model_id=config.blue_model,  # Use Blue Team model for verification
+                region=config.region,
+                language=config.language,
+            )
+            
+            debate_output = await debate_agent.verify(
+                findings=blue_output.findings,
+                code=red_output.code,
+                manifest=manifest_dicts,
+            )
+            
+            scoring = debate_output.scoring
+            
+            # Extract debate-specific data
+            debate_results = [
+                {
+                    "finding_id": r.finding_id,
+                    "verdict": r.verdict,
+                    "confidence": r.verdict_confidence,
+                    "final_severity": r.final_severity,
+                }
+                for r in debate_output.debate_results
+            ]
+            verified_findings = [
+                {"finding_id": f.finding_id, "title": f.title, "severity": f.severity}
+                for f in debate_output.verified_findings
+            ]
+            rejected_findings = [
+                {"finding_id": f.finding_id, "title": f.title, "severity": f.severity}
+                for f in debate_output.rejected_findings
+            ]
+            
+            self.logger.info(
+                f"Debate complete: {len(debate_output.verified_findings)} verified, "
+                f"{len(debate_output.rejected_findings)} rejected"
+            )
+        else:
+            # Phase 3b: Standard Judge Scoring
+            self.logger.info("Phase 3: Judge scoring match")
+            scoring = self.judge.score(manifest_dicts, findings_dicts)
         
         total_time = (datetime.now() - start_time).total_seconds()
         
@@ -281,6 +405,16 @@ class GameEngine:
             total_time_seconds=total_time,
             timestamp=datetime.now().isoformat(),
             log_content=log_content,
+            red_team_mode=config.red_team_mode,
+            blue_team_mode=config.blue_team_mode,
+            verification_mode=config.verification_mode,
+            pipeline_stages=pipeline_stages,
+            architecture_design=architecture_design,
+            specialist_findings=specialist_findings,
+            consensus_stats=consensus_stats,
+            debate_results=debate_results,
+            verified_findings=verified_findings,
+            rejected_findings=rejected_findings,
         )
         
         return result
@@ -395,6 +529,9 @@ class GameEngine:
                 "language": result.config.language,
                 "cloud_provider": result.config.cloud_provider,
                 "detection_mode": result.config.detection_mode,
+                "red_team_mode": result.config.red_team_mode,
+                "blue_team_mode": result.config.blue_team_mode,
+                "verification_mode": result.config.verification_mode,
             },
             "timing": {
                 "red_time_seconds": result.red_time_seconds,
@@ -411,7 +548,46 @@ class GameEngine:
             },
             "timestamp": result.timestamp,
         }
+        
+        # Add Red Team Pipeline data if applicable
+        if result.red_team_mode == "pipeline":
+            metadata["pipeline"] = {
+                "stages": result.pipeline_stages,
+                "architecture_design": result.architecture_design,
+            }
+            # Save architecture design separately
+            if result.architecture_design:
+                (game_dir / "architecture_design.json").write_text(
+                    json.dumps(result.architecture_design, indent=2)
+                )
+        
+        # Add Blue Team Ensemble data if applicable
+        if result.blue_team_mode == "ensemble":
+            metadata["ensemble"] = {
+                "consensus_method": result.config.consensus_method,
+                "specialists": result.config.ensemble_specialists or ["security", "compliance", "architecture"],
+                "consensus_stats": result.consensus_stats,
+            }
+        
+        # Add Debate Verification data if applicable
+        if result.verification_mode == "debate":
+            metadata["debate"] = {
+                "verified_count": len(result.verified_findings) if result.verified_findings else 0,
+                "rejected_count": len(result.rejected_findings) if result.rejected_findings else 0,
+            }
+            # Save debate results separately
+            if result.debate_results:
+                (game_dir / "debate_results.json").write_text(
+                    json.dumps(result.debate_results, indent=2)
+                )
+        
         (game_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
+        
+        # Save specialist findings if ensemble mode
+        if result.specialist_findings:
+            (game_dir / "specialist_findings.json").write_text(
+                json.dumps(result.specialist_findings, indent=2)
+            )
         
         # Save game log
         if result.log_content:

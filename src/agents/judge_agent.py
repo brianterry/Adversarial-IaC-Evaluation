@@ -257,7 +257,12 @@ class JudgeAgent:
                 score += 0.25
         
         # Vulnerability type matching
-        if red_type and blue_type:
+        # If red_type is "unknown", don't penalize - give partial credit based on title/description
+        if red_type == "unknown" or red_type == "":
+            # Unknown type - give partial credit if titles seem related
+            if any(kw in blue_title or kw in blue_description for kw in ["encrypt", "access", "public", "permiss", "log", "iam"]):
+                score += 0.1
+        elif red_type and blue_type:
             if red_type == blue_type:
                 score += 0.2
             elif self._types_related(red_type, blue_type):
@@ -303,7 +308,32 @@ class JudgeAgent:
         if res1 in res2 or res2 in res1:
             return True
         
+        # Extract base name from terraform resource (e.g., "aws_s3_bucket.phi_storage" -> "phi_storage")
+        base1 = parts1[-1] if parts1 else res1
+        base2 = parts2[-1] if parts2 else res2
+        
+        # Check if base names are similar
+        if base1 == base2:
+            return True
+        if base1 in base2 or base2 in base1:
+            return True
+        
+        # Check for common naming patterns (e.g., "phi_storage" and "phi_access_control" share "phi")
+        common_prefix = self._common_prefix(base1, base2)
+        if len(common_prefix) >= 3:  # At least 3 chars in common
+            return True
+        
         return False
+
+    def _common_prefix(self, s1: str, s2: str) -> str:
+        """Find common prefix between two strings."""
+        prefix = ""
+        for c1, c2 in zip(s1, s2):
+            if c1 == c2:
+                prefix += c1
+            else:
+                break
+        return prefix
 
     def _types_related(self, type1: str, type2: str) -> bool:
         """Check if two vulnerability types are related."""

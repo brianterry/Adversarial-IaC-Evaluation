@@ -697,6 +697,30 @@ def score(red_dir: str, blue_dir: str, output_dir: str):
     default="aws",
     help="Cloud provider",
 )
+@click.option(
+    "--red-team-mode",
+    type=click.Choice(["single", "pipeline"]),
+    default="single",
+    help="Red Team mode: single agent or multi-agent pipeline",
+)
+@click.option(
+    "--blue-team-mode",
+    type=click.Choice(["single", "ensemble"]),
+    default="single",
+    help="Blue Team mode: single agent or multi-agent ensemble",
+)
+@click.option(
+    "--consensus-method",
+    type=click.Choice(["debate", "vote", "union", "intersection"]),
+    default="debate",
+    help="Consensus method for ensemble mode",
+)
+@click.option(
+    "--verification-mode",
+    type=click.Choice(["standard", "debate"]),
+    default="standard",
+    help="Verification mode: standard judge or adversarial debate",
+)
 @click.option("--region", default="us-east-1", help="AWS region")
 def game(
     scenario: str,
@@ -705,6 +729,10 @@ def game(
     difficulty: str,
     language: str,
     cloud_provider: str,
+    red_team_mode: str,
+    blue_team_mode: str,
+    consensus_method: str,
+    verification_mode: str,
     region: str,
 ):
     """
@@ -712,14 +740,25 @@ def game(
     
     Red Team generates adversarial IaC, Blue Team detects vulnerabilities,
     Judge scores the match.
+    
+    Multi-Agent Modes:
+    - --red-team-mode pipeline: Multi-agent attack chain (Architect→Selector→Generator→Reviewer)
+    - --blue-team-mode ensemble: Multi-agent defense (Security+Compliance+Architecture→Consensus)
+    - --verification-mode debate: Adversarial debate verification (Prosecutor vs Defender)
     """
+    # Build mode display strings
+    red_display = f"{red_team_mode}" + (" (4-stage)" if red_team_mode == "pipeline" else "")
+    blue_display = f"{blue_team_mode}" + (f" ({consensus_method})" if blue_team_mode == "ensemble" else "")
+    verify_display = verification_mode
+    
     console.print(
         Panel.fit(
             "[bold magenta]🎮 ADVERSARIAL GAME[/]\n"
             f"Scenario: {scenario}\n"
-            f"Red Team: {red_model.split('.')[-1][:20]}\n"
-            f"Blue Team: {blue_model.split('.')[-1][:20]}\n"
-            f"Difficulty: {difficulty}",
+            f"Red Team: {red_model.split('.')[-1][:20]} ({red_display})\n"
+            f"Blue Team: {blue_model.split('.')[-1][:20]} ({blue_display})\n"
+            f"Difficulty: {difficulty}\n"
+            f"Verification: {verify_display}",
             title="Game Configuration",
         )
     )
@@ -733,6 +772,10 @@ def game(
                 difficulty=difficulty,
                 language=language,
                 cloud_provider=cloud_provider,
+                red_team_mode=red_team_mode,
+                blue_team_mode=blue_team_mode,
+                consensus_method=consensus_method,
+                verification_mode=verification_mode,
                 region=region,
             )
         )
@@ -748,6 +791,10 @@ async def _run_game(
     difficulty: str,
     language: str,
     cloud_provider: str,
+    red_team_mode: str,
+    blue_team_mode: str,
+    consensus_method: str,
+    verification_mode: str,
     region: str,
 ):
     """Async implementation of game command."""
@@ -775,6 +822,11 @@ async def _run_game(
         cloud_provider=cloud_provider,
         detection_mode="llm_only",
         region=region,
+        red_team_mode=red_team_mode,
+        blue_team_mode=blue_team_mode,
+        ensemble_specialists=["security", "compliance", "architecture"] if blue_team_mode == "ensemble" else None,
+        consensus_method=consensus_method,
+        verification_mode=verification_mode,
     )
     
     # Run game
@@ -799,21 +851,61 @@ async def _run_game(
     # Display results
     console.print("\n[bold green]✓ Game Complete[/]\n")
     
+    # Build Red Team section based on mode
+    red_team_section = f"[red]🔴 Red Team:[/]\n"
+    red_team_section += f"  • Mode: {result.red_team_mode}\n"
+    red_team_section += f"  • Vulnerabilities injected: {len(result.red_output.manifest)}\n"
+    
+    # Add pipeline-specific info
+    if result.red_team_mode == "pipeline" and result.pipeline_stages:
+        stages_completed = sum(1 for s in result.pipeline_stages.values() if s.get("success", False))
+        red_team_section += f"  • Pipeline stages: {stages_completed}/4 completed\n"
+        if result.architecture_design:
+            components = len(result.architecture_design.get("components", []))
+            red_team_section += f"  • Architecture: {components} components designed\n"
+    
+    red_team_section += f"  • Stealth: {'✓ Passed' if result.red_output.stealth_score else '✗ Failed'}\n"
+    red_team_section += f"  • Time: {result.red_time_seconds:.1f}s"
+    
+    # Build Blue Team section based on mode
+    blue_team_section = f"[blue]🔵 Blue Team:[/]\n"
+    blue_team_section += f"  • Mode: {result.blue_team_mode}\n"
+    blue_team_section += f"  • Findings: {len(result.blue_output.findings)}\n"
+    
+    # Add ensemble-specific info
+    if result.blue_team_mode == "ensemble" and result.consensus_stats:
+        stats = result.consensus_stats
+        blue_team_section += f"  • Consensus: {config.consensus_method}\n"
+        blue_team_section += f"  • Unanimous: {stats.get('unanimous', 0)}, Majority: {stats.get('majority', 0)}\n"
+        if result.specialist_findings:
+            specialist_counts = ", ".join(
+                f"{k.replace('_', ' ').title()}: {len(v)}"
+                for k, v in result.specialist_findings.items()
+            )
+            blue_team_section += f"  • Per-specialist: {specialist_counts}\n"
+    
+    blue_team_section += f"  • Time: {result.blue_time_seconds:.1f}s"
+    
+    # Build Verification section based on mode
+    verification_section = f"[yellow]⚖️ Verification ({result.verification_mode}):[/]\n"
+    
+    if result.verification_mode == "debate" and result.debate_results:
+        verified = len(result.verified_findings) if result.verified_findings else 0
+        rejected = len(result.rejected_findings) if result.rejected_findings else 0
+        verification_section += f"  • Findings verified: {verified}\n"
+        verification_section += f"  • Findings rejected: {rejected}\n"
+    
+    verification_section += f"  • Precision: {result.scoring.precision:.2%}\n"
+    verification_section += f"  • Recall: {result.scoring.recall:.2%}\n"
+    verification_section += f"  • F1 Score: {result.scoring.f1_score:.2%}\n"
+    verification_section += f"  • Evasion Rate: {result.scoring.evasion_rate:.2%}"
+    
     # Summary
     console.print(Panel.fit(
         f"[bold]Game ID:[/] {result.game_id}\n\n"
-        f"[red]🔴 Red Team:[/]\n"
-        f"  • Vulnerabilities injected: {len(result.red_output.manifest)}\n"
-        f"  • Stealth: {'✓ Passed' if result.red_output.stealth_score else '✗ Failed'}\n"
-        f"  • Time: {result.red_time_seconds:.1f}s\n\n"
-        f"[blue]🔵 Blue Team:[/]\n"
-        f"  • Findings: {len(result.blue_output.findings)}\n"
-        f"  • Time: {result.blue_time_seconds:.1f}s\n\n"
-        f"[yellow]⚖️ Scoring:[/]\n"
-        f"  • Precision: {result.scoring.precision:.2%}\n"
-        f"  • Recall: {result.scoring.recall:.2%}\n"
-        f"  • F1 Score: {result.scoring.f1_score:.2%}\n"
-        f"  • Evasion Rate: {result.scoring.evasion_rate:.2%}",
+        f"{red_team_section}\n\n"
+        f"{blue_team_section}\n\n"
+        f"{verification_section}",
         title="Game Results",
     ))
     
