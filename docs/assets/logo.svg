@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Shield background -->
+  <path d="M32 4 L56 14 L56 30 C56 44 44 54 32 60 C20 54 8 44 8 30 L8 14 Z" fill="#7c3aed"/>
+  
+  <!-- Inner shield -->
+  <path d="M32 8 L52 16 L52 30 C52 42 42 50 32 56 C22 50 12 42 12 30 L12 16 Z" fill="#1e1b4b"/>
+  
+  <!-- Red vs Blue symbol -->
+  <circle cx="24" cy="28" r="8" fill="#ef4444" opacity="0.9"/>
+  <circle cx="40" cy="28" r="8" fill="#3b82f6" opacity="0.9"/>
+  
+  <!-- Sword (judge) -->
+  <path d="M32 38 L32 50 M28 42 L36 42" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/>
+</svg>

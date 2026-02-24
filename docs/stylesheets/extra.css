@@ -1,0 +1,66 @@
+/* Custom styles for AdversarialIaC-Bench documentation */
+
+:root {
+  --md-primary-fg-color: #7c3aed;
+  --md-primary-fg-color--light: #a78bfa;
+  --md-primary-fg-color--dark: #5b21b6;
+  --md-accent-fg-color: #f59e0b;
+}
+
+/* Hero section styling */
+.md-typeset h1 {
+  font-weight: 700;
+}
+
+/* Code block styling */
+.md-typeset code {
+  background-color: var(--md-code-bg-color);
+  border-radius: 4px;
+}
+
+/* Card grid styling */
+.grid.cards > ul > li {
+  border-radius: 8px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.grid.cards > ul > li:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Mermaid diagram styling */
+.mermaid {
+  text-align: center;
+  margin: 1rem 0;
+}
+
+/* Table styling */
+.md-typeset table:not([class]) {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.md-typeset table:not([class]) th {
+  background-color: var(--md-primary-fg-color);
+  color: white;
+}
+
+/* Admonition icons */
+.md-typeset .admonition.tip {
+  border-color: #10b981;
+}
+
+.md-typeset .admonition.warning {
+  border-color: #f59e0b;
+}
+
+/* Footer styling */
+.md-footer {
+  margin-top: 2rem;
+}
+
+/* Tab styling */
+.md-typeset .tabbed-labels > label {
+  font-weight: 500;
+}

@@ -1,145 +1,167 @@
-# Adversarial IaC Eval
+# AdversarialIaC-Bench
 
-<p style="font-size: 1.3em; color: #888;">
-A game-theoretic framework for evaluating LLM security capabilities in Infrastructure-as-Code
+<p align="center">
+  <strong>A Framework for Evaluating LLM Security Capabilities in Infrastructure-as-Code</strong>
+</p>
+
+<p align="center">
+  <a href="getting-started/installation/">Getting Started</a> •
+  <a href="framework/architecture/">Architecture</a> •
+  <a href="experiments/single-game/">Run Experiments</a> •
+  <a href="research/citation/">Cite Us</a>
 </p>
 
 ---
 
-## The Problem
+## What is AdversarialIaC-Bench?
 
-Evaluating LLM security capabilities faces a fundamental challenge: **the labeled data problem**.
+**AdversarialIaC-Bench** is an open-source benchmarking framework for evaluating how well Large Language Models (LLMs) can detect—and evade detection of—security vulnerabilities in Infrastructure-as-Code (IaC).
 
-- Vulnerable code samples are hard to collect ethically
-- Ground truth labels require expensive expert annotation
-- Static datasets become stale and don't reflect real-world complexity
-- No standardized methodology for adversarial security evaluation
+The framework uses a **Red Team vs Blue Team** adversarial approach:
 
-## Our Solution
-
-**Adversarial IaC Eval** introduces a game-theoretic framework where LLMs compete against each other, automatically generating both vulnerable code and ground truth labels.
-
-```
-┌──────────────┐         ┌──────────────┐         ┌──────────────┐
-│  🔴 RED TEAM │ ──────► │  🔵 BLUE TEAM │ ──────► │  ⚖️ JUDGE    │
-│   (Attack)   │  Code   │   (Defend)   │ Results │   (Score)    │
-│              │         │              │         │              │
-│ • Generates  │         │ • Analyzes   │         │ • Compares   │
-│   vulnerable │         │   code for   │         │   findings   │
-│   IaC code   │         │   security   │         │   to ground  │
-│ • Provides   │         │   issues     │         │   truth      │
-│   ground     │         │              │         │ • Computes   │
-│   truth      │         │              │         │   metrics    │
-└──────────────┘         └──────────────┘         └──────────────┘
+```mermaid
+graph LR
+    A[🔴 Red Team<br/>Injects Vulnerabilities] --> C[📄 IaC Code]
+    C --> B[🔵 Blue Team<br/>Detects Vulnerabilities]
+    B --> D[⚖️ Judge<br/>Scores Match]
+    D --> E[📊 Metrics<br/>P, R, F1, Evasion]
 ```
 
-## Why Use This Framework?
+## Key Features
 
 <div class="grid cards" markdown>
 
--   :material-infinity:{ .lg .middle } **Infinite Scalability**
+-   :material-robot:{ .lg .middle } __Multi-Model Support__
 
     ---
 
-    Generate unlimited test cases without manual labeling. Each game produces new vulnerable code with automatic ground truth.
+    Evaluate any LLM: Claude, GPT-4, Llama, Mistral, or custom models via AWS Bedrock, OpenAI, or local inference.
 
--   :material-target:{ .lg .middle } **True Adversarial Testing**
-
-    ---
-
-    Red Team actively tries to evade detection, stress-testing security capabilities under realistic attack conditions.
-
--   :material-swap-horizontal:{ .lg .middle } **Model Comparison**
+-   :material-shield-sword:{ .lg .middle } __Adversarial Evaluation__
 
     ---
 
-    Compare any LLM against any other. Test if models can find their own vulnerabilities or defend against different attackers.
+    Red Team agents actively try to inject stealthy vulnerabilities. Blue Team agents try to detect them. Realistic attack-defense scenarios.
 
--   :material-puzzle:{ .lg .middle } **Extensible Design**
+-   :material-account-group:{ .lg .middle } __Multi-Agent Modes__
 
     ---
 
-    Plug in custom scenarios, models, metrics, and agents. Build on the framework for your own research.
+    Go beyond single agents with Blue Team Ensembles, Red Team Pipelines, and Adversarial Debate verification.
+
+-   :material-chart-box:{ .lg .middle } __Standardized Metrics__
+
+    ---
+
+    Precision, Recall, F1 Score, and Evasion Rate provide comparable results across experiments.
+
+-   :material-cloud:{ .lg .middle } __Cloud Ready__
+
+    ---
+
+    AWS CDK infrastructure for running large-scale experiments with Step Functions and Lambda.
+
+-   :material-open-source-initiative:{ .lg .middle } __Open Source__
+
+    ---
+
+    MIT licensed. Extend with new models, scenarios, and vulnerability types.
 
 </div>
 
-## Framework Components
-
-| Component | Role | Extensible |
-|-----------|------|------------|
-| **Red Team Agent** | Generates adversarial IaC with hidden vulnerabilities | ✅ Custom attack strategies |
-| **Blue Team Agent** | Detects security issues in code | ✅ Custom detection modes |
-| **Judge Agent** | Scores matches between ground truth and findings | ✅ Custom matching algorithms |
-| **Game Engine** | Orchestrates games and experiments | ✅ Custom game protocols |
-| **Scenario Generator** | Creates infrastructure scenarios | ✅ Custom domains |
-
 ## Quick Example
 
-```python
-from adversarial_iac_eval import Game, Difficulty
+```bash
+# Install the framework
+pip install -e .
 
 # Run a single game
-game = Game(
-    red_model="claude-3-5-sonnet",
-    blue_model="claude-3-5-haiku",
-    difficulty=Difficulty.HARD
-)
-
-results = await game.play(
-    scenario="Create S3 bucket for healthcare PHI data"
-)
-
-print(f"Red injected: {results.vulnerabilities_injected}")
-print(f"Blue detected: {results.vulnerabilities_found}")
-print(f"Evasion rate: {results.evasion_rate:.1%}")
+adversarial-iac game \
+    --red-model us.anthropic.claude-3-5-sonnet-20241022-v2:0 \
+    --blue-model amazon.nova-pro-v1:0 \
+    --scenario "Create an S3 bucket for healthcare PHI data" \
+    --difficulty medium
 ```
 
-## Research Applications
+**Output:**
+```
+🎮 Game G-20260224_120000 Results
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Scoring:
+   Precision: 80.0%
+   Recall:    100.0%
+   F1 Score:  88.9%
+   Evasion:   0.0%
+```
 
-This framework enables multiple research directions:
+## Use Cases
 
-- **Model Capability Studies**: Which models are better at attack vs defense?
-- **Difficulty Scaling**: How does stealth technique sophistication affect detection?
-- **Tool Comparison**: How do LLMs compare to static analysis tools?
-- **Multi-Agent Systems**: Can agent collaboration improve security?
-- **Cross-Domain Analysis**: Are some infrastructure domains harder to secure?
+### For Researchers
 
-## Get Started
+- **Benchmark new models**: Compare detection capabilities across LLMs
+- **Study adversarial robustness**: How well do models evade detection?
+- **Publish reproducible results**: Standardized metrics and scenarios
+
+### For Security Teams
+
+- **Evaluate LLM security tools**: Before deploying AI-powered scanners
+- **Red team exercises**: Test detection capabilities
+- **Training data generation**: Create labeled vulnerability datasets
+
+### For Developers
+
+- **Extend the framework**: Add new models, scenarios, or metrics
+- **Custom experiments**: Design studies for specific use cases
+- **Integration**: Use as a library in larger security pipelines
+
+## Supported Technologies
+
+| Category | Options |
+|----------|---------|
+| **IaC Languages** | Terraform, CloudFormation |
+| **Cloud Providers** | AWS, Azure, GCP |
+| **LLM Providers** | AWS Bedrock, OpenAI, Anthropic, Local |
+| **Vulnerability Types** | Access Control, Encryption, Network, IAM, Logging, Data Protection |
+
+## Next Steps
 
 <div class="grid cards" markdown>
 
--   [:material-download: **Installation**](getting-started/installation.md)
+-   :material-download:{ .lg .middle } __Installation__
 
-    Set up the framework in 5 minutes
+    ---
 
--   [:material-rocket-launch: **Quick Start**](getting-started/quickstart.md)
+    Get started with pip install in 2 minutes
+
+    [:octicons-arrow-right-24: Install now](getting-started/installation.md)
+
+-   :material-play:{ .lg .middle } __Quick Start__
+
+    ---
 
     Run your first adversarial game
 
--   [:material-cog: **Architecture**](framework/architecture.md)
+    [:octicons-arrow-right-24: Quick start guide](getting-started/quickstart.md)
 
-    Understand how components work together
+-   :material-book-open:{ .lg .middle } __Architecture__
 
--   [:material-puzzle-plus: **Extending**](extending/overview.md)
+    ---
 
-    Build on the framework for your research
+    Understand how the framework works
+
+    [:octicons-arrow-right-24: Learn more](framework/architecture.md)
 
 </div>
 
 ## Citation
 
-If you use this framework in your research, please cite:
+If you use AdversarialIaC-Bench in your research, please cite:
 
 ```bibtex
-@software{terry2026adversarial_iac_eval,
+@software{adversarial_iac_bench,
+  title = {AdversarialIaC-Bench: A Framework for Evaluating LLM Security in Infrastructure-as-Code},
   author = {Terry, Brian},
-  title = {Adversarial IaC Eval: A Game-Theoretic Framework for 
-           Evaluating LLM Security in Infrastructure-as-Code},
   year = {2026},
   url = {https://github.com/brianterry/Adversarial-IaC-Evaluation}
 }
 ```
-
-## License
-
-MIT License - Use freely for research and commercial applications.

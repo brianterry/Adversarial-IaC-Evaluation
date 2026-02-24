@@ -1,104 +1,117 @@
 # Installation
 
-## Prerequisites
+## Requirements
 
 - Python 3.10+
-- AWS account with Bedrock access
+- AWS credentials (for Bedrock models)
 - Git
 
 ## Quick Install
 
 ```bash
-# Clone with submodule (recommended)
-git clone --recursive https://github.com/brianterry/Adversarial-IaC-Evaluation.git
+# Clone the repository
+git clone https://github.com/brianterry/Adversarial-IaC-Evaluation.git
 cd Adversarial-IaC-Evaluation
 
 # Create virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install dependencies
-pip install -r requirements.txt
-```
-
-## If You Already Cloned (without --recursive)
-
-```bash
-# Initialize the vulnerability database submodule
-git submodule update --init --recursive
+# Install the package
+pip install -e .
 ```
 
 ## Verify Installation
 
 ```bash
-python -c "from src.agents.red_team_agent import VulnerabilityDatabase; \
-  db = VulnerabilityDatabase(); \
-  print(f'✓ Loaded {len(db.get_sample_for_prompt(\"aws\", \"terraform\").get(\"sample_vulnerabilities\", []))} vulnerability rules')"
+adversarial-iac --help
 ```
 
-Expected output:
+You should see:
+
 ```
-✓ Loaded 20 vulnerability rules
+Usage: adversarial-iac [OPTIONS] COMMAND [ARGS]...
+
+  Adversarial IaC Evaluation Framework
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  game        Run a single adversarial game
+  red-team    Run Red Team agent only
+  blue-team   Run Blue Team agent only
+  judge       Score a game
 ```
 
-## What the Submodule Provides
+## AWS Configuration
 
-The `vendor/vulnerable-iac-generator` submodule contains:
-
-- **142 Trivy vulnerability rules** for AWS, Azure, and GCP
-- **Real-world misconfiguration patterns** from security research
-- **Multi-cloud support**: Terraform (AWS, Azure, GCP), CloudFormation, ARM templates
-
-!!! warning "Required"
-    The submodule is **required**. The system will fail with a clear error message if not initialized.
-
-## Optional: Install Static Analysis Tools
-
-For hybrid detection mode (LLM + static tools):
-
-=== "macOS"
-    ```bash
-    # Install Trivy
-    brew install trivy
-    
-    # Install Checkov
-    pip install checkov
-    ```
-
-=== "Linux"
-    ```bash
-    # Install Trivy
-    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-    
-    # Install Checkov
-    pip install checkov
-    ```
-
-=== "Windows"
-    ```powershell
-    # Install Trivy via Chocolatey
-    choco install trivy
-    
-    # Install Checkov
-    pip install checkov
-    ```
-
-## Environment Variables
-
-Create a `.env` file in the project root:
+The framework uses AWS Bedrock for LLM inference. Configure your credentials:
 
 ```bash
-AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-# Or use AWS_PROFILE for credential profiles
+# Option 1: AWS CLI
+aws configure
+
+# Option 2: Environment variables
+export AWS_ACCESS_KEY_ID=your_key
+export AWS_SECRET_ACCESS_KEY=your_secret
+export AWS_DEFAULT_REGION=us-west-2
 ```
 
-!!! tip "AWS Credentials"
-    You can also configure credentials using `aws configure` or environment variables.
+### Enable Bedrock Models
+
+In the AWS Console:
+
+1. Go to **Amazon Bedrock** → **Model access**
+2. Enable the models you want to use:
+    - Anthropic Claude (Sonnet, Haiku)
+    - Amazon Nova
+    - Meta Llama
+    - Mistral
+
+## Optional: Static Analysis Tools
+
+For enhanced Blue Team capabilities, install:
+
+=== "Trivy"
+
+    ```bash
+    # macOS
+    brew install trivy
+    
+    # Linux
+    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+    ```
+
+=== "Checkov"
+
+    ```bash
+    pip install checkov
+    ```
+
+## Development Install
+
+For contributing to the framework:
+
+```bash
+# Install with dev dependencies
+pip install -e ".[dev]"
+
+# Run tests
+pytest
+
+# Run linting
+ruff check src/
+```
+
+## Docker (Coming Soon)
+
+```bash
+docker pull brianterry/adversarial-iac-bench
+docker run -it adversarial-iac-bench game --help
+```
 
 ## Next Steps
 
 - [Quick Start Guide](quickstart.md) - Run your first game
-- [CLI Reference](../guide/cli.md) - All available commands
-- [Configuration](../guide/configuration.md) - Customize experiments
+- [Configuration](configuration.md) - Customize settings

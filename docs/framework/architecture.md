@@ -1,271 +1,168 @@
 # Architecture
 
-The framework consists of four core components that work together to run adversarial evaluations.
+AdversarialIaC-Bench uses a three-agent adversarial architecture to evaluate LLM security capabilities.
 
-## System Architecture
+## Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              GAME ENGINE                                     │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                        Orchestration Layer                           │    │
-│  │  • Loads configuration       • Manages game state                   │    │
-│  │  • Coordinates agents        • Collects results                     │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                    │                                         │
-│         ┌──────────────────────────┼──────────────────────────┐             │
-│         │                          │                          │             │
-│         ▼                          ▼                          ▼             │
-│  ┌─────────────┐           ┌─────────────┐           ┌─────────────┐        │
-│  │  RED TEAM   │           │  BLUE TEAM  │           │    JUDGE    │        │
-│  │   AGENT     │           │    AGENT    │           │    AGENT    │        │
-│  │             │           │             │           │             │        │
-│  │ ┌─────────┐ │  Code     │ ┌─────────┐ │ Findings  │ ┌─────────┐ │        │
-│  │ │   LLM   │─┼──────────►│ │   LLM   │─┼─────────►│ │ Matcher │ │        │
-│  │ └─────────┘ │           │ └─────────┘ │           │ └─────────┘ │        │
-│  │ ┌─────────┐ │           │ ┌─────────┐ │           │ ┌─────────┐ │        │
-│  │ │  Vuln   │ │  Manifest │ │  Tools  │ │           │ │ Metrics │ │        │
-│  │ │   DB    │─┼─ ─ ─ ─ ─ ─│ │(optional)│           │ │ Engine  │ │        │
-│  │ └─────────┘ │  (secret) │ └─────────┘ │           │ └─────────┘ │        │
-│  └─────────────┘           └─────────────┘           └─────────────┘        │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-                          ┌─────────────────┐
-                          │    RESULTS      │
-                          │  • Metrics      │
-                          │  • Artifacts    │
-                          │  • Analysis     │
-                          └─────────────────┘
+```mermaid
+sequenceDiagram
+    participant S as Scenario
+    participant R as 🔴 Red Team
+    participant B as 🔵 Blue Team
+    participant J as ⚖️ Judge
+    participant M as 📊 Metrics
+
+    S->>R: Scenario + Difficulty
+    R->>R: Generate IaC with vulnerabilities
+    R->>B: IaC Code
+    R->>J: Vulnerability Manifest
+    B->>B: Analyze code
+    B->>J: Findings
+    J->>J: Match findings to vulnerabilities
+    J->>M: Precision, Recall, F1, Evasion
 ```
 
-## Component Details
+## Core Components
 
-### 1. Game Engine
+### 1. Scenario
 
-The orchestration layer that coordinates all components.
+A scenario describes the infrastructure to create:
 
-**Responsibilities:**
-- Load experiment configuration
-- Initialize agents with specified models
-- Execute game protocol (Red → Blue → Judge)
-- Manage artifacts and results
-- Support batch experiments
-
-**Key Classes:**
 ```python
-class GameEngine:
-    """Orchestrates adversarial games"""
-    
-    def __init__(self, config: GameConfig):
-        self.red_team = RedTeamAgent(config.red_model)
-        self.blue_team = BlueTeamAgent(config.blue_model)
-        self.judge = JudgeAgent()
-    
-    async def play(self, scenario: str) -> GameResult:
-        # 1. Red Team generates adversarial code
-        red_output = await self.red_team.generate(scenario)
-        
-        # 2. Blue Team analyzes (only sees code, not manifest)
-        blue_findings = await self.blue_team.analyze(red_output.code)
-        
-        # 3. Judge scores the match
-        scores = self.judge.score(red_output.manifest, blue_findings)
-        
-        return GameResult(red_output, blue_findings, scores)
+Scenario(
+    id="s3-healthcare",
+    description="Create an S3 bucket for healthcare PHI data",
+    domain="storage",
+    cloud_provider="aws",
+    language="terraform",
+    difficulty="medium"
+)
 ```
 
 ### 2. Red Team Agent
 
-Generates adversarial Infrastructure-as-Code with hidden vulnerabilities.
+The Red Team's goal is to **inject vulnerabilities that evade detection**.
 
-**Responsibilities:**
-- Generate legitimate-looking IaC code
-- Inject vulnerabilities using stealth techniques
-- Produce ground truth manifest
-- Adapt strategy based on difficulty
+**Inputs:**
 
-**Architecture:**
-```
-┌─────────────────────────────────────────────────────┐
-│                  RED TEAM AGENT                      │
-│                                                      │
-│  ┌──────────────┐    ┌──────────────┐               │
-│  │   Scenario   │───►│    Prompt    │               │
-│  │    Input     │    │   Builder    │               │
-│  └──────────────┘    └──────┬───────┘               │
-│                             │                        │
-│  ┌──────────────┐           ▼                        │
-│  │ Vulnerability│    ┌──────────────┐               │
-│  │   Database   │───►│     LLM      │               │
-│  │  (142 rules) │    │   Generator  │               │
-│  └──────────────┘    └──────┬───────┘               │
-│                             │                        │
-│  ┌──────────────┐           ▼                        │
-│  │  Difficulty  │    ┌──────────────┐               │
-│  │   Settings   │───►│   Output     │───► Code +    │
-│  │              │    │   Parser     │     Manifest  │
-│  └──────────────┘    └──────────────┘               │
-└─────────────────────────────────────────────────────┘
-```
+- Scenario description
+- Difficulty level (easy/medium/hard)
+- Target language (Terraform/CloudFormation)
 
-**Stealth Techniques by Difficulty:**
+**Outputs:**
 
-| Difficulty | Techniques |
-|------------|------------|
-| Easy | Basic misconfigurations (missing encryption, public access) |
-| Medium | Misleading comments, subtle omissions, valid-looking defaults |
-| Hard | Chained vulnerabilities, misdirection, security-looking insecure code |
+- IaC code with vulnerabilities
+- Vulnerability manifest (ground truth)
+- Stealth score
+
+**Strategy by Difficulty:**
+
+| Difficulty | Vulnerabilities | Techniques |
+|------------|-----------------|------------|
+| Easy | 2-3 obvious | Missing encryption, public access |
+| Medium | 3-4 mixed | Overly permissive IAM, weak defaults |
+| Hard | 4-5 stealthy | Dynamic references, conditional misconfig |
 
 ### 3. Blue Team Agent
 
-Analyzes code to detect security vulnerabilities.
+The Blue Team's goal is to **detect all vulnerabilities**.
 
-**Responsibilities:**
-- Parse and understand IaC code
-- Identify security issues
-- Report findings with evidence
-- Support multiple detection modes
+**Inputs:**
 
-**Architecture:**
-```
-┌─────────────────────────────────────────────────────┐
-│                  BLUE TEAM AGENT                     │
-│                                                      │
-│  ┌──────────────┐                                    │
-│  │  Code Input  │                                    │
-│  └──────┬───────┘                                    │
-│         │                                            │
-│         ▼                                            │
-│  ┌──────────────────────────────────────────┐       │
-│  │           Detection Pipeline              │       │
-│  │                                           │       │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  │       │
-│  │  │   LLM   │  │  Trivy  │  │ Checkov │  │       │
-│  │  │ Analysis│  │  Scan   │  │  Scan   │  │       │
-│  │  └────┬────┘  └────┬────┘  └────┬────┘  │       │
-│  │       │            │            │        │       │
-│  │       └────────────┼────────────┘        │       │
-│  │                    ▼                     │       │
-│  │            ┌─────────────┐               │       │
-│  │            │   Merger/   │               │       │
-│  │            │ Deduplicator│               │       │
-│  │            └──────┬──────┘               │       │
-│  └───────────────────┼──────────────────────┘       │
-│                      ▼                               │
-│               ┌─────────────┐                        │
-│               │  Findings   │                        │
-│               └─────────────┘                        │
-└─────────────────────────────────────────────────────┘
-```
+- IaC code (without manifest)
 
-**Detection Modes:**
+**Outputs:**
 
-| Mode | Components | Use Case |
-|------|------------|----------|
-| `llm_only` | LLM semantic analysis | Research on LLM capabilities |
-| `tools_only` | Trivy + Checkov | Baseline static analysis |
-| `hybrid` | LLM + Tools | Combined detection study |
+- List of findings
+- Confidence scores
+- Evidence and remediation
+
+**Detection Methods:**
+
+- LLM analysis (always)
+- Static analysis tools (Trivy, Checkov) - optional
 
 ### 4. Judge Agent
 
-Scores matches between ground truth and detections.
+The Judge **matches findings to vulnerabilities** and calculates metrics.
 
-**Responsibilities:**
-- Compare Red Team manifest to Blue Team findings
-- Compute matching scores
-- Calculate metrics (precision, recall, F1, evasion)
-- Handle partial matches
+**Matching Algorithm:**
 
-**Architecture:**
+```python
+for finding in blue_findings:
+    for vuln in red_manifest:
+        score = calculate_match_score(finding, vuln)
+        if score > threshold:
+            match(finding, vuln)
 ```
-┌─────────────────────────────────────────────────────┐
-│                    JUDGE AGENT                       │
-│                                                      │
-│  ┌──────────────┐       ┌──────────────┐            │
-│  │ Red Manifest │       │ Blue Findings│            │
-│  │ (Ground Truth)       │ (Detections) │            │
-│  └──────┬───────┘       └──────┬───────┘            │
-│         │                      │                     │
-│         └──────────┬───────────┘                     │
-│                    ▼                                 │
-│         ┌─────────────────────┐                      │
-│         │   Matching Engine   │                      │
-│         │                     │                      │
-│         │ • Category matching │                      │
-│         │ • Resource matching │                      │
-│         │ • Keyword similarity│                      │
-│         │ • Severity matching │                      │
-│         └──────────┬──────────┘                      │
-│                    │                                 │
-│                    ▼                                 │
-│         ┌─────────────────────┐                      │
-│         │   Greedy Assignment │                      │
-│         │                     │                      │
-│         │ Match highest scores│                      │
-│         │ first, no duplicates│                      │
-│         └──────────┬──────────┘                      │
-│                    │                                 │
-│                    ▼                                 │
-│         ┌─────────────────────┐                      │
-│         │   Metrics Engine    │                      │
-│         │                     │                      │
-│         │ TP, FP, FN → P, R, F1                     │
-│         └─────────────────────┘                      │
-└─────────────────────────────────────────────────────┘
-```
+
+**Match Factors:**
+
+- Resource name similarity
+- Vulnerability type match
+- Title/description semantic similarity
+- Line number proximity
 
 ## Data Flow
 
 ```
-1. Configuration
-   ├── Scenario: "Create S3 bucket for PHI data"
-   ├── Red Model: claude-3-5-sonnet
-   ├── Blue Model: claude-3-5-haiku
-   └── Difficulty: hard
-
-2. Red Team Output
-   ├── main.tf (Terraform code)
-   └── manifest.json
-       └── vulnerabilities: [
-             {id: "v1", type: "encryption", resource: "aws_s3_bucket.data"},
-             {id: "v2", type: "public_access", resource: "aws_s3_bucket.data"}
-           ]
-
-3. Blue Team Input (code only, no manifest)
-   └── main.tf
-
-4. Blue Team Output
-   └── findings: [
-         {type: "encryption", resource: "aws_s3_bucket.data", severity: "HIGH"},
-         {type: "logging", resource: "aws_s3_bucket.data", severity: "MEDIUM"}
-       ]
-
-5. Judge Scoring
-   ├── Match: v1 ↔ finding[0] (score: 0.85) ✓
-   ├── Miss: v2 (no match above threshold) ✗
-   └── False Positive: finding[1] (not in manifest)
-
-6. Results
-   ├── TP: 1, FP: 1, FN: 1
-   ├── Precision: 50%, Recall: 50%, F1: 50%
-   └── Evasion Rate: 50%
+┌─────────────────────────────────────────────────────────────────┐
+│                         Game Engine                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐  │
+│  │ Scenario │───▶│ Red Team │───▶│Blue Team │───▶│  Judge   │  │
+│  │          │    │          │    │          │    │          │  │
+│  └──────────┘    └────┬─────┘    └────┬─────┘    └────┬─────┘  │
+│                       │               │               │        │
+│                       ▼               ▼               ▼        │
+│                  ┌─────────┐    ┌─────────┐    ┌─────────┐     │
+│                  │  Code   │    │Findings │    │ Scoring │     │
+│                  │Manifest │    │         │    │ Metrics │     │
+│                  └─────────┘    └─────────┘    └─────────┘     │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-## Extensibility Points
+## Scoring Metrics
 
-Each component exposes interfaces for customization:
+### Precision
 
-| Component | Extension Interface | Example |
-|-----------|---------------------|---------|
-| Red Team | `RedTeamStrategy` | Custom vulnerability injection |
-| Blue Team | `DetectionPipeline` | Add new analysis tools |
-| Judge | `MatchingAlgorithm` | Semantic embedding matching |
-| Game Engine | `GameProtocol` | Multi-round games |
+$$\text{Precision} = \frac{\text{True Positives}}{\text{True Positives} + \text{False Positives}}$$
+
+*What fraction of Blue Team findings were actual vulnerabilities?*
+
+### Recall
+
+$$\text{Recall} = \frac{\text{True Positives}}{\text{True Positives} + \text{False Negatives}}$$
+
+*What fraction of injected vulnerabilities were detected?*
+
+### F1 Score
+
+$$F1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}$$
+
+*Harmonic mean of precision and recall.*
+
+### Evasion Rate
+
+$$\text{Evasion Rate} = 1 - \text{Recall} = \frac{\text{False Negatives}}{\text{Total Vulnerabilities}}$$
+
+*What fraction of vulnerabilities evaded detection?*
+
+## Extension Points
+
+The framework is designed to be extended:
+
+| Component | How to Extend |
+|-----------|---------------|
+| **Models** | Add new LLM providers in `src/llm.py` |
+| **Scenarios** | Add domain templates in `src/prompts.py` |
+| **Vulnerabilities** | Add rules in `vendor/trivy_rules_db.json` |
+| **Metrics** | Extend `ScoringResult` in `src/agents/judge_agent.py` |
 
 ## Next Steps
 
-- [Game Protocol](game-protocol.md) - Detailed game flow
-- [Scoring System](scoring.md) - Metrics deep dive
-- [Extending](../extending/overview.md) - Build custom components
+- [Red Team Agent](red-team.md) - Deep dive into attack strategies
+- [Blue Team Agent](blue-team.md) - Detection methods
+- [Multi-Agent Modes](../multi-agent/overview.md) - Ensemble and pipeline

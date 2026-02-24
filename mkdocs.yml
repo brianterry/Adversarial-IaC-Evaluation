@@ -1,78 +1,83 @@
-site_name: Adversarial IaC Eval
-site_description: A game-theoretic framework for evaluating LLM security capabilities in Infrastructure-as-Code
-site_author: Brian Terry
-site_url: https://brianterry.github.io/Adversarial-IaC-Evaluation/
-
-repo_name: brianterry/Adversarial-IaC-Evaluation
+site_name: AdversarialIaC-Bench
+site_description: A Framework for Evaluating LLM Security Capabilities in Infrastructure-as-Code
+site_url: https://brianterry.github.io/Adversarial-IaC-Evaluation
 repo_url: https://github.com/brianterry/Adversarial-IaC-Evaluation
+repo_name: brianterry/Adversarial-IaC-Evaluation
 
 theme:
   name: material
   palette:
-    - scheme: slate
-      primary: deep purple
-      accent: amber
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
-    - scheme: default
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
       primary: deep purple
       accent: amber
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
   features:
     - navigation.instant
     - navigation.tracking
+    - navigation.tabs
     - navigation.sections
     - navigation.expand
     - navigation.top
-    - navigation.tabs
+    - navigation.indexes
     - search.highlight
     - search.share
     - content.code.copy
     - content.code.annotate
+    - toc.integrate  # Integrates TOC into left sidebar instead of right
   icon:
     repo: fontawesome/brands/github
-    logo: material/shield-sword
-  font:
-    text: IBM Plex Sans
-    code: JetBrains Mono
+  logo: assets/logo.svg
+  favicon: assets/favicon.ico
 
-nav:
-  - Home: index.md
-  - Framework:
-    - Overview: framework/overview.md
-    - Architecture: framework/architecture.md
-    - Game Protocol: framework/game-protocol.md
-    - Scoring System: framework/scoring.md
-  - Getting Started:
-    - Installation: getting-started/installation.md
-    - Quick Start: getting-started/quickstart.md
-    - Configuration: getting-started/configuration.md
-  - Extending:
-    - Overview: extending/overview.md
-    - Custom Scenarios: extending/scenarios.md
-    - Custom Models: extending/models.md
-    - Custom Metrics: extending/metrics.md
-    - Custom Agents: extending/agents.md
-  - Example Studies:
-    - Overview: studies/overview.md
-    - Model Comparison: studies/model-comparison.md
-    - Tool Comparison: studies/tool-comparison.md
-  - API Reference:
-    - Red Team Agent: api/red-team.md
-    - Blue Team Agent: api/blue-team.md
-    - Judge Agent: api/judge.md
-    - Game Engine: api/game-engine.md
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
 
 markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  - pymdownx.keys
+  - pymdownx.magiclink
+  - pymdownx.mark
+  - pymdownx.smartsymbols
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -80,28 +85,54 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
-  - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
-  - admonition
-  - pymdownx.details
-  - attr_list
-  - md_in_html
-  - tables
-  - def_list
   - pymdownx.tasklist:
       custom_checkbox: true
-  - toc:
-      permalink: true
-
-plugins:
-  - search
-  - tags
+  - pymdownx.tilde
 
 extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/brianterry/Adversarial-IaC-Evaluation
-  generator: false
+  analytics:
+    provider: google
+    property: G-XXXXXXXXXX  # Add your GA4 property if desired
 
-copyright: Copyright &copy; 2026 Brian Terry
+extra_css:
+  - stylesheets/extra.css
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - Configuration: getting-started/configuration.md
+  - Framework:
+    - Architecture: framework/architecture.md
+    - Red Team Agent: framework/red-team.md
+    - Blue Team Agent: framework/blue-team.md
+    - Judge Agent: framework/judge.md
+    - Scoring Metrics: framework/metrics.md
+  - Multi-Agent Modes:
+    - Overview: multi-agent/overview.md
+    - Blue Team Ensemble: multi-agent/blue-ensemble.md
+    - Red Team Pipeline: multi-agent/red-pipeline.md
+    - Adversarial Debate: multi-agent/debate.md
+  - Running Experiments:
+    - Single Games: experiments/single-game.md
+    - Batch Experiments: experiments/batch.md
+    - Cloud Deployment: experiments/cloud.md
+    - Analyzing Results: experiments/analysis.md
+  - Extending:
+    - Adding Models: extending/models.md
+    - Custom Scenarios: extending/scenarios.md
+    - New Vulnerability Types: extending/vulnerabilities.md
+  - API Reference:
+    - Game Engine: api/engine.md
+    - Agents: api/agents.md
+    - Prompts: api/prompts.md
+  - Research:
+    - Citation: research/citation.md
+    - Publications: research/publications.md
+    - Contributing: research/contributing.md
+
+copyright: Copyright &copy; 2024-2026 Brian Terry
