@@ -67,6 +67,9 @@ htmlcov/
 *.tfstate.*
 .terraform/
 
+# MkDocs documentation
+site/
+
 # Keep these directories but ignore contents
 !experiments/
 !data/
