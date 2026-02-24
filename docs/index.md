@@ -1,95 +1,145 @@
-# Adversarial IaC Evaluation
+# Adversarial IaC Eval
 
-**Red Team vs Blue Team evaluation framework for LLM security in Infrastructure-as-Code**
+<p style="font-size: 1.3em; color: #888;">
+A game-theoretic framework for evaluating LLM security capabilities in Infrastructure-as-Code
+</p>
+
+---
+
+## The Problem
+
+Evaluating LLM security capabilities faces a fundamental challenge: **the labeled data problem**.
+
+- Vulnerable code samples are hard to collect ethically
+- Ground truth labels require expensive expert annotation
+- Static datasets become stale and don't reflect real-world complexity
+- No standardized methodology for adversarial security evaluation
+
+## Our Solution
+
+**Adversarial IaC Eval** introduces a game-theoretic framework where LLMs compete against each other, automatically generating both vulnerable code and ground truth labels.
+
+```
+┌──────────────┐         ┌──────────────┐         ┌──────────────┐
+│  🔴 RED TEAM │ ──────► │  🔵 BLUE TEAM │ ──────► │  ⚖️ JUDGE    │
+│   (Attack)   │  Code   │   (Defend)   │ Results │   (Score)    │
+│              │         │              │         │              │
+│ • Generates  │         │ • Analyzes   │         │ • Compares   │
+│   vulnerable │         │   code for   │         │   findings   │
+│   IaC code   │         │   security   │         │   to ground  │
+│ • Provides   │         │   issues     │         │   truth      │
+│   ground     │         │              │         │ • Computes   │
+│   truth      │         │              │         │   metrics    │
+└──────────────┘         └──────────────┘         └──────────────┘
+```
+
+## Why Use This Framework?
 
 <div class="grid cards" markdown>
 
--   :material-sword:{ .lg .middle } **Red Team Agent**
+-   :material-infinity:{ .lg .middle } **Infinite Scalability**
 
     ---
 
-    Generates plausible but vulnerable IaC that attempts to evade detection
+    Generate unlimited test cases without manual labeling. Each game produces new vulnerable code with automatic ground truth.
 
-    [:octicons-arrow-right-24: Learn more](concepts/game-flow.md)
-
--   :material-shield:{ .lg .middle } **Blue Team Agent**
+-   :material-target:{ .lg .middle } **True Adversarial Testing**
 
     ---
 
-    Detects vulnerabilities using LLM reasoning and static analysis tools
+    Red Team actively tries to evade detection, stress-testing security capabilities under realistic attack conditions.
 
-    [:octicons-arrow-right-24: Learn more](concepts/game-flow.md)
-
--   :material-scale-balance:{ .lg .middle } **Judge System**
+-   :material-swap-horizontal:{ .lg .middle } **Model Comparison**
 
     ---
 
-    Scores matches between injected vulnerabilities and detections
+    Compare any LLM against any other. Test if models can find their own vulnerabilities or defend against different attackers.
 
-    [:octicons-arrow-right-24: Scoring details](concepts/scoring.md)
-
--   :material-chart-line:{ .lg .middle } **Research Insights**
+-   :material-puzzle:{ .lg .middle } **Extensible Design**
 
     ---
 
-    Discover findings from our adversarial evaluation experiments
-
-    [:octicons-arrow-right-24: View findings](research/findings.md)
+    Plug in custom scenarios, models, metrics, and agents. Build on the framework for your own research.
 
 </div>
 
-## Research Question
+## Framework Components
 
-> *How well can LLMs generate and detect security vulnerabilities in Infrastructure-as-Code?*
+| Component | Role | Extensible |
+|-----------|------|------------|
+| **Red Team Agent** | Generates adversarial IaC with hidden vulnerabilities | ✅ Custom attack strategies |
+| **Blue Team Agent** | Detects security issues in code | ✅ Custom detection modes |
+| **Judge Agent** | Scores matches between ground truth and findings | ✅ Custom matching algorithms |
+| **Game Engine** | Orchestrates games and experiments | ✅ Custom game protocols |
+| **Scenario Generator** | Creates infrastructure scenarios | ✅ Custom domains |
 
-This project implements a game-theoretic evaluation framework where:
+## Quick Example
 
-1. **Red Team** (attacker) generates Terraform code with hidden vulnerabilities
-2. **Blue Team** (defender) attempts to detect all security flaws
-3. **Judge** scores the match using precision, recall, and F1 metrics
+```python
+from adversarial_iac_eval import Game, Difficulty
 
-## Key Findings
+# Run a single game
+game = Game(
+    red_model="claude-3-5-sonnet",
+    blue_model="claude-3-5-haiku",
+    difficulty=Difficulty.HARD
+)
 
-| Metric | Value | Interpretation |
-|--------|-------|----------------|
-| **Avg F1 Score** | 58.6% | Moderate detection effectiveness |
-| **Avg Evasion Rate** | 23.8% | ~1 in 4 vulnerabilities escape detection |
-| **Trivy Detection** | 0% | Static tools miss LLM-generated vulnerabilities |
+results = await game.play(
+    scenario="Create S3 bucket for healthcare PHI data"
+)
 
-!!! warning "Critical Finding"
-    **Trivy found zero vulnerabilities** in LLM-generated code, while LLMs achieved 59% detection—demonstrating a fundamental semantic gap between pattern-matching and reasoning-based security analysis.
-
-## Quick Start
-
-```bash
-# Clone with submodule
-git clone --recursive https://github.com/brianterry/Adversarial-IaC-Evaluation.git
-cd Adversarial-IaC-Evaluation
-
-# Setup
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-
-# Run a game
-python -m src.cli game \
-    --scenario "Create S3 bucket for PHI data" \
-    --difficulty medium
+print(f"Red injected: {results.vulnerabilities_injected}")
+print(f"Blue detected: {results.vulnerabilities_found}")
+print(f"Evasion rate: {results.evasion_rate:.1%}")
 ```
 
-[:material-rocket-launch: Get Started](getting-started/installation.md){ .md-button .md-button--primary }
-[:material-github: View on GitHub](https://github.com/brianterry/Adversarial-IaC-Evaluation){ .md-button }
+## Research Applications
 
-## Why This Research Matters
+This framework enables multiple research directions:
 
-This work introduces the **first adversarial game-theoretic framework** for evaluating LLM security capabilities in Infrastructure-as-Code. Unlike existing benchmarks that rely on static vulnerability datasets, our approach **generates its own ground truth** through Red Team manifests—solving the critical problem of labeled data scarcity in IaC security research.
+- **Model Capability Studies**: Which models are better at attack vs defense?
+- **Difficulty Scaling**: How does stealth technique sophistication affect detection?
+- **Tool Comparison**: How do LLMs compare to static analysis tools?
+- **Multi-Agent Systems**: Can agent collaboration improve security?
+- **Cross-Domain Analysis**: Are some infrastructure domains harder to secure?
+
+## Get Started
+
+<div class="grid cards" markdown>
+
+-   [:material-download: **Installation**](getting-started/installation.md)
+
+    Set up the framework in 5 minutes
+
+-   [:material-rocket-launch: **Quick Start**](getting-started/quickstart.md)
+
+    Run your first adversarial game
+
+-   [:material-cog: **Architecture**](framework/architecture.md)
+
+    Understand how components work together
+
+-   [:material-puzzle-plus: **Extending**](extending/overview.md)
+
+    Build on the framework for your research
+
+</div>
 
 ## Citation
 
+If you use this framework in your research, please cite:
+
 ```bibtex
-@inproceedings{terry2025adversarial,
-  title={Adversarial Evaluation of Multi-Agent LLM Systems 
-         for Secure Infrastructure-as-Code},
-  author={Terry, Brian},
-  year={2025}
+@software{terry2026adversarial_iac_eval,
+  author = {Terry, Brian},
+  title = {Adversarial IaC Eval: A Game-Theoretic Framework for 
+           Evaluating LLM Security in Infrastructure-as-Code},
+  year = {2026},
+  url = {https://github.com/brianterry/Adversarial-IaC-Evaluation}
 }
 ```
+
+## License
+
+MIT License - Use freely for research and commercial applications.

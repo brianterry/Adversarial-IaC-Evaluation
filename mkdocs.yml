@@ -1,5 +1,5 @@
-site_name: Adversarial IaC Evaluation
-site_description: Red Team vs Blue Team evaluation framework for LLM security in Infrastructure-as-Code
+site_name: Adversarial IaC Eval
+site_description: A game-theoretic framework for evaluating LLM security capabilities in Infrastructure-as-Code
 site_author: Brian Terry
 site_url: https://brianterry.github.io/Adversarial-IaC-Evaluation/
 
@@ -10,14 +10,14 @@ theme:
   name: material
   palette:
     - scheme: slate
-      primary: red
-      accent: blue
+      primary: deep purple
+      accent: amber
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
     - scheme: default
-      primary: red
-      accent: blue
+      primary: deep purple
+      accent: amber
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
@@ -27,37 +27,44 @@ theme:
     - navigation.sections
     - navigation.expand
     - navigation.top
+    - navigation.tabs
     - search.highlight
     - search.share
     - content.code.copy
     - content.code.annotate
   icon:
     repo: fontawesome/brands/github
+    logo: material/shield-sword
   font:
-    text: Inter
+    text: IBM Plex Sans
     code: JetBrains Mono
 
 nav:
   - Home: index.md
+  - Framework:
+    - Overview: framework/overview.md
+    - Architecture: framework/architecture.md
+    - Game Protocol: framework/game-protocol.md
+    - Scoring System: framework/scoring.md
   - Getting Started:
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
-  - How It Works:
-    - Game Flow: concepts/game-flow.md
-    - Scoring System: concepts/scoring.md
-    - Judge Algorithm: concepts/judge.md
-  - User Guide:
-    - CLI Reference: guide/cli.md
-    - Configuration: guide/configuration.md
-    - Running Experiments: guide/experiments.md
-  - Research:
-    - Findings: research/findings.md
-    - Tool Comparison: research/tool-comparison.md
-    - Novelty: research/novelty.md
+    - Configuration: getting-started/configuration.md
+  - Extending:
+    - Overview: extending/overview.md
+    - Custom Scenarios: extending/scenarios.md
+    - Custom Models: extending/models.md
+    - Custom Metrics: extending/metrics.md
+    - Custom Agents: extending/agents.md
+  - Example Studies:
+    - Overview: studies/overview.md
+    - Model Comparison: studies/model-comparison.md
+    - Tool Comparison: studies/tool-comparison.md
   - API Reference:
     - Red Team Agent: api/red-team.md
     - Blue Team Agent: api/blue-team.md
     - Judge Agent: api/judge.md
+    - Game Engine: api/game-engine.md
 
 markdown_extensions:
   - pymdownx.highlight:
@@ -81,6 +88,9 @@ markdown_extensions:
   - attr_list
   - md_in_html
   - tables
+  - def_list
+  - pymdownx.tasklist:
+      custom_checkbox: true
   - toc:
       permalink: true
 
