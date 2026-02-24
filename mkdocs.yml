@@ -46,10 +46,6 @@ theme:
 
 plugins:
   - search
-  - mkdocstrings:
-      handlers:
-        python:
-          paths: [src]
 
 markdown_extensions:
   - abbr
