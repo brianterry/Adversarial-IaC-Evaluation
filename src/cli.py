@@ -807,6 +807,12 @@ def score(red_dir: str, blue_dir: str, output_dir: str):
     help="Verification mode: standard judge or adversarial debate",
 )
 @click.option(
+    "--no-llm-judge",
+    is_flag=True,
+    default=False,
+    help="Disable LLM for ambiguous matches (faster but less accurate)",
+)
+@click.option(
     "--red-strategy",
     type=click.Choice(["balanced", "targeted", "stealth", "blitz", "chained"]),
     default="balanced",
@@ -866,6 +872,7 @@ def game(
     blue_team_mode: str,
     consensus_method: str,
     verification_mode: str,
+    no_llm_judge: bool,
     red_strategy: str,
     red_target_type: str,
     blue_strategy: str,
@@ -958,6 +965,7 @@ def game(
                 blue_team_mode=blue_team_mode,
                 consensus_method=consensus_method,
                 verification_mode=verification_mode,
+                use_llm_judge=not no_llm_judge,
                 red_strategy=red_strategy,
                 red_target_type=red_target_type,
                 blue_strategy=blue_strategy,
@@ -985,6 +993,7 @@ async def _run_game(
     blue_team_mode: str,
     consensus_method: str,
     verification_mode: str,
+    use_llm_judge: bool = False,
     red_strategy: str = "balanced",
     red_target_type: str = None,
     blue_strategy: str = "comprehensive",
@@ -1043,6 +1052,7 @@ async def _run_game(
         compliance_framework=compliance_framework,
         blue_iterations=blue_iterations,
         verification_mode=verification_mode,
+        use_llm_judge=use_llm_judge,
     )
     
     # Run game
@@ -1434,6 +1444,7 @@ def play():
     blue_team_mode = "single"
     consensus_method = "debate"
     verification_mode = "standard"
+    use_llm_judge = True  # Default to hybrid mode for better accuracy
     red_strategy = "balanced"
     red_target_type = None
     blue_strategy = "comprehensive"
@@ -1587,6 +1598,16 @@ def play():
             ],
             style=custom_style,
         ).ask() or "standard"
+        
+        # LLM Judge option (only for standard mode, enabled by default)
+        use_llm_judge = True  # Default to hybrid mode
+        if verification_mode == "standard":
+            disable_llm_judge = questionary.confirm(
+                "Disable LLM for ambiguous matches? (faster but less accurate)",
+                default=False,
+                style=custom_style,
+            ).ask() or False
+            use_llm_judge = not disable_llm_judge
     
     console.print()
     
@@ -1614,6 +1635,13 @@ def play():
     # Language display
     language_display = "Terraform (HCL)" if language == "terraform" else "CloudFormation (YAML)"
     
+    # Build verification display
+    verification_display = verification_mode
+    if use_llm_judge:
+        verification_display += " (hybrid)"
+    else:
+        verification_display += " (rule-based only)"
+    
     # Confirmation
     console.print(Panel.fit(
         f"[bold]Scenario:[/] {scenario[:60]}{'...' if len(scenario) > 60 else ''}\n"
@@ -1622,7 +1650,7 @@ def play():
         f"[bold]Red Team:[/] {red_model.split('.')[-1][:30]} ({red_team_mode}, {red_strategy_display})\n"
         f"[bold]Blue Team:[/] {blue_model.split('.')[-1][:30]} ({blue_team_mode}, {blue_strategy_display})\n"
         f"[bold]Static Tools:[/] {tools_display}\n"
-        f"[bold]Verification:[/] {verification_mode}",
+        f"[bold]Verification:[/] {verification_display}",
         title="Game Configuration",
         border_style="cyan",
     ))
@@ -1762,6 +1790,7 @@ async def _run_interactive_game(
         compliance_framework=compliance_framework,
         blue_iterations=blue_iterations,
         verification_mode=verification_mode,
+        use_llm_judge=use_llm_judge,
     )
     
     # Run game with progress

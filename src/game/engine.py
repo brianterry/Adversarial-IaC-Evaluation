@@ -71,6 +71,9 @@ class GameConfig:
     
     # Verification mode configuration
     verification_mode: str = "standard"  # "standard" or "debate"
+    
+    # Judge configuration
+    use_llm_judge: bool = True  # Use LLM fallback for ambiguous matches (hybrid mode, recommended)
 
 
 @dataclass
@@ -140,9 +143,27 @@ class GameEngine:
         self.output_dir = Path(output_dir)
         self.region = region
         self.logger = logging.getLogger("GameEngine")
-        self.judge = JudgeAgent()
+        self._judge = None  # Lazy initialization based on config
         self._game_log_buffer: Optional[io.StringIO] = None
         self._game_log_handler: Optional[logging.Handler] = None
+    
+    def _get_judge(self, config: 'GameConfig') -> JudgeAgent:
+        """Get or create JudgeAgent with appropriate configuration."""
+        if config.use_llm_judge:
+            # Create LLM for judge
+            from langchain_aws import ChatBedrockConverse
+            
+            judge_llm = ChatBedrockConverse(
+                model=config.blue_model,  # Use Blue Team model for judging
+                region_name=config.region,
+            )
+            self.logger.info(f"Using LLM judge with {config.blue_model} for ambiguous matches")
+            return JudgeAgent(llm=judge_llm, use_llm_matching=True)
+        else:
+            # Use simple rule-based judge
+            if self._judge is None:
+                self._judge = JudgeAgent()
+            return self._judge
 
     def _start_game_logging(self, game_id: str) -> None:
         """
@@ -403,9 +424,10 @@ class GameEngine:
                 f"{len(debate_output.rejected_findings)} rejected"
             )
         else:
-            # Phase 3b: Standard Judge Scoring
+            # Phase 3b: Standard Judge Scoring (with optional LLM hybrid mode)
             self.logger.info("Phase 3: Judge scoring match")
-            scoring = self.judge.score(manifest_dicts, findings_dicts)
+            judge = self._get_judge(config)
+            scoring = judge.score(manifest_dicts, findings_dicts)
         
         total_time = (datetime.now() - start_time).total_seconds()
         

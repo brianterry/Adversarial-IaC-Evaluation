@@ -10,11 +10,15 @@ This agent:
 Uses optimal bipartite matching (Hungarian algorithm) to find the best
 global assignment between vulnerabilities and findings.
 
+Supports hybrid mode: rule-based matching for clear cases, LLM fallback
+for ambiguous matches (when use_llm_matching=True).
+
 Part of the Adversarial IaC Evaluation framework.
 """
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -23,6 +27,8 @@ from scipy.optimize import linear_sum_assignment
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
+
+from src.prompts import JudgeLLMPrompts
 
 
 @dataclass
@@ -69,6 +75,11 @@ class JudgeAgent:
     4. Optional LLM-based semantic matching
     """
 
+    # Thresholds for hybrid matching
+    CLEAR_MATCH_THRESHOLD = 0.7  # Above this = clear match, no LLM needed
+    AMBIGUOUS_LOWER = 0.3  # Below this = clear miss
+    AMBIGUOUS_UPPER = 0.7  # Between lower and upper = ambiguous, use LLM
+    
     def __init__(
         self,
         llm: Optional[BaseChatModel] = None,
@@ -84,6 +95,9 @@ class JudgeAgent:
         self.llm = llm
         self.use_llm_matching = use_llm_matching and llm is not None
         self.logger = logging.getLogger("JudgeAgent")
+        
+        if self.use_llm_matching:
+            self.logger.info("LLM matching enabled for ambiguous cases")
 
     def score(
         self,
@@ -129,12 +143,32 @@ class JudgeAgent:
             # Build score matrix (we'll convert to cost for Hungarian algorithm)
             score_matrix = np.zeros((n_red, n_blue))
             match_type_matrix = [[None] * n_blue for _ in range(n_red)]
+            explanation_matrix = [[None] * n_blue for _ in range(n_red)]
+            
+            # Track ambiguous pairs for LLM evaluation
+            ambiguous_pairs = []
             
             for i, red_vuln in enumerate(red_manifest):
                 for j, blue_finding in enumerate(blue_findings):
                     score, match_type = self._calculate_match_score(red_vuln, blue_finding)
                     score_matrix[i, j] = score
                     match_type_matrix[i][j] = match_type
+                    explanation_matrix[i][j] = None  # Will be filled by LLM if needed
+                    
+                    # Track ambiguous pairs for LLM evaluation
+                    if self.use_llm_matching and self.AMBIGUOUS_LOWER <= score < self.AMBIGUOUS_UPPER:
+                        ambiguous_pairs.append((i, j, red_vuln, blue_finding))
+            
+            # Use LLM to refine ambiguous matches
+            if self.use_llm_matching and ambiguous_pairs:
+                self.logger.info(f"Using LLM to evaluate {len(ambiguous_pairs)} ambiguous pairs")
+                for i, j, red_vuln, blue_finding in ambiguous_pairs:
+                    llm_score, llm_type, llm_explanation = self._evaluate_with_llm(red_vuln, blue_finding)
+                    
+                    # Update matrices with LLM results
+                    score_matrix[i, j] = llm_score
+                    match_type_matrix[i][j] = llm_type
+                    explanation_matrix[i][j] = llm_explanation
             
             # Hungarian algorithm finds minimum cost, so we negate scores
             # to find maximum score assignment
@@ -156,13 +190,18 @@ class JudgeAgent:
                 red_id = red_vuln.get("vuln_id", "unknown")
                 blue_id = blue_finding.get("finding_id", "")
                 
+                # Use LLM explanation if available, otherwise generate one
+                explanation = explanation_matrix[i][j]
+                if explanation is None:
+                    explanation = self._generate_explanation(red_vuln, blue_finding, match_type)
+                
                 if score >= 0.3:  # Minimum threshold for a valid match
                     matches.append(Match(
                         red_vuln_id=red_id,
                         blue_finding_id=blue_id,
                         match_type=match_type,
                         confidence=score,
-                        explanation=self._generate_explanation(red_vuln, blue_finding, match_type),
+                        explanation=explanation,
                     ))
                     matched_blue_ids.add(blue_id)
                     matched_red_ids.add(red_id)
@@ -337,9 +376,14 @@ class JudgeAgent:
         
         # Vulnerability type matching
         # If red_type is "unknown", don't penalize - give partial credit based on title/description
+        security_keywords = [
+            "encrypt", "access", "public", "permiss", "log", "iam",
+            "rotation", "secret", "credential", "key", "password", "token",
+            "exposed", "unencrypt", "wildcard", "unrestrict", "sensitive"
+        ]
         if red_type == "unknown" or red_type == "":
             # Unknown type - give partial credit if titles seem related
-            if any(kw in blue_title or kw in blue_description for kw in ["encrypt", "access", "public", "permiss", "log", "iam"]):
+            if any(kw in blue_title or kw in blue_description for kw in security_keywords):
                 score += 0.1
         elif red_type and blue_type:
             if red_type == blue_type:
@@ -347,10 +391,18 @@ class JudgeAgent:
             elif self._types_related(red_type, blue_type):
                 score += 0.1
         
-        # Attribute/evidence matching
+        # Attribute/evidence matching - normalize for comparison (underscores, spaces, etc.)
         if red_attribute:
-            if red_attribute in blue_evidence:
+            red_attr_normalized = red_attribute.replace("_", " ").replace("-", " ")
+            blue_evidence_normalized = blue_evidence.replace("_", " ").replace("-", " ")
+            blue_title_normalized = blue_title.replace("_", " ").replace("-", " ")
+            blue_desc_normalized = blue_description.replace("_", " ").replace("-", " ")
+            
+            # Check normalized versions
+            if red_attr_normalized in blue_evidence_normalized or red_attribute in blue_evidence:
                 score += 0.2
+            elif red_attr_normalized in blue_title_normalized or red_attr_normalized in blue_desc_normalized:
+                score += 0.15
             elif red_attribute in blue_title or red_attribute in blue_description:
                 score += 0.15
         
@@ -421,6 +473,15 @@ class JudgeAgent:
             ("access_control", "iam"),
             ("network", "access_control"),
             ("logging", "monitoring"),
+            ("data_protection", "iam"),  # Secret rotation relates to data protection
+            ("data_protection", "access_control"),  # Credentials relate to access
+            ("encryption", "access_control"),  # Encryption can be an access control
+            ("unknown", "data_protection"),  # Unknown type should match data_protection
+            ("unknown", "encryption"),  # Unknown type should match encryption
+            ("unknown", "access_control"),  # Unknown type should match access_control
+            ("unknown", "iam"),  # Unknown type should match iam
+            ("unknown", "network"),  # Unknown type should match network
+            ("unknown", "logging"),  # Unknown type should match logging
         }
         
         pair = (type1, type2)
@@ -452,6 +513,106 @@ class JudgeAgent:
             )
         else:
             return f"Missed: Red Team's '{red_title}' on {red_resource} was not detected"
+
+    def _evaluate_with_llm(
+        self,
+        red_vuln: Dict[str, Any],
+        blue_finding: Dict[str, Any],
+    ) -> Tuple[float, str, str]:
+        """
+        Use LLM to evaluate if a vulnerability and finding match.
+        
+        Returns:
+            Tuple of (score, match_type, explanation)
+        """
+        if not self.llm:
+            return 0.0, "missed", "LLM not available"
+        
+        # Format the prompt
+        prompt = JudgeLLMPrompts.SINGLE_PAIR_MATCH.format(
+            red_id=red_vuln.get("vuln_id", "unknown"),
+            red_title=red_vuln.get("title", ""),
+            red_resource=red_vuln.get("resource_name", ""),
+            red_resource_type=red_vuln.get("resource_type", ""),
+            red_type=red_vuln.get("type", "unknown"),
+            red_attribute=red_vuln.get("vulnerable_attribute", ""),
+            red_description=red_vuln.get("title", ""),  # Use title as description
+            blue_id=blue_finding.get("finding_id", ""),
+            blue_title=blue_finding.get("title", ""),
+            blue_resource=blue_finding.get("resource_name", ""),
+            blue_resource_type=blue_finding.get("resource_type", ""),
+            blue_type=blue_finding.get("vulnerability_type", ""),
+            blue_evidence=blue_finding.get("evidence", ""),
+            blue_description=blue_finding.get("description", ""),
+        )
+        
+        try:
+            response = self.llm.invoke([HumanMessage(content=prompt)])
+            response_text = response.content if hasattr(response, 'content') else str(response)
+            
+            # Parse JSON response
+            result = self._parse_llm_response(response_text)
+            
+            match_type = result.get("match_type", "none").lower()
+            confidence = float(result.get("confidence", 0.5))
+            reasoning = result.get("reasoning", "")
+            
+            # Convert LLM match_type to our scoring
+            if match_type == "exact":
+                score = max(0.8, confidence)
+                final_type = "exact"
+            elif match_type == "partial":
+                score = max(0.5, min(0.79, confidence))
+                final_type = "partial"
+            else:
+                score = min(0.29, confidence)
+                final_type = "missed"
+            
+            self.logger.info(
+                f"LLM evaluation: {red_vuln.get('vuln_id')} vs {blue_finding.get('finding_id')} "
+                f"-> {final_type} (confidence={confidence:.2f})"
+            )
+            
+            explanation = f"LLM verified: {reasoning}" if reasoning else f"LLM match: {final_type}"
+            return score, final_type, explanation
+            
+        except Exception as e:
+            self.logger.warning(f"LLM evaluation failed: {e}")
+            return 0.0, "missed", f"LLM evaluation failed: {str(e)}"
+    
+    def _parse_llm_response(self, response: str) -> Dict[str, Any]:
+        """Parse JSON from LLM response, handling various formats."""
+        # Try to find JSON in the response
+        response = response.strip()
+        
+        # Remove markdown code blocks if present
+        if response.startswith("```"):
+            lines = response.split("\n")
+            # Find start and end of code block
+            start = 1 if lines[0].startswith("```") else 0
+            end = len(lines)
+            for i in range(len(lines) - 1, -1, -1):
+                if lines[i].strip() == "```":
+                    end = i
+                    break
+            response = "\n".join(lines[start:end])
+        
+        # Try direct JSON parse
+        try:
+            return json.loads(response)
+        except json.JSONDecodeError:
+            pass
+        
+        # Try to extract JSON object from text
+        json_match = re.search(r'\{[^{}]*\}', response, re.DOTALL)
+        if json_match:
+            try:
+                return json.loads(json_match.group())
+            except json.JSONDecodeError:
+                pass
+        
+        # Default response
+        return {"match_type": "none", "confidence": 0.0, "reasoning": "Failed to parse LLM response"}
 
     def to_dict(self) -> Dict[str, Any]:
         """Return agent configuration as dictionary."""

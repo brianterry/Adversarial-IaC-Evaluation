@@ -1,0 +1,445 @@
+#!/usr/bin/env python3
+"""
+Local Experiment Runner with S3 Storage
+
+This script runs experiments locally but stores results in S3.
+Much simpler than full Lambda deployment, with the same results!
+
+Usage:
+    python scripts/run_experiment.py --config experiments/config/quick_test.yaml
+    python scripts/run_experiment.py --config experiments/config/full_experiment.yaml --upload-to-s3
+"""
+
+import argparse
+import asyncio
+import json
+import logging
+import os
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import yaml
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from src.game.engine import GameEngine, GameConfig
+from src.game.scenarios import Scenario
+
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+class ExperimentRunner:
+    """Run experiments locally with optional S3 storage."""
+    
+    def __init__(
+        self,
+        config_path: str,
+        output_dir: str = "experiments/results",
+        upload_to_s3: bool = False,
+        region: str = "us-west-2",
+        delay_between_games: float = 2.0,
+    ):
+        self.config_path = Path(config_path)
+        self.output_dir = Path(output_dir)
+        self.upload_to_s3 = upload_to_s3
+        self.region = region
+        self.delay_between_games = delay_between_games
+        
+        # Load config
+        with open(self.config_path) as f:
+            self.config = yaml.safe_load(f)
+        
+        # Generate experiment ID
+        self.experiment_id = f"exp-{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        self.experiment_dir = self.output_dir / self.experiment_id
+        self.experiment_dir.mkdir(parents=True, exist_ok=True)
+        
+        # S3 client (lazy init)
+        self._s3 = None
+        self._bucket = None
+        
+        # Results tracking
+        self.results: List[Dict] = []
+        self.failed_games: List[Dict] = []
+        
+    @property
+    def s3(self):
+        if self._s3 is None:
+            import boto3
+            self._s3 = boto3.client('s3', region_name=self.region)
+        return self._s3
+    
+    @property
+    def bucket(self):
+        if self._bucket is None:
+            config_path = Path.home() / ".adversarial-iac" / "cloud-config.json"
+            if config_path.exists():
+                config = json.loads(config_path.read_text())
+                self._bucket = config.get('bucket')
+            if not self._bucket:
+                logger.warning("S3 bucket not configured. Results won't be uploaded.")
+        return self._bucket
+    
+    def generate_game_configs(self) -> List[Dict]:
+        """Generate all game configurations from experiment config."""
+        games = []
+        game_num = 1
+        
+        models = self.config.get('models', [])
+        difficulties = self.config.get('difficulties', ['easy', 'medium', 'hard'])
+        scenarios = self.config.get('scenarios', [])
+        repetitions = self.config.get('settings', {}).get('repetitions', 1)
+        language = self.config.get('language', 'terraform')
+        cloud_provider = self.config.get('cloud_provider', 'aws')
+        
+        # Get model IDs
+        model_ids = [m['id'] if isinstance(m, dict) else m for m in models]
+        if not model_ids:
+            model_ids = ["us.anthropic.claude-3-5-haiku-20241022-v1:0"]
+        
+        # Batch experiments (single-agent)
+        batch_config = self.config.get('batch_experiments', {})
+        if batch_config.get('enabled', True):
+            model_combos = batch_config.get('model_combinations', [])
+            if not model_combos:
+                # Default: same model for red and blue
+                model_combos = [{'red': model_ids[0], 'blue': model_ids[0]}]
+            
+            for combo in model_combos:
+                for difficulty in difficulties:
+                    for scenario in scenarios:
+                        for rep in range(repetitions):
+                            games.append({
+                                "game_id": f"G-{game_num:04d}",
+                                "scenario": scenario,
+                                "difficulty": difficulty,
+                                "red_model": combo['red'],
+                                "blue_model": combo['blue'],
+                                "red_team_mode": "single",
+                                "blue_team_mode": "single",
+                                "verification_mode": "standard",
+                                "language": language,
+                                "cloud_provider": cloud_provider,
+                                "repetition": rep + 1,
+                                "experiment_type": "batch",
+                            })
+                            game_num += 1
+        
+        # Realtime experiments (multi-agent)
+        realtime_config = self.config.get('realtime_experiments', {})
+        if realtime_config.get('enabled', False):
+            modes = realtime_config.get('modes', [])
+            
+            for mode in modes:
+                model_id = mode.get('model', model_ids[0])
+                for difficulty in difficulties:
+                    for scenario in scenarios:
+                        for rep in range(repetitions):
+                            games.append({
+                                "game_id": f"G-{game_num:04d}",
+                                "scenario": scenario,
+                                "difficulty": difficulty,
+                                "red_model": model_id,
+                                "blue_model": model_id,
+                                "red_team_mode": mode.get('red_mode', 'single'),
+                                "blue_team_mode": mode.get('blue_mode', 'single'),
+                                "consensus_method": mode.get('consensus_method', 'vote'),
+                                "verification_mode": mode.get('verification_mode', 'standard'),
+                                "language": language,
+                                "cloud_provider": cloud_provider,
+                                "repetition": rep + 1,
+                                "experiment_type": "realtime",
+                                "mode_name": mode.get('name', 'unknown'),
+                            })
+                            game_num += 1
+        
+        return games
+    
+    async def run_single_game(self, game_config: Dict) -> Dict:
+        """Run a single game and return results."""
+        game_id = game_config['game_id']
+        logger.info(f"Running game {game_id}: {game_config['scenario'][:50]}...")
+        
+        start_time = datetime.utcnow()
+        
+        try:
+            # Create engine config
+            config = GameConfig(
+                red_model=game_config['red_model'],
+                blue_model=game_config['blue_model'],
+                difficulty=game_config['difficulty'],
+                language=game_config.get('language', 'terraform'),
+                cloud_provider=game_config.get('cloud_provider', 'aws'),
+                red_team_mode=game_config.get('red_team_mode', 'single'),
+                blue_team_mode=game_config.get('blue_team_mode', 'single'),
+                consensus_method=game_config.get('consensus_method', 'vote'),
+                verification_mode=game_config.get('verification_mode', 'standard'),
+                region=self.region,
+            )
+            
+            # Create scenario
+            scenario = Scenario(
+                id=game_config['game_id'],
+                description=game_config['scenario'],
+                domain='general',
+                cloud_provider=config.cloud_provider,
+                language=config.language,
+                difficulty=config.difficulty,
+            )
+            
+            # Run game
+            engine = GameEngine()
+            result = await engine.run_game(scenario, config)
+            
+            # Save result
+            engine._save_game_result(result)
+            
+            end_time = datetime.utcnow()
+            duration = (end_time - start_time).total_seconds()
+            
+            # Extract scoring from result
+            scoring = result.scoring
+            
+            game_result = {
+                "game_id": game_id,
+                "status": "completed",
+                "config": game_config,
+                "scoring": {
+                    "precision": scoring.precision,
+                    "recall": scoring.recall,
+                    "f1_score": scoring.f1_score,
+                    "evasion_rate": scoring.evasion_rate,
+                },
+                "vulnerabilities_injected": len(result.red_output.manifest) if result.red_output else 0,
+                "findings_detected": len(result.blue_output.findings) if result.blue_output else 0,
+                "duration_seconds": duration,
+                "timestamp": end_time.isoformat(),
+                "output_dir": result.game_id,
+            }
+            
+            logger.info(
+                f"  ✓ {game_id}: P={scoring.precision:.0%} R={scoring.recall:.0%} "
+                f"F1={scoring.f1_score:.0%} Evasion={scoring.evasion_rate:.0%}"
+            )
+            
+            return game_result
+            
+        except Exception as e:
+            logger.error(f"  ✗ {game_id} failed: {e}")
+            return {
+                "game_id": game_id,
+                "status": "failed",
+                "config": game_config,
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+    
+    async def run(self):
+        """Run the full experiment."""
+        logger.info(f"=" * 60)
+        logger.info(f"Starting Experiment: {self.experiment_id}")
+        logger.info(f"Config: {self.config_path}")
+        logger.info(f"Output: {self.experiment_dir}")
+        logger.info(f"=" * 60)
+        
+        # Generate game configs
+        games = self.generate_game_configs()
+        logger.info(f"Generated {len(games)} game configurations")
+        
+        # Save config
+        (self.experiment_dir / "config.json").write_text(
+            json.dumps({
+                "experiment_id": self.experiment_id,
+                "config": self.config,
+                "games": games,
+                "started": datetime.utcnow().isoformat(),
+            }, indent=2)
+        )
+        
+        # Run games sequentially
+        for i, game_config in enumerate(games):
+            logger.info(f"\n[{i+1}/{len(games)}] Game {game_config['game_id']}")
+            
+            result = await self.run_single_game(game_config)
+            
+            if result['status'] == 'completed':
+                self.results.append(result)
+            else:
+                self.failed_games.append(result)
+            
+            # Save progress after each game
+            self._save_progress()
+            
+            # Rate limiting delay (except for last game)
+            if i < len(games) - 1 and self.delay_between_games > 0:
+                logger.info(f"  Waiting {self.delay_between_games}s before next game...")
+                await asyncio.sleep(self.delay_between_games)
+        
+        # Generate summary
+        summary = self._generate_summary()
+        
+        # Upload to S3 if enabled
+        if self.upload_to_s3 and self.bucket:
+            self._upload_to_s3()
+        
+        return summary
+    
+    def _save_progress(self):
+        """Save current progress to disk."""
+        progress = {
+            "experiment_id": self.experiment_id,
+            "completed_games": len(self.results),
+            "failed_games": len(self.failed_games),
+            "results": self.results,
+            "failures": self.failed_games,
+            "last_updated": datetime.utcnow().isoformat(),
+        }
+        (self.experiment_dir / "progress.json").write_text(json.dumps(progress, indent=2))
+    
+    def _generate_summary(self) -> Dict:
+        """Generate experiment summary."""
+        if not self.results:
+            return {"status": "no_results", "experiment_id": self.experiment_id}
+        
+        # Calculate aggregate metrics
+        n = len(self.results)
+        metrics = {
+            "avg_precision": sum(r['scoring']['precision'] for r in self.results) / n,
+            "avg_recall": sum(r['scoring']['recall'] for r in self.results) / n,
+            "avg_f1_score": sum(r['scoring']['f1_score'] for r in self.results) / n,
+            "avg_evasion_rate": sum(r['scoring']['evasion_rate'] for r in self.results) / n,
+            "total_vulnerabilities": sum(r['vulnerabilities_injected'] for r in self.results),
+            "total_findings": sum(r['findings_detected'] for r in self.results),
+        }
+        
+        # Calculate by difficulty
+        by_difficulty = {}
+        for r in self.results:
+            diff = r['config']['difficulty']
+            if diff not in by_difficulty:
+                by_difficulty[diff] = {'count': 0, 'precision': 0, 'recall': 0, 'f1': 0, 'evasion': 0}
+            by_difficulty[diff]['count'] += 1
+            by_difficulty[diff]['precision'] += r['scoring']['precision']
+            by_difficulty[diff]['recall'] += r['scoring']['recall']
+            by_difficulty[diff]['f1'] += r['scoring']['f1_score']
+            by_difficulty[diff]['evasion'] += r['scoring']['evasion_rate']
+        
+        for diff in by_difficulty:
+            count = by_difficulty[diff]['count']
+            by_difficulty[diff]['avg_precision'] = by_difficulty[diff]['precision'] / count
+            by_difficulty[diff]['avg_recall'] = by_difficulty[diff]['recall'] / count
+            by_difficulty[diff]['avg_f1'] = by_difficulty[diff]['f1'] / count
+            by_difficulty[diff]['avg_evasion'] = by_difficulty[diff]['evasion'] / count
+        
+        summary = {
+            "experiment_id": self.experiment_id,
+            "total_games": len(self.results) + len(self.failed_games),
+            "completed_games": len(self.results),
+            "failed_games": len(self.failed_games),
+            "metrics": metrics,
+            "by_difficulty": by_difficulty,
+            "completed_at": datetime.utcnow().isoformat(),
+        }
+        
+        # Save summary
+        (self.experiment_dir / "summary.json").write_text(json.dumps(summary, indent=2))
+        
+        # Generate CSV
+        self._generate_csv()
+        
+        # Print summary
+        logger.info("\n" + "=" * 60)
+        logger.info("EXPERIMENT COMPLETE")
+        logger.info("=" * 60)
+        logger.info(f"Experiment ID: {self.experiment_id}")
+        logger.info(f"Total Games: {summary['total_games']} ({summary['completed_games']} completed, {summary['failed_games']} failed)")
+        logger.info(f"\nAggregate Metrics:")
+        logger.info(f"  Avg Precision:    {metrics['avg_precision']:.1%}")
+        logger.info(f"  Avg Recall:       {metrics['avg_recall']:.1%}")
+        logger.info(f"  Avg F1 Score:     {metrics['avg_f1_score']:.1%}")
+        logger.info(f"  Avg Evasion Rate: {metrics['avg_evasion_rate']:.1%}")
+        logger.info(f"\nBy Difficulty:")
+        for diff, data in by_difficulty.items():
+            logger.info(f"  {diff}: F1={data['avg_f1']:.1%}, Evasion={data['avg_evasion']:.1%} (n={data['count']})")
+        logger.info(f"\nResults saved to: {self.experiment_dir}")
+        
+        return summary
+    
+    def _generate_csv(self):
+        """Generate CSV file for easy analysis."""
+        headers = [
+            'game_id', 'difficulty', 'red_model', 'blue_model', 'red_mode', 'blue_mode',
+            'scenario', 'vulns_injected', 'findings', 'precision', 'recall', 'f1_score', 'evasion_rate'
+        ]
+        
+        lines = [','.join(headers)]
+        for r in self.results:
+            config = r['config']
+            scoring = r['scoring']
+            line = [
+                r['game_id'],
+                config['difficulty'],
+                config['red_model'].split('.')[-1][:20],  # Shorten model name
+                config['blue_model'].split('.')[-1][:20],
+                config.get('red_team_mode', 'single'),
+                config.get('blue_team_mode', 'single'),
+                f'"{config["scenario"][:50]}"',
+                str(r['vulnerabilities_injected']),
+                str(r['findings_detected']),
+                f"{scoring['precision']:.4f}",
+                f"{scoring['recall']:.4f}",
+                f"{scoring['f1_score']:.4f}",
+                f"{scoring['evasion_rate']:.4f}",
+            ]
+            lines.append(','.join(line))
+        
+        (self.experiment_dir / "results.csv").write_text('\n'.join(lines))
+    
+    def _upload_to_s3(self):
+        """Upload results to S3."""
+        if not self.bucket:
+            logger.warning("No S3 bucket configured, skipping upload")
+            return
+        
+        logger.info(f"Uploading results to s3://{self.bucket}/{self.experiment_id}/")
+        
+        for file_path in self.experiment_dir.glob("**/*"):
+            if file_path.is_file():
+                key = f"{self.experiment_id}/{file_path.relative_to(self.experiment_dir)}"
+                logger.info(f"  Uploading: {key}")
+                self.s3.upload_file(str(file_path), self.bucket, key)
+        
+        logger.info("Upload complete!")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Run Adversarial IaC Experiment")
+    parser.add_argument("--config", "-c", required=True, help="Experiment config YAML")
+    parser.add_argument("--output", "-o", default="experiments/results", help="Output directory")
+    parser.add_argument("--upload-to-s3", action="store_true", help="Upload results to S3")
+    parser.add_argument("--region", default="us-west-2", help="AWS region")
+    parser.add_argument("--delay", type=float, default=2.0, help="Delay between games (seconds)")
+    
+    args = parser.parse_args()
+    
+    runner = ExperimentRunner(
+        config_path=args.config,
+        output_dir=args.output,
+        upload_to_s3=args.upload_to_s3,
+        region=args.region,
+        delay_between_games=args.delay,
+    )
+    
+    asyncio.run(runner.run())
+
+
+if __name__ == "__main__":
+    main()

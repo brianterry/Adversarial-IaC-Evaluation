@@ -1,0 +1,41 @@
+# Quick Test Configuration
+# A small experiment for testing the cloud infrastructure
+# Total games: ~9 (3 difficulties × 3 scenarios × 1 repetition)
+
+name: "Quick Test Experiment"
+description: "Small experiment to verify cloud infrastructure"
+
+# Use a single fast model
+models:
+  - id: "anthropic.claude-3-5-haiku-20241022-v1:0"
+    name: "Claude 3.5 Haiku"
+    role: both
+
+difficulties:
+  - easy
+  - medium
+  - hard
+
+# Just a few scenarios
+scenarios:
+  - "Create an S3 bucket for storing logs"
+  - "Create an EC2 instance for a web server"
+  - "Create a VPC with subnets"
+
+language: terraform
+cloud_provider: aws
+
+settings:
+  repetitions: 1
+  delay_between_games: 1
+  save_intermediate: true
+
+# Only batch for quick test
+batch_experiments:
+  enabled: true
+  model_combinations:
+    - red: "anthropic.claude-3-5-haiku-20241022-v1:0"
+      blue: "anthropic.claude-3-5-haiku-20241022-v1:0"
+
+realtime_experiments:
+  enabled: false

@@ -1094,6 +1094,51 @@ Review and refine the code:
 """
 
 
+class JudgeLLMPrompts:
+    """Prompts for LLM-based judge matching in hybrid mode."""
+    
+    SINGLE_PAIR_MATCH = """You are an IMPARTIAL JUDGE determining if a Blue Team security finding matches a Red Team injected vulnerability.
+
+RED TEAM VULNERABILITY (Ground Truth):
+- ID: {red_id}
+- Title: {red_title}
+- Resource: {red_resource}
+- Resource Type: {red_resource_type}
+- Vulnerability Type: {red_type}
+- Vulnerable Attribute: {red_attribute}
+- Description: {red_description}
+
+BLUE TEAM FINDING:
+- ID: {blue_id}
+- Title: {blue_title}
+- Resource: {blue_resource}
+- Resource Type: {blue_resource_type}
+- Vulnerability Type: {blue_type}
+- Evidence: {blue_evidence}
+- Description: {blue_description}
+
+TASK: Determine if the Blue Team finding correctly identifies the same vulnerability that Red Team injected.
+
+Consider:
+1. Are they referring to the same resource (even with different naming)?
+2. Are they describing the same security issue (even with different wording)?
+3. Is the Blue Team's finding capturing the essence of the Red Team's vulnerability?
+
+MATCH TYPES:
+- EXACT: Same resource AND same vulnerability issue
+- PARTIAL: Same resource with related/overlapping issue, OR same issue on similar resource
+- NONE: Different resource AND different issue, OR completely unrelated
+
+OUTPUT (JSON only, no markdown):
+{{
+    "match_type": "exact|partial|none",
+    "confidence": 0.0-1.0,
+    "reasoning": "brief explanation of why this is/isn't a match",
+    "resource_match": true/false,
+    "issue_match": true/false
+}}"""
+
+
 class AdversarialDebatePrompts:
     """Prompts for Adversarial Debate verification system"""
 
