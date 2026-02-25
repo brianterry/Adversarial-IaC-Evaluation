@@ -40,12 +40,35 @@ class GameConfig:
     use_trivy: bool = False
     use_checkov: bool = False
     region: str = "us-east-1"
+    
     # Red Team mode configuration
     red_team_mode: str = "single"  # "single" or "pipeline"
+    
+    # Red Team attack strategy
+    red_strategy: str = "balanced"  # Attack strategy options:
+    # - "balanced": Standard mix of vulnerability types and stealth (default)
+    # - "targeted": Focus on specific vulnerability type (use red_target_type)
+    # - "stealth": Fewer vulns but maximum evasion techniques
+    # - "blitz": Maximum vulnerabilities, less stealth
+    # - "chained": Vulnerabilities that exploit each other in sequence
+    red_target_type: Optional[str] = None  # For "targeted" strategy: "encryption", "iam", "network", "logging", "access_control"
+    
     # Blue Team mode configuration
     blue_team_mode: str = "single"  # "single" or "ensemble"
     ensemble_specialists: Optional[List[str]] = None  # ["security", "compliance", "architecture"]
     consensus_method: str = "debate"  # "debate", "vote", "union", "intersection"
+    
+    # Blue Team defense strategy
+    blue_strategy: str = "comprehensive"  # Defense strategy options:
+    # - "comprehensive": Check for all vulnerability types (default)
+    # - "targeted": Focus on specific vulnerability type (use blue_target_type)
+    # - "iterative": Multiple analysis passes with refinement
+    # - "threat_model": Start with threat model, then hunt for matching vulns
+    # - "compliance": Check against compliance framework (use compliance_framework)
+    blue_target_type: Optional[str] = None  # For "targeted" strategy
+    compliance_framework: Optional[str] = None  # For "compliance" strategy: "hipaa", "pci_dss", "soc2", "cis"
+    blue_iterations: int = 1  # For "iterative" strategy: number of passes
+    
     # Verification mode configuration
     verification_mode: str = "standard"  # "standard" or "debate"
 
@@ -242,6 +265,8 @@ class GameEngine:
                 difficulty=config.difficulty,
                 cloud_provider=config.cloud_provider,
                 language=config.language,
+                strategy=config.red_strategy,
+                target_type=config.red_target_type,
             )
             
             red_output = await red_agent.execute(scenario.to_dict())
@@ -286,6 +311,11 @@ class GameEngine:
                 language=config.language,
                 use_trivy=config.use_trivy,
                 use_checkov=config.use_checkov,
+                strategy=config.blue_strategy,
+                target_type=config.blue_target_type,
+                compliance_framework=config.compliance_framework,
+                iterations=config.blue_iterations,
+                scenario_description=scenario.description,
             )
             
             blue_output = await blue_agent.execute(red_output.code)

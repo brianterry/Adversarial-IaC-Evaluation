@@ -1,1008 +1,377 @@
-# Adversarial IaC Evaluation
+# 🎮 Adversarial IaC Game
 
-**Adversarial Evaluation of Multi-Agent LLM Systems for Secure Infrastructure-as-Code**
+**A Red Team vs Blue Team Security Game for Infrastructure-as-Code**
 
-This research project implements a Red Team vs Blue Team evaluation framework for assessing LLM capabilities in Infrastructure-as-Code security. It builds upon the [Vulnerable IaC Dataset Generator](https://github.com/SymbioticSec/vulnerable-iac-dataset-generator) and extends it with adversarial evaluation capabilities.
+An adversarial game framework where AI agents compete to hide and find security vulnerabilities in cloud infrastructure code. Use it to benchmark LLM security capabilities, run research experiments, or learn about IaC security.
 
-## Research Overview
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://brianterry.github.io/Adversarial-IaC-Evaluation/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This project addresses the research question: *How well can LLMs generate and detect security vulnerabilities in Infrastructure-as-Code?*
+## 🎯 What Is This?
 
-### Key Features
+It's a game where two AI agents compete:
 
-- **Red Team Agent**: Generates plausible but vulnerable IaC that attempts to evade detection
-- **Blue Team Agent**: Detects vulnerabilities using LLM reasoning and static analysis tools
-- **Judge System**: Scores matches between injected vulnerabilities and detections
-- **Multi-Model Evaluation**: Compare different foundation models on Amazon Bedrock
-- **Difficulty Levels**: Easy, Medium, Hard vulnerability injection strategies
+- **🔴 Red Team (Attacker)**: Generates legitimate-looking infrastructure code with hidden vulnerabilities
+- **🔵 Blue Team (Defender)**: Analyzes the code to find the hidden security issues
+- **⚖️ Judge**: Scores who won based on what was found vs what was hidden
 
-### How a Game Works
+Think of it like **capture the flag**, but for cloud security.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         ADVERSARIAL IaC GAME FLOW                           │
-└─────────────────────────────────────────────────────────────────────────────┘
+## 🔬 Why This Matters
 
-     ┌──────────────┐                                                         
-     │   SCENARIO   │  "Create S3 bucket for PHI data with security controls" 
-     └──────┬───────┘                                                         
-            │                                                                 
-            ▼                                                                 
-┌───────────────────────────────────────────────────────────────────────────┐
-│  🔴 RED TEAM (Attacker)                                                   │
-│  ┌─────────────────────────────────────────────────────────────────────┐  │
-│  │  1. Receives scenario + difficulty level (medium/hard)              │  │
-│  │  2. Generates legitimate-looking Terraform code                     │  │
-│  │  3. Injects 3-5 hidden vulnerabilities using stealth techniques     │  │
-│  │  4. Outputs: code files + secret vulnerability manifest             │  │
-│  └─────────────────────────────────────────────────────────────────────┘  │
-└───────────────────────────────────────────────────────────────────────────┘
-            │                                                                 
-            │  Terraform Code                                                 
-            │  (vulnerabilities hidden)                                       
-            ▼                                                                 
-┌───────────────────────────────────────────────────────────────────────────┐
-│  🔵 BLUE TEAM (Defender)                                                  │
-│  ┌─────────────────────────────────────────────────────────────────────┐  │
-│  │  1. Receives ONLY the code (no knowledge of hidden vulns)           │  │
-│  │  2. Analyzes code for security issues                               │  │
-│  │  3. Reports all detected vulnerabilities with evidence              │  │
-│  │  4. Outputs: list of findings with severity + location              │  │
-│  └─────────────────────────────────────────────────────────────────────┘  │
-└───────────────────────────────────────────────────────────────────────────┘
-            │                                                                 
-            │  Blue Team Findings                                             
-            ▼                                                                 
-┌───────────────────────────────────────────────────────────────────────────┐
-│  ⚖️  JUDGE                                                                │
-│  ┌─────────────────────────────────────────────────────────────────────┐  │
-│  │  Compares: Red Team's secret manifest vs Blue Team's findings       │  │
-│  │                                                                     │  │
-│  │  ┌─────────────────┐         ┌─────────────────┐                    │  │
-│  │  │  RED MANIFEST   │         │  BLUE FINDINGS  │                    │  │
-│  │  │  (Ground Truth) │ ──────► │  (Detections)   │                    │  │
-│  │  │  • V1: No enc   │         │  • F1: No enc ✓ │  ← Match!          │  │
-│  │  │  • V2: Public   │         │  • F2: Public ✓ │  ← Match!          │  │
-│  │  │  • V3: Weak IAM │         │  • F3: Logging  │  ← False Positive  │  │
-│  │  │                 │         │                 │                    │  │
-│  │  │  V3 = EVADED    │         │  F3 = WRONG     │                    │  │
-│  │  └─────────────────┘         └─────────────────┘                    │  │
-│  └─────────────────────────────────────────────────────────────────────┘  │
-└───────────────────────────────────────────────────────────────────────────┘
-            │                                                                 
-            ▼                                                                 
-┌───────────────────────────────────────────────────────────────────────────┐
-│  📊 SCORING                                                               │
-│  ┌─────────────────────────────────────────────────────────────────────┐  │
-│  │  Precision = TP/(TP+FP)  → "How accurate were Blue's reports?"      │  │
-│  │  Recall    = TP/(TP+FN)  → "How many vulns did Blue find?"          │  │
-│  │  F1 Score  = Balance of precision & recall                          │  │
-│  │  Evasion   = FN/Total    → "How many vulns did Red hide?"           │  │
-│  └─────────────────────────────────────────────────────────────────────┘  │
-└───────────────────────────────────────────────────────────────────────────┘
+### The Research Gap
 
-Legend:
-  TP = True Positive  (Blue correctly found Red's vulnerability)
-  FP = False Positive (Blue reported something that wasn't a real vuln)
-  FN = False Negative (Red's vulnerability that Blue missed)
-```
+Current LLM security benchmarks have critical limitations:
 
-## Installation
+| Existing Approach | Problem |
+|-------------------|---------|
+| **Static vulnerability datasets** | LLMs memorize known patterns; doesn't test generalization |
+| **Single-agent evaluation** | Misses adversarial dynamics of real security scenarios |
+| **Generic code analysis** | IaC has unique security semantics (cloud permissions, network policies) |
+| **Binary pass/fail metrics** | Doesn't capture partial detection or evasion sophistication |
 
-### Quick Install
+### What's Novel Here
+
+1. **Adversarial Evaluation** — First benchmark where LLMs actively compete (Red Team tries to evade, Blue Team tries to detect). This measures true adversarial robustness, not just pattern matching.
+
+2. **Dynamic Vulnerability Generation** — Red Team creates *new* vulnerable code each game, preventing memorization and testing real security reasoning.
+
+3. **IaC-Specific Focus** — Purpose-built for Infrastructure-as-Code with 114 scenarios across healthcare (HIPAA), financial (PCI-DSS), government (FedRAMP), and cloud-native patterns.
+
+4. **Multi-Agent Architectures** — Evaluates emerging multi-agent patterns: specialist ensembles, attack pipelines, and adversarial debate verification.
+
+5. **Standardized Metrics** — Optimal bipartite matching (Hungarian algorithm) for fair scoring with precision, recall, F1, and evasion rate.
+
+### Research Applications
+
+- **Benchmark new models** — Compare LLM security capabilities with reproducible metrics
+- **Study adversarial robustness** — How do detection rates change against adaptive attackers?
+- **Evaluate multi-agent strategies** — Do ensembles outperform single agents? Does debate improve accuracy?
+- **Compliance-specific analysis** — How well do LLMs understand HIPAA vs PCI-DSS vs FedRAMP?
+- **Attack sophistication research** — Which evasion techniques are most effective?
+
+## 🚀 Quick Start
+
+### Installation
 
 ```bash
-# Clone with submodule (recommended)
 git clone --recursive https://github.com/brianterry/Adversarial-IaC-Evaluation.git
 cd Adversarial-IaC-Evaluation
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install the package (includes CLI and dependencies)
+python -m venv venv && source venv/bin/activate
 pip install -e .
 ```
 
-### If You Already Cloned (without --recursive)
+### Play Your First Game
 
 ```bash
-# Initialize the vulnerability database submodule
-git submodule update --init --recursive
+adversarial-iac play
 ```
 
-### Verify Installation
+That's it! The interactive wizard will guide you through:
+
+1. **Choose a scenario** - Browse 114 scenarios (healthcare, financial, infrastructure...)
+2. **Pick difficulty** - Easy, Medium, or Hard
+3. **Choose IaC language** - Terraform or CloudFormation
+4. **Select AI models** - For Red Team and Blue Team
+5. **Watch the game** - See Red vs Blue compete in real-time
+6. **Understand results** - Clear explanations of who won and why
+
+<details>
+<summary>📟 Prefer command line? Click here</summary>
 
 ```bash
-# Test that everything works
-python -c "from src.agents.red_team_agent import VulnerabilityDatabase; db = VulnerabilityDatabase(); print(f'✓ Loaded {len(db.get_sample_for_prompt(\"aws\", \"terraform\").get(\"sample_vulnerabilities\", []))} vulnerability rules')"
-```
-
-Expected output:
-```
-✓ Loaded 20 vulnerability rules
-```
-
-### What the Submodule Provides
-
-The `vendor/vulnerable-iac-generator` submodule contains:
-- **142 Trivy vulnerability rules** for AWS, Azure, and GCP
-- **Real-world misconfiguration patterns** from security research
-- **Multi-cloud support**: Terraform (AWS, Azure, GCP), CloudFormation, ARM templates
-
-⚠️ **The submodule is required.** The system will fail with a clear error message if not initialized.
-
-### Optional: Install Static Analysis Tools
-
-For hybrid detection mode (LLM + static tools):
-
-```bash
-# Install Trivy (macOS)
-brew install trivy
-
-# Install Checkov
-pip install checkov
-```
-
-## Project Structure
-
-```
-adversarial-iac-eval/
-├── src/
-│   ├── agents/
-│   │   ├── red_team_agent.py    # Adversarial IaC generator
-│   │   ├── blue_team_agent.py   # Vulnerability detector
-│   │   └── judge_agent.py       # Scoring and matching
-│   ├── game/
-│   │   ├── engine.py            # Game orchestration
-│   │   └── scenarios.py         # Test scenario generation
-│   ├── tools/
-│   │   ├── trivy_runner.py      # Trivy scanner integration
-│   │   └── checkov_runner.py    # Checkov scanner integration
-│   ├── prompts.py               # Adversarial prompts
-│   └── cli.py                   # Command-line interface
-├── vendor/
-│   └── vulnerable-iac-generator/  # Git submodule (142 Trivy rules)
-│       ├── data/trivy_rules_db.json
-│       └── src/utils/vulnerability_db.py
-├── config/
-│   ├── experiment_config.yaml   # Full experiment configuration
-│   └── experiment_small.yaml    # Small test configuration
-├── notebooks/
-│   ├── 01_single_game.ipynb     # Interactive single game
-│   └── 02_run_experiment.ipynb  # Batch experiments
-├── experiments/                  # Experiment results
-├── requirements.txt             # Python dependencies
-└── pyproject.toml               # Package configuration
-```
-
-## Quick Start
-
-### Run a Single Game
-
-```bash
-# Red Team (Claude Sonnet) vs Blue Team (Nova Pro)
 adversarial-iac game \
-    --red-model us.anthropic.claude-3-5-sonnet-20241022-v2:0 \
-    --blue-model amazon.nova-pro-v1:0 \
     --scenario "Create an S3 bucket for healthcare PHI data" \
+    --red-model claude-3.5-sonnet \
+    --blue-model nova-pro \
     --difficulty medium
 ```
 
-### Multi-Agent Game Modes
+See all options with `adversarial-iac game --help`
 
-The framework supports three game modes for both Red and Blue teams, enabling research on multi-agent collaboration:
+</details>
+
+## 🎲 How the Game Works
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         THE ADVERSARIAL IaC GAME                        │
+└─────────────────────────────────────────────────────────────────────────┘
+
+     SCENARIO: "Create S3 bucket for healthcare PHI data"
+                              │
+                              ▼
+     ┌────────────────────────────────────────────────────────────────┐
+     │  🔴 RED TEAM                                                   │
+     │                                                                │
+     │  "I'll create the S3 bucket... but secretly make it           │
+     │   public and skip encryption. Let's see if they catch it."    │
+     │                                                                │
+     │  Output: main.tf (looks normal, but has 3 hidden vulns)       │
+     └────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+     ┌────────────────────────────────────────────────────────────────┐
+     │  🔵 BLUE TEAM                                                  │
+     │                                                                │
+     │  "Let me analyze this code... I see the bucket is public!     │
+     │   And there's no encryption. Wait, is that IAM policy weak?"  │
+     │                                                                │
+     │  Output: Found 4 vulnerabilities                               │
+     └────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+     ┌────────────────────────────────────────────────────────────────┐
+     │  ⚖️  JUDGE                                                     │
+     │                                                                │
+     │  Red Team hid 3 vulnerabilities                                │
+     │  Blue Team found 4 issues                                      │
+     │                                                                │
+     │  ✓ 2 correct matches (True Positives)                         │
+     │  ✗ 1 evaded (Red wins this one)                               │
+     │  ✗ 2 false alarms (Blue was wrong)                            │
+     │                                                                │
+     │  SCORE: Blue Team 67% Recall, Red Team 33% Evasion            │
+     └────────────────────────────────────────────────────────────────┘
+```
+
+## 📚 114 Built-in Scenarios
+
+The game includes scenarios across 4 categories and 18 domains:
 
 ```bash
-# Standard game (single agent per team)
-adversarial-iac game \
-    --scenario "Create S3 bucket for PHI" \
-    --red-model claude-sonnet \
-    --blue-model claude-sonnet \
-    --red-team-mode single \
-    --blue-team-mode single
+# See all available scenarios
+adversarial-iac scenarios
 
-# Red Team Pipeline (4-stage attack chain)
-adversarial-iac game \
-    --scenario "Create S3 bucket for PHI" \
-    --red-model claude-sonnet \
-    --blue-model claude-sonnet \
-    --red-team-mode pipeline
+# Browse by category
+adversarial-iac scenarios --category industry
 
-# Blue Team Ensemble (3 specialists + consensus)
-adversarial-iac game \
-    --scenario "Create S3 bucket for PHI" \
-    --red-model claude-sonnet \
-    --blue-model claude-sonnet \
-    --blue-team-mode ensemble \
-    --consensus-method debate
-
-# Adversarial Debate Verification
-adversarial-iac game \
-    --scenario "Create S3 bucket for PHI" \
-    --red-model claude-sonnet \
-    --blue-model claude-sonnet \
-    --verification-mode debate
-
-# Full Multi-Agent Game (all modes enabled)
-adversarial-iac game \
-    --scenario "Create secure VPC with public/private subnets" \
-    --red-model claude-sonnet \
-    --blue-model claude-sonnet \
-    --red-team-mode pipeline \
-    --blue-team-mode ensemble \
-    --consensus-method vote \
-    --verification-mode debate \
-    --difficulty hard
+# View specific domain
+adversarial-iac scenarios --domain healthcare
 ```
 
-#### Red Team Pipeline (Attack Chain)
-```
-Scenario → Architect → Vulnerability Selector → Code Generator → Stealth Reviewer → Output
-              │                  │                    │                  │
-        Design infra      Choose vulns         Write IaC code     Apply evasion
-```
+| Category | Domains | Examples |
+|----------|---------|----------|
+| 🏗️ **Infrastructure** | storage, compute, network, iam | S3, Lambda, VPC, IAM roles |
+| ☁️ **AWS Services** | secrets, containers, databases, api | KMS, EKS, RDS, API Gateway |
+| 🏢 **Industry** | healthcare, financial, government | HIPAA, PCI-DSS, FedRAMP |
+| 🔒 **Security** | zero_trust, disaster_recovery | Zero-trust architecture, DR |
 
-#### Blue Team Ensemble (Defense)
-```
-Code → Security Expert  ─┐
-       Compliance Agent ─┼→ Consensus Agent → Unified Findings
-       Architecture Agent┘     (debate/vote/union/intersection)
-```
+## 🤖 Available Models
 
-#### Adversarial Debate Verification
-```
-For each finding:
-  Prosecutor → "This IS a real vulnerability because..."
-  Defender   → "This is a FALSE POSITIVE because..."
-  Judge      → Verdict: TRUE_POSITIVE | FALSE_POSITIVE | PARTIAL_MATCH
-```
-
-### Run Full Experiment
+Use any Amazon Bedrock model. We've organized them into tiers:
 
 ```bash
-# Run symmetric adversarial experiment (same model attacks/defends)
+# List all available models
+adversarial-iac models
+```
+
+| Tier | Models | Use Case |
+|------|--------|----------|
+| 🏆 **Frontier** | Claude 3.5 Sonnet, Claude 3 Opus, Nova Premier | Final experiments |
+| 💪 **Strong** | Claude 3.5 Haiku, Nova Pro, Llama 70B | Recommended |
+| ⚡ **Efficient** | Nova Lite, Nova Micro, Llama 8B | Testing & development |
+| 🔬 **Specialized** | DeepSeek R1, Jamba | Experimental |
+
+```bash
+# Use short names in commands
+adversarial-iac game --red-model claude-3.5-sonnet --blue-model nova-pro ...
+```
+
+## ⚔️ Game Modes
+
+### Standard Game (1v1)
+Single agent per team. Fast and simple.
+
+```bash
+adversarial-iac game --red-team-mode single --blue-team-mode single ...
+```
+
+### Red Team Pipeline (4-Stage Attack)
+A chain of specialists create stealthier attacks:
+
+```
+Architect → Vulnerability Selector → Code Generator → Stealth Reviewer
+```
+
+```bash
+adversarial-iac game --red-team-mode pipeline ...
+```
+
+### Blue Team Ensemble (Expert Panel)
+Multiple specialists analyze code, then vote on findings:
+
+```
+Security Expert  ─┐
+Compliance Agent ─┼→ Consensus → Unified Findings
+Architecture Agent┘
+```
+
+```bash
+adversarial-iac game --blue-team-mode ensemble --consensus-method debate ...
+```
+
+### Adversarial Debate Verification
+Each finding is debated by prosecutor and defender agents:
+
+```bash
+adversarial-iac game --verification-mode debate ...
+```
+
+## 🎯 Attack & Defense Strategies
+
+### Red Team Strategies
+```bash
+--red-strategy balanced    # Default - mix of vulnerability types
+--red-strategy targeted    # Focus on specific type (--red-target-type encryption)
+--red-strategy stealth     # Maximize evasion with obfuscation
+--red-strategy blitz       # Many vulnerabilities, less stealth
+--red-strategy chained     # Create vulnerability chains
+```
+
+### Blue Team Strategies
+```bash
+--blue-strategy comprehensive  # Default - check everything
+--blue-strategy targeted       # Focus on specific type
+--blue-strategy iterative      # Multiple analysis passes
+--blue-strategy threat_model   # Threat modeling approach
+--blue-strategy compliance     # Compliance-focused (--compliance-framework hipaa)
+```
+
+### Static Analysis Tools
+Optionally enable industry tools alongside LLM analysis:
+
+```bash
+--use-trivy      # Enable Trivy scanner
+--use-checkov    # Enable Checkov scanner
+```
+
+## 📊 Understanding the Scoring
+
+The Judge uses **optimal bipartite matching** (Hungarian algorithm) to pair Red Team vulnerabilities with Blue Team findings for the fairest scoring:
+
+| Metric | Meaning | Who Wins? |
+|--------|---------|-----------|
+| **Precision** | % of Blue's findings that were correct | High = Blue |
+| **Recall** | % of Red's vulns that Blue found | High = Blue |
+| **F1 Score** | Balance of precision and recall | High = Blue |
+| **Evasion Rate** | % of Red's vulns that evaded detection | High = Red |
+
+### Match Types
+
+| Match Type | Description | Example |
+|------------|-------------|---------|
+| **Exact** | Perfect match - same type, location | Both say "S3 bucket unencrypted at line 15" |
+| **Partial** | Correct finding, different wording | Red: "missing encryption" / Blue: "no SSE" |
+| **Threshold** | Related finding above similarity threshold | Similar vulnerability category |
+
+All match types count as **True Positives** - the Blue Team successfully detected the vulnerability!
+
+## 🔬 Running Research Experiments
+
+Use the game to generate data for academic papers:
+
+### Single Experiment
+```bash
 adversarial-iac experiment \
     --config config/experiment_config.yaml \
     --experiment symmetric_adversarial \
     --output experiments/exp_001
 ```
 
-### Analyze Results
-
-```bash
-# Generate analysis report
-adversarial-iac analyze \
-    --experiment experiments/exp_001 \
-    --output-format latex,csv,figures
-```
-
-## Experiment Configuration
-
-Experiments are configured using YAML files in the `config/` directory. Two configurations are provided:
-
-- `experiment_config.yaml` - Full experiment (~480 games, ~6 hours)
-- `experiment_small.yaml` - Small test experiment (~24 games, ~20 minutes)
-
-### Configuration File Structure
+### Batch Experiments
+Configure multiple experiments in YAML:
 
 ```yaml
-# Required: Experiment metadata
 experiment:
-  name: "my_experiment"           # Unique experiment name
-  description: "Description"      # Human-readable description
-  output_dir: "experiments/out"   # Where to save results
-  random_seed: 42                 # Optional: for reproducibility
+  name: "model_comparison"
+  description: "Compare Claude vs Nova on healthcare scenarios"
 
-# Required: AWS Bedrock settings
-aws:
-  region: "us-east-1"             # AWS region for Bedrock API calls
-
-# Required: Models to evaluate
 models:
-  - id: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
-    name: "Claude 3.5 Sonnet v2"  # Display name
-    provider: "anthropic"          # Model provider
-    tier: "flagship"               # Optional: categorization
+  red_team: ["claude-3.5-sonnet", "nova-pro"]
+  blue_team: ["claude-3.5-sonnet", "nova-pro"]
 
-# Required: At least one difficulty level
-difficulty_levels:
-  - easy      # Basic vulnerabilities, obvious misconfigurations
-  - medium    # Subtle issues requiring context to detect
-  - hard      # Complex, chained vulnerabilities with evasion techniques
-
-# Required: IaC languages
-languages:
-  - terraform
-  - cloudformation
-
-# Required: Cloud providers
-cloud_providers:
-  - aws
-  # - azure    # Future support
-  # - gcp      # Future support
-```
-
-### Scenarios Configuration
-
-Define what infrastructure scenarios to test:
-
-```yaml
 scenarios:
-  # Option 1: Generate scenarios per domain
-  domains:
-    - storage      # S3, encryption, access control
-    - compute      # EC2, Lambda, security groups
-    - network      # VPC, subnets, routing
-    - iam          # Roles, policies, permissions
-    - multi_service # Complex multi-resource architectures
-  scenarios_per_domain: 2  # How many scenarios per domain
+  domains: ["healthcare", "financial"]
+  difficulty_levels: ["medium", "hard"]
 
-  # Option 2: Define specific scenarios explicitly
-  specific_scenarios:
-    - domain: storage
-      description: "Create an S3 bucket for storing healthcare PHI data"
-    - domain: compute
-      description: "Create a Lambda function that processes credit card transactions"
-    - domain: iam
-      description: "Create IAM roles for a CI/CD pipeline"
+matrix:
+  type: "symmetric"  # Same model attacks and defends
 ```
 
-### Game Configuration
-
-Control timing and retry behavior:
-
-```yaml
-game:
-  rounds_per_game: 1        # Games per scenario (for statistical significance)
-  red_team_timeout: 120     # Max seconds for Red Team generation
-  blue_team_timeout: 120    # Max seconds for Blue Team analysis
-  max_retries: 2            # Retry attempts on failure
-  retry_delay: 5            # Seconds between retries
-```
-
-### Experiment Types
-
-Three experiment types can be enabled/disabled:
-
-```yaml
-experiments:
-  # Symmetric: Same model plays both Red and Blue Team
-  symmetric:
-    enabled: true
-    description: "Tests model's ability to find its own vulnerabilities"
-
-  # Asymmetric: Different models compete against each other
-  asymmetric:
-    enabled: true
-    description: "Tests relative model capabilities"
-    model_pairs:
-      - red: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
-        blue: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
-      - red: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
-        blue: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
-
-  # Tool-assisted: Blue Team uses Trivy/Checkov in addition to LLM
-  tool_assisted:
-    enabled: true
-    description: "Tests LLM + static analysis tool combination"
-```
-
-### Output Settings
-
-Control what gets saved:
-
-```yaml
-output:
-  save_code: true           # Save generated IaC files
-  save_manifests: true      # Save vulnerability ground truth
-  save_findings: true       # Save Blue Team detection results
-  save_raw_llm: false       # Save raw LLM responses (large files)
-  formats:
-    - json                  # Machine-readable results
-    - csv                   # Spreadsheet-compatible
-    - latex                 # Paper-ready tables
-```
-
-### Calculating Experiment Size
-
-The total number of games depends on your configuration:
-
-| Experiment Type | Formula |
-|-----------------|---------|
-| **Symmetric** | `models × scenarios × difficulties` |
-| **Asymmetric** | `model_pairs × scenarios × difficulties` |
-| **Tool-Assisted** | `models × scenarios × difficulties` (with tools enabled) |
-
-**Example calculation** (small config):
-- 2 models × 3 scenarios × 2 difficulties = **12 symmetric games**
-- 2 pairs × 3 scenarios × 2 difficulties = **12 asymmetric games**
-- **Total: 24 games** (~20 minutes, ~$5-10)
-
-### Running Experiments
+### Analyze Results
+Use the included Jupyter notebooks for analysis:
 
 ```bash
-# Run with default config
-python run_small_experiment.py
-
-# Preview what will run (dry-run)
-python run_small_experiment.py --dry-run
-
-# Run limited number of games
-python run_small_experiment.py --limit 5
-
-# Use custom config
-python run_small_experiment.py --config config/my_config.yaml
+jupyter notebook notebooks/03_analyze_results.ipynb
 ```
 
-### CLI Commands
+## 📁 Game Output Structure
 
-Individual game commands are also available:
+Each game creates a results folder:
+
+```
+output/games/G-20260224_143052/
+├── code/
+│   └── main.tf               # Red Team's generated code
+├── red_team_manifest.json    # Hidden vulnerabilities (ground truth)
+├── blue_team_findings.json   # Blue Team's detections
+├── game_result.json          # Full game result with scores
+└── game.log                  # Detailed execution log
+```
+
+## 🛠️ CLI Reference
 
 ```bash
-# Run Red Team attack only
-adversarial-iac red-team \
-    --scenario "Create S3 bucket for PHI" \
-    --model us.anthropic.claude-3-5-sonnet-20241022-v2:0 \
-    --difficulty medium
+# Start here
+adversarial-iac play                    # 🎮 Interactive wizard (recommended!)
 
-# Run Blue Team analysis on existing code
-adversarial-iac blue-team \
-    --input-dir output/red-team/run_xxx \
-    --model us.anthropic.claude-3-5-sonnet-20241022-v2:0 \
-    --mode llm_only
+# Browse options
+adversarial-iac scenarios               # List 114 scenarios by category
+adversarial-iac models                  # List AI models by tier
 
-# Score Blue Team findings against ground truth
-adversarial-iac score \
-    --red-dir output/red-team/run_xxx \
-    --blue-dir output/blue-team/run_xxx
+# Direct game control
+adversarial-iac game [OPTIONS]          # Run a game with CLI flags
 
-# Run complete game (Red + Blue + Scoring)
-adversarial-iac game \
-    --scenario "Create S3 bucket for PHI" \
-    --red-model us.anthropic.claude-3-5-haiku-20241022-v1:0 \
-    --blue-model us.anthropic.claude-3-5-sonnet-20241022-v2:0 \
-    --difficulty hard
+# Research & batch
+adversarial-iac experiment [OPTIONS]    # Run batch experiments
+
+# Advanced
+adversarial-iac red-team [OPTIONS]      # Run Red Team only
+adversarial-iac blue-team [OPTIONS]     # Run Blue Team only
 ```
 
-### Environment Variables
+## 📖 Documentation
 
-Required environment variables (set in `.env` or export):
+Full documentation available at: **[brianterry.github.io/Adversarial-IaC-Evaluation](https://brianterry.github.io/Adversarial-IaC-Evaluation/)**
 
+- [Getting Started Guide](https://brianterry.github.io/Adversarial-IaC-Evaluation/getting-started/)
+- [Game Mechanics](https://brianterry.github.io/Adversarial-IaC-Evaluation/game/)
+- [Running Experiments](https://brianterry.github.io/Adversarial-IaC-Evaluation/experiments/)
+- [API Reference](https://brianterry.github.io/Adversarial-IaC-Evaluation/api/)
+
+## 🔧 Requirements
+
+- **Python 3.10+**
+- **AWS Account** with Bedrock model access
+- **AWS CLI** configured with credentials
+
+### Optional Tools
 ```bash
-AWS_REGION=us-east-1              # AWS region for Bedrock
-AWS_ACCESS_KEY_ID=xxx             # AWS credentials
-AWS_SECRET_ACCESS_KEY=xxx
-# Or use AWS_PROFILE for credential profiles
-```
-
-## Understanding the Scoring System
-
-This section explains how we measure performance in the adversarial evaluation. Don't worry if you're not familiar with these metrics—we'll explain each one with simple examples.
-
-### The Basic Idea
-
-Think of this like a game of hide-and-seek:
-- **Red Team (Attacker)**: Hides security vulnerabilities in the code
-- **Blue Team (Defender)**: Tries to find all the hidden vulnerabilities
-- **Judge**: Compares what was hidden vs. what was found
-
-### How the Judge Works
-
-The Judge Agent is responsible for fairly scoring each game. Since vulnerabilities can be described differently by Red Team and Blue Team, the Judge uses a **multi-criteria matching algorithm** with **optimal bipartite matching**.
-
-#### The Matching Process
-
-The Judge uses the **Hungarian algorithm** (optimal bipartite matching) to find the globally best assignment between vulnerabilities and findings. This is important because greedy matching (processing items in order) can produce suboptimal pairings.
-
-```
-Step 1: Build Score Matrix
-         F1    F2    F3   (Blue Team Findings)
-    V1  0.45  0.85  0.20  ← Red Team Vulnerabilities
-    V2  0.82  0.40  0.15
-    V3  0.10  0.25  0.90
-
-Step 2: Find Optimal Assignment (Hungarian Algorithm)
-    - Maximizes total match score across all pairs
-    - Each vulnerability matches to at most one finding
-    - Each finding matches to at most one vulnerability
-
-Step 3: Result
-    V1 → F2 (score 0.85) ✓ Exact match
-    V2 → F1 (score 0.82) ✓ Exact match  
-    V3 → F3 (score 0.90) ✓ Exact match
-```
-
-**Why optimal matching matters:** Without it, V1 might greedily take F1 (its first "good enough" match), leaving V2 with a worse pairing even though F1 was V2's best match.
-
-#### Match Score Calculation
-
-The Judge scores each potential match based on four criteria:
-
-| Criterion | Weight | What It Checks |
-|-----------|--------|----------------|
-| **Resource Name** | 40% | Is it the same resource? (e.g., `aws_s3_bucket.data`) |
-| **Vulnerability Type** | 20% | Same category? (encryption, IAM, network, etc.) |
-| **Attribute Match** | 20% | Is the specific vulnerable attribute mentioned? |
-| **Keyword Overlap** | 10% | Do titles/descriptions share key terms? |
-
-#### Example Match Calculation
-
-```
-Red Team Vulnerability:
-  - Resource: aws_s3_bucket.phi_data
-  - Type: encryption
-  - Attribute: server_side_encryption
-  - Title: "PHI bucket missing KMS encryption"
-
-Blue Team Finding:
-  - Resource: aws_s3_bucket.phi_data     → +0.40 (exact match)
-  - Type: encryption                      → +0.20 (exact match)
-  - Evidence: "no encryption configured"  → +0.15 (attribute in evidence)
-  - Title: "S3 bucket not encrypted"      → +0.10 (keyword overlap)
-  
-Total Score: 0.85 → "exact" match ✓
-```
-
-#### Match Types
-
-| Score Range | Match Type | Meaning | Counted As |
-|-------------|------------|---------|------------|
-| ≥ 0.70 | **Exact** | Clear match—Blue Team described the same issue | True Positive |
-| 0.40 - 0.69 | **Partial** | Related finding—Blue Team found the issue but described it differently | True Positive |
-| 0.30 - 0.39 | **Threshold** | Borderline match—may be coincidental | True Positive (weak) |
-| < 0.30 | **Missed** | No match—vulnerability evaded detection | False Negative |
-
-> **Note:** Both "Exact" and "Partial" matches count as True Positives for precision/recall calculations. The distinction helps analyze *how well* Blue Team described the issue, not *whether* it found it.
-
-#### Why Are Most Matches "Partial"?
-
-Partial matches are **expected and correct behavior**. Red Team and Blue Team describe vulnerabilities differently:
-
-| Red Team Says | Blue Team Says | Match Type |
-|---------------|----------------|------------|
-| "PHI data requires customer-managed KMS keys" | "S3 bucket missing encryption configuration" | **Partial** ✓ |
-| "KMS key rotation not enabled" | "Missing key rotation setting" | **Partial** ✓ |
-| "Overly permissive egress rules" | "Security group allows all outbound traffic" | **Partial** ✓ |
-
-Both teams identified the same underlying issue, but they used different words. The Judge correctly scores these as successful detections.
-
-**When do "Exact" matches occur?**
-- Blue Team uses nearly identical terminology to Red Team
-- Both reference the same resource name AND same attribute
-- This happens less often because the agents are independent
-
-#### Reading CLI Match Output
-
-When you run a game, you'll see a Match Details table:
-
-```
-             Match Details             
-┏━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
-┃ Red Vuln ┃ Blue Finding ┃ Result    ┃
-┡━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ V1       │ F2           │ ~ Partial │   ← V1 matched to F2 (not F1!)
-│ V2       │ F1           │ ~ Partial │   ← Optimal matching found best pairs
-│ V3       │ F3           │ ✓ Exact   │
-└──────────┴──────────────┴───────────┘
-```
-
-**Key observations:**
-- `~` indicates a partial match (vulnerability detected, different wording)
-- `✓` indicates an exact match (vulnerability detected with same description)
-- `✗` indicates a miss (vulnerability evaded detection)
-- Notice V1 matched to F2, not F1—the Hungarian algorithm found the optimal global assignment
-
-#### Related Type Recognition
-
-The Judge understands that some vulnerability types are related:
-
-```
-encryption ↔ data_protection   (both about protecting data)
-access_control ↔ iam           (both about permissions)
-network ↔ access_control       (both about who can connect)
-logging ↔ monitoring           (both about visibility)
-```
-
-If types are related, a partial score (0.10) is still awarded.
-
-#### Why Not Use Exact String Matching?
-
-Red Team and Blue Team describe vulnerabilities differently:
-
-| Red Team Says | Blue Team Says | Same Issue? |
-|---------------|----------------|-------------|
-| "No KMS encryption on S3" | "S3 bucket not encrypted at rest" | ✅ Yes |
-| "IAM policy too permissive" | "Role has excessive privileges" | ✅ Yes |
-| "Missing access logging" | "No CloudTrail logging enabled" | ⚠️ Maybe |
-
-The Judge's scoring system handles these semantic differences while maintaining fairness.
-
-### Example Game
-
-Let's say Red Team hides **5 vulnerabilities** in the code, and Blue Team reports **6 findings**:
-
-```
-Red Team hid:        Blue Team found:
-├── V1: No encryption     ├── F1: No encryption ──────────► Match! ✓
-├── V2: Public bucket     ├── F2: Public bucket ──────────► Match! ✓
-├── V3: Weak IAM policy   ├── F3: Weak IAM policy ─────────► Match! ✓
-├── V4: No logging        ├── F4: Missing versioning ──────► Wrong (False Positive)
-└── V5: Open firewall     ├── F5: No logging ──────────────► Match! ✓
-                          └── F6: Hardcoded secret ────────► Wrong (False Positive)
-```
-
-In this example:
-- **4 correct detections** (True Positives): V1, V2, V3, V4 were found
-- **1 missed vulnerability** (False Negative): V5 was not detected
-- **2 false alarms** (False Positives): F4 and F6 weren't real vulnerabilities
-
-### Key Metrics Explained
-
-#### Precision: "How accurate were the detections?"
-
-> *Of everything Blue Team reported, how many were actually real vulnerabilities?*
-
-```
-Precision = Correct Detections / Total Reported
-          = 4 / 6
-          = 66.7%
-```
-
-**Plain English**: "Blue Team was right about 67% of the issues it flagged."
-
-A **low precision** means too many false alarms—the detector is "crying wolf."
-
-#### Recall: "How complete was the detection?"
-
-> *Of all the vulnerabilities that existed, how many did Blue Team find?*
-
-```
-Recall = Correct Detections / Total Hidden
-       = 4 / 5
-       = 80%
-```
-
-**Plain English**: "Blue Team found 80% of the hidden vulnerabilities."
-
-A **low recall** means vulnerabilities are slipping through—the detector has blind spots.
-
-#### F1 Score: "Overall detection quality"
-
-> *A single number that balances precision and recall*
-
-The F1 Score combines both metrics. It's high only when **both** precision and recall are high.
-
-```
-F1 = 2 × (Precision × Recall) / (Precision + Recall)
-   = 2 × (0.667 × 0.80) / (0.667 + 0.80)
-   = 72.7%
-```
-
-**Plain English**: "Overall, Blue Team performed at about 73% effectiveness."
-
-| F1 Score | Interpretation |
-|----------|----------------|
-| 90-100%  | Excellent detection |
-| 70-89%   | Good detection |
-| 50-69%   | Moderate—room for improvement |
-| Below 50% | Poor—significant blind spots |
-
-#### Evasion Rate: "How sneaky was Red Team?"
-
-> *What percentage of vulnerabilities escaped detection?*
-
-```
-Evasion Rate = Missed Vulnerabilities / Total Hidden
-             = 1 / 5
-             = 20%
-```
-
-**Plain English**: "Red Team successfully hid 20% of vulnerabilities from Blue Team."
-
-A **high evasion rate** means the attacker is winning—the vulnerabilities are too subtle to detect.
-
-### Visual Summary
-
-```
-                    ┌─────────────────────────────────────────┐
-                    │         WHAT BLUE TEAM REPORTED         │
-                    │                                         │
-                    │   ┌─────────────────┬─────────────────┐ │
-                    │   │  TRUE POSITIVES │ FALSE POSITIVES │ │
-                    │   │   (Correct!)    │ (False Alarms)  │ │
-  WHAT ACTUALLY     │   │                 │                 │ │
-  EXISTED           │   │    4 found      │    2 wrong      │ │
-  (Red Team hid)    │   ├─────────────────┼─────────────────┤ │
-                    │   │ FALSE NEGATIVES │                 │ │
-                    │   │    (Missed!)    │                 │ │
-                    │   │                 │                 │ │
-                    │   │    1 evaded     │                 │ │
-                    │   └─────────────────┴─────────────────┘ │
-                    └─────────────────────────────────────────┘
-
-  Precision = 4 / (4+2) = 67%  ← "How many reports were correct?"
-  Recall    = 4 / (4+1) = 80%  ← "How many vulns were found?"
-  F1 Score  = ~73%             ← "Overall effectiveness"
-  Evasion   = 1 / 5    = 20%   ← "How many escaped?"
-```
-
-### Real Results from Our Experiment
-
-Here's what we observed in our 24-game experiment:
-
-| Metric | Average | What It Means |
-|--------|---------|---------------|
-| **Precision** | 62% | About 6 in 10 reported issues were real vulnerabilities |
-| **Recall** | 60% | About 6 in 10 vulnerabilities were detected |
-| **F1 Score** | 59% | Moderate overall performance |
-| **Evasion Rate** | 24% | About 1 in 4 vulnerabilities escaped detection |
-
-### Why These Metrics Matter
-
-For **security research**, these metrics reveal:
-
-1. **Can we trust LLM security scanners?** 
-   - 62% precision means 38% false positives—noisy but useful
-   
-2. **Are LLMs missing critical vulnerabilities?**
-   - 24% evasion rate means real risks slip through
-   
-3. **Which is harder: attacking or defending?**
-   - Our data shows attacking is easier (especially with stronger models)
-
-### Stealth Score: "Did the code look legitimate?"
-
-Beyond detection metrics, we also measure whether Red Team's code looks real:
-
-| Score | Meaning |
-|-------|---------|
-| **1** | Code passes syntax validation (looks legitimate) |
-| **0** | Code has obvious errors (suspicious) |
-
-A good Red Team generates code that:
-- Passes `terraform validate` or `cfn-lint`
-- Looks like normal infrastructure code
-- Has realistic resource names and comments
-- Hides vulnerabilities in plain sight
-
-### Game Output Files
-
-After each game, the following files are saved to `output/games/<game_id>/`:
-
-| File | Description |
-|------|-------------|
-| `code/main.tf` | Generated IaC code (Terraform or CloudFormation) |
-| `code/variables.tf` | Variable definitions |
-| `red_manifest.json` | Ground truth - vulnerabilities injected by Red Team |
-| `blue_findings.json` | Vulnerabilities detected by Blue Team |
-| `scoring.json` | Match results with precision, recall, F1 score |
-| `metadata.json` | Game configuration and summary metrics |
-| `game.log` | Complete text log of the game execution |
-
-The `game.log` file contains a detailed trace of everything that happened during the game, including LLM calls, tool execution, and timing information - useful for debugging and analysis.
-
-### Reading Judge Output Files
-
-After each game, the Judge produces a `scoring.json` file with detailed results:
-
-```json
-{
-  "metrics": {
-    "precision": 0.67,
-    "recall": 0.80,
-    "f1_score": 0.73,
-    "evasion_rate": 0.20
-  },
-  "counts": {
-    "total_red_vulns": 5,
-    "total_blue_findings": 6,
-    "true_positives": 4,
-    "false_positives": 2,
-    "false_negatives": 1,
-    "exact_matches": 3,
-    "partial_matches": 1
-  },
-  "matches": [
-    {
-      "red_vuln_id": "V1",
-      "blue_finding_id": "LLM-1",
-      "match_type": "exact",
-      "confidence": 0.85,
-      "explanation": "Exact match: 'No encryption' was detected as 'S3 not encrypted'"
-    },
-    {
-      "red_vuln_id": "V5",
-      "blue_finding_id": null,
-      "match_type": "missed",
-      "confidence": 0.0,
-      "explanation": "Missed: 'Open firewall' on aws_security_group.web was not detected"
-    }
-  ]
-}
-```
-
-**Key fields explained:**
-
-| Field | Meaning |
-|-------|---------|
-| `exact_matches` | Blue Team found the exact vulnerability |
-| `partial_matches` | Blue Team found something related but not exact |
-| `confidence` | How certain the Judge is about the match (0.0-1.0) |
-| `match_type` | `exact`, `partial`, or `missed` |
-
-### Using Judge Results for Research
-
-The detailed match data enables research questions like:
-
-1. **Which vulnerability types are hardest to detect?**
-   - Filter matches by Red Team's `type` field
-   - Calculate detection rate per category
-
-2. **Does model size affect detection?**
-   - Compare F1 scores across different Blue Team models
-
-3. **Are certain Red Team strategies more effective?**
-   - Correlate `stealth_technique` with `match_type`
-
-```python
-# Example: Find most commonly evaded vulnerability types
-import json
-
-results = json.load(open("scoring.json"))
-evaded = [m for m in results["matches"] if m["match_type"] == "missed"]
-# Analyze which types appear most in evaded list
-```
-
-## Tool Comparison: LLM vs Static Analysis
-
-One key research question is: **How do LLMs compare to traditional static analysis tools?**
-
-We tested three detection approaches on adversarially-generated vulnerable IaC:
-
-### Detection Methods
-
-| Tool | Type | How It Works |
-|------|------|--------------|
-| **LLM** | Semantic | Reasons about code meaning, context, and security implications |
-| **Trivy** | Pattern | Matches known vulnerability signatures |
-| **Checkov** | Policy | Checks against predefined security rules |
-
-### Experimental Results
-
-We ran all three tools against 20 games with 78 ground-truth vulnerabilities:
-
-```
-┌─────────────┬────────────┬─────────────────┬───────────────────┐
-│ Tool        │ Findings   │ Games Detected  │ Detection Rate    │
-├─────────────┼────────────┼─────────────────┼───────────────────┤
-│ LLM         │        101 │           20/20 │            100.0% │
-│ Trivy       │          0 │            0/20 │              0.0% │
-│ Checkov     │         87 │           20/20 │            100.0% │
-└─────────────┴────────────┴─────────────────┴───────────────────┘
-```
-
-### Key Findings
-
-1. **Trivy found zero vulnerabilities** across all games
-   - Why? Our Red Team generates *subtle, contextual* vulnerabilities
-   - Trivy looks for explicit patterns (hardcoded secrets, known misconfigs)
-   - It misses "missing resource" and "semantic" vulnerabilities entirely
-
-2. **Checkov found 87 issues** (4.3 per game)
-   - Better coverage through policy-as-code rules
-   - Still misses context-dependent vulnerabilities
-   - High precision (when it finds something, it's usually real)
-
-3. **LLM found 101 issues** (5.0 per game)
-   - Highest raw detection rate
-   - Can detect semantic vulnerabilities (missing logging, insufficient encryption)
-   - May have more false positives (needs ground-truth validation)
-
-### What This Means
-
-| Vulnerability Type | LLM | Checkov | Trivy |
-|--------------------|-----|---------|-------|
-| Missing encryption | ✅ Detects | ⚠️ Sometimes | ❌ Misses |
-| Missing logging | ✅ Detects | ❌ Misses | ❌ Misses |
-| Public access | ✅ Detects | ✅ Detects | ❌ Misses |
-| Overly permissive IAM | ✅ Detects | ⚠️ Sometimes | ❌ Misses |
-| Hardcoded secrets | ✅ Detects | ✅ Detects | ✅ Detects |
-
-### Hybrid Detection Results
-
-We ran a hybrid experiment combining LLM + Checkov:
-
-```
-                      Hybrid Detection Results                      
-┏━━━━━━━━━━━━━━━━━┳━━━━━┳━━━━━━━━┳━━━━━┳━━━━━━━━━┳━━━━━━━┳━━━━━━━━━┓
-┃ Game            ┃  GT ┃ Hybrid ┃ LLM ┃ Checkov ┃    F1 ┃ Evasion ┃
-┡━━━━━━━━━━━━━━━━━╇━━━━━╇━━━━━━━━╇━━━━━╇━━━━━━━━━╇━━━━━━━╇━━━━━━━━━┩
-│ Storage-Medium  │   3 │      4 │   3 │       1 │ 33.3% │   66.7% │
-│ Storage-Hard    │   5 │      6 │   5 │       1 │ 40.0% │   60.0% │
-│ Compute-Medium  │   3 │      8 │   5 │       3 │ 22.2% │   66.7% │
-│ Compute-Hard    │   5 │      9 │   5 │       4 │ 57.1% │   20.0% │
-│ IAM-Medium      │   3 │      5 │   3 │       2 │ 50.0% │   33.3% │
-│ IAM-Hard        │   5 │      7 │   4 │       3 │ 50.0% │   40.0% │
-└─────────────────┴─────┴────────┴─────┴─────────┴───────┴─────────┘
-
-Aggregate Metrics:
-  Average F1 Score: 35.44%
-  Average Evasion Rate: 31.18%
-  Total Hybrid Findings: 162 (LLM: 97, Checkov: 65)
-```
-
-**Key Takeaways:**
-
-| Approach | Strengths | Weaknesses |
-|----------|-----------|------------|
-| **LLM Only** | High recall, semantic understanding | May hallucinate, higher cost |
-| **Checkov Only** | High precision, fast, free | Misses contextual issues |
-| **Hybrid** | Best coverage, combines strengths | More false positives, slower |
-
-**Conclusion**: LLMs provide *complementary* security detection capabilities. The best approach may be **hybrid** (LLM + static tools) with intelligent deduplication.
-
-### Running Tool Comparison
-
-```bash
-# Compare LLM vs Trivy vs Checkov on existing experiment
-adversarial-iac compare-tools \
-    --experiment experiments/small_test/exp_20260220_125729
-
-# Run hybrid (LLM + Checkov) experiment
-adversarial-iac hybrid-experiment \
-    --experiment experiments/small_test/exp_20260220_125729 \
-    --model us.anthropic.claude-3-5-haiku-20241022-v1:0
-
-# Run Blue Team with different modes
-adversarial-iac blue-team --mode llm_only --input-dir output/red-team/run_xxx
-adversarial-iac blue-team --mode tools_only --use-checkov --input-dir output/red-team/run_xxx
-adversarial-iac blue-team --mode hybrid --use-checkov --input-dir output/red-team/run_xxx
-```
-
-### Tool Installation
-
-```bash
-# Install Trivy (macOS)
-brew install trivy
-
-# Install Checkov
+# For hybrid detection mode
+brew install trivy        # macOS
 pip install checkov
-
-# Verify installation
-trivy --version   # Should show 0.69.1+
-checkov --version # Should show 3.2.504+
 ```
 
-## Updating the Vulnerability Database
+## 📄 License
 
-The vulnerability rules come from a git submodule. To get the latest rules:
+MIT License - see [LICENSE](LICENSE) for details.
 
-```bash
-# Update the submodule to latest commit
-git submodule update --remote vendor/vulnerable-iac-generator
+## 🙏 Acknowledgments
 
-# Commit the update
-git add vendor/vulnerable-iac-generator
-git commit -m "Update vulnerability database"
-```
+Built upon the [Vulnerable IaC Dataset Generator](https://github.com/SymbioticSec/vulnerable-iac-dataset-generator) which provides 142 real-world vulnerability patterns.
 
-## Related Work
+---
 
-This project extends:
-- Terry et al. (2025). "Evaluation of Foundation Models for IaC Automation on Amazon Bedrock." IEEE CARS 2025.
-
-## Citation
-
-```bibtex
-@inproceedings{terry2025adversarial,
-  title={Adversarial Evaluation of Multi-Agent LLM Systems for Secure Infrastructure-as-Code},
-  author={Terry, Brian and others},
-  booktitle={TBD},
-  year={2025}
-}
-```
-
-## License
-
-MIT License
+**Ready to play?** Run `adversarial-iac play` and see if your Blue Team can catch the Red Team's tricks! 🎮

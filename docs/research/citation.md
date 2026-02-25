@@ -1,35 +1,154 @@
-# Citation
+# Citation & Research
 
-If you use AdversarialIaC-Bench in your research, please cite our work.
+If you use the Adversarial IaC Game in your research, please cite our work.
+
+## Key Contributions
+
+This benchmark introduces several novel contributions to LLM security evaluation:
+
+### 1. Adversarial Evaluation Framework
+
+Unlike static benchmarks where models are tested on fixed datasets, our framework creates a **dynamic adversarial environment**:
+
+- Red Team LLM actively tries to **evade detection**
+- Blue Team LLM must detect **previously unseen** vulnerabilities  
+- Judge uses **optimal bipartite matching** for fair scoring
+
+This measures true security reasoning, not pattern memorization.
+
+### 2. IaC-Specific Benchmark
+
+First comprehensive benchmark focused on Infrastructure-as-Code security:
+
+- **114 scenarios** across 18 domains
+- **Industry compliance**: HIPAA, PCI-DSS, FedRAMP, SOC 2
+- **Cloud-native patterns**: AWS, multi-service architectures
+- **Terraform and CloudFormation** support
+
+### 3. Multi-Agent Evaluation
+
+Evaluates emerging LLM architectures for security:
+
+- **Blue Team Ensemble**: Specialist agents + consensus voting
+- **Red Team Pipeline**: Multi-stage attack generation
+- **Adversarial Debate**: Finding verification through argumentation
+
+### 4. Standardized Metrics
+
+Reproducible evaluation with:
+
+- **Precision, Recall, F1** for detection quality
+- **Evasion Rate** for attack effectiveness
+- **Hungarian algorithm** for optimal vulnerability-to-finding matching
+
+---
 
 ## BibTeX
 
 ```bibtex
-@software{adversarial_iac_bench_2026,
+@software{adversarial_iac_game_2026,
   author = {Terry, Brian},
-  title = {AdversarialIaC-Bench: A Framework for Evaluating LLM Security Capabilities in Infrastructure-as-Code},
+  title = {Adversarial IaC Game: A Red Team vs Blue Team Framework for LLM Security Evaluation},
   year = {2026},
   publisher = {GitHub},
   url = {https://github.com/brianterry/Adversarial-IaC-Evaluation},
-  note = {Open-source benchmarking framework for adversarial LLM evaluation}
+  note = {Open-source adversarial benchmark for evaluating LLM security capabilities in Infrastructure-as-Code}
 }
 ```
 
 ## APA
 
-Terry, B. (2026). *AdversarialIaC-Bench: A Framework for Evaluating LLM Security Capabilities in Infrastructure-as-Code* [Computer software]. GitHub. https://github.com/brianterry/Adversarial-IaC-Evaluation
+Terry, B. (2026). *Adversarial IaC Game: A Red Team vs Blue Team Framework for LLM Security Evaluation* [Computer software]. GitHub. https://github.com/brianterry/Adversarial-IaC-Evaluation
 
-## Citation Principles
+---
 
-When citing AdversarialIaC-Bench, please include:
+## Research Questions
 
-1. **The framework name**: AdversarialIaC-Bench
-2. **The version used**: Include commit hash or release version
-3. **Configuration details**: Models, difficulty levels, scenarios used
-4. **Metrics reported**: Specify which metrics you're comparing
+The game enables investigation of:
+
+| Research Area | Example Questions |
+|--------------|-------------------|
+| **Model Comparison** | How does Claude compare to GPT-4 at detecting IaC vulnerabilities? |
+| **Adversarial Robustness** | Which models are most resistant to evasion techniques? |
+| **Multi-Agent Systems** | Does ensemble consensus improve detection accuracy? |
+| **Compliance Understanding** | Do LLMs understand HIPAA differently than PCI-DSS? |
+| **Attack Strategies** | Which Red Team strategies achieve highest evasion rates? |
+| **Defense Strategies** | Does iterative analysis improve recall? |
+| **Tool Comparison** | How do LLMs compare to Trivy/Checkov for IaC scanning? |
+
+---
+
+## What to Include When Citing
+
+When using the game in research, please specify:
+
+1. **Game version**: Include commit hash or release version
+2. **Models tested**: Which LLMs for Red and Blue teams
+3. **Scenarios used**: Domains, count, and difficulty levels
+4. **Game modes**: Single, pipeline, ensemble, or debate
+5. **Strategies**: Attack and defense strategies used
+6. **Metrics reported**: Precision, recall, F1, evasion rate
 
 ## Example Usage in Papers
 
-> We evaluated model performance using AdversarialIaC-Bench v1.0 (Terry, 2026). 
-> Our experiments used Claude 3.5 Sonnet for the Red Team and GPT-4 for the Blue Team
-> across 100 scenarios at medium difficulty. We report precision, recall, and evasion rate.
+### Methods Section
+
+> We evaluated LLM security capabilities using the Adversarial IaC Game v1.0 (Terry, 2026). 
+> Our experiments ran 200 games with Claude 3.5 Sonnet (Red Team) vs Nova Pro (Blue Team)
+> across healthcare and financial domains at medium difficulty (3-4 vulnerabilities per game). 
+> We used Blue Team Ensemble mode with debate consensus. The Judge employed the Hungarian 
+> algorithm for optimal vulnerability-to-finding matching.
+
+### Results Section
+
+> Table 1 shows detection performance across models. Claude 3.5 Sonnet achieved the highest
+> recall (78%) but lower precision (71%) compared to Nova Pro (recall: 65%, precision: 89%).
+> The Red Team achieved an average evasion rate of 28% across all experiments.
+
+---
+
+## Data Outputs
+
+Each game produces structured data suitable for analysis:
+
+| Output | Format | Contents |
+|--------|--------|----------|
+| `red_team_manifest.json` | JSON | Ground truth vulnerabilities with types, locations |
+| `blue_team_findings.json` | JSON | Detected issues with confidence, evidence |
+| `game_result.json` | JSON | Scores, matches, timing, configuration |
+| `code/*.tf` | HCL/YAML | Generated infrastructure code |
+| `game.log` | Text | Full execution trace |
+
+### Statistical Analysis
+
+Results can be aggregated for statistical testing:
+
+```python
+import pandas as pd
+from pathlib import Path
+import json
+
+# Load all game results
+results = []
+for game_dir in Path("output/games").iterdir():
+    with open(game_dir / "game_result.json") as f:
+        results.append(json.load(f))
+
+df = pd.DataFrame(results)
+
+# Compare models
+df.groupby("blue_model")["recall"].agg(["mean", "std"])
+```
+
+---
+
+## Related Work
+
+This benchmark builds on and differs from:
+
+- **SecBench** — Static security question answering (we use dynamic generation)
+- **CyberSecEval** — Multi-domain security (we focus on IaC specifically)
+- **VulnGen** — Vulnerability injection (we add adversarial detection evaluation)
+- **SVEN** — Static vulnerability datasets (we generate new vulnerabilities each game)
+
+Our key differentiation is the **adversarial game format** where both attack and defense are AI-powered.

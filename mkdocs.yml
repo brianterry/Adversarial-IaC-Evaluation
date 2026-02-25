@@ -1,5 +1,5 @@
-site_name: AdversarialIaC-Bench
-site_description: A Framework for Evaluating LLM Security Capabilities in Infrastructure-as-Code
+site_name: Adversarial IaC Game
+site_description: A Red Team vs Blue Team Security Game for Infrastructure-as-Code
 site_url: https://brianterry.github.io/Adversarial-IaC-Evaluation
 repo_url: https://github.com/brianterry/Adversarial-IaC-Evaluation
 repo_name: brianterry/Adversarial-IaC-Evaluation
@@ -10,16 +10,16 @@ theme:
     # Light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: deep purple
-      accent: amber
+      primary: indigo
+      accent: red
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     # Dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: deep purple
-      accent: amber
+      primary: indigo
+      accent: red
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
@@ -97,31 +97,32 @@ extra_css:
   - stylesheets/extra.css
 
 nav:
-  - Home: index.md
+  - 🎮 Home: index.md
   - Getting Started:
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
     - Configuration: getting-started/configuration.md
-  - Framework:
-    - Architecture: framework/architecture.md
-    - Red Team Agent: framework/red-team.md
-    - Blue Team Agent: framework/blue-team.md
-    - Judge Agent: framework/judge.md
-    - Scoring Metrics: framework/metrics.md
-  - Multi-Agent Modes:
-    - Overview: multi-agent/overview.md
-    - Blue Team Ensemble: multi-agent/blue-ensemble.md
+  - The Game:
+    - How It Works: framework/architecture.md
+    - 🔴 Red Team: framework/red-team.md
+    - 🔵 Blue Team: framework/blue-team.md
+    - ⚖️ Judge & Scoring: framework/judge.md
+    - 📊 Metrics: framework/metrics.md
+  - Modes & Strategies:
+    - All Game Modes: multi-agent/overview.md
     - Red Team Pipeline: multi-agent/red-pipeline.md
+    - Blue Team Ensemble: multi-agent/blue-ensemble.md
     - Adversarial Debate: multi-agent/debate.md
-  - Running Experiments:
-    - Single Games: experiments/single-game.md
+  - Scenarios & Models:
+    - 114 Built-in Scenarios: extending/scenarios.md
+    - 20+ AI Models: extending/models.md
+  - For Researchers:
+    - Running Experiments: experiments/single-game.md
     - Batch Experiments: experiments/batch.md
     - Cloud Deployment: experiments/cloud.md
     - Analyzing Results: experiments/analysis.md
   - Extending:
-    - Adding Models: extending/models.md
-    - Custom Scenarios: extending/scenarios.md
-    - New Vulnerability Types: extending/vulnerabilities.md
+    - New Vulnerabilities: extending/vulnerabilities.md
   - API Reference:
     - Game Engine: api/engine.md
     - Agents: api/agents.md

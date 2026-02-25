@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 
-from ..prompts import AdversarialPrompts
+from ..prompts import AdversarialPrompts, BlueTeamStrategyPrompts
 
 
 class DetectionMode(Enum):
@@ -85,6 +85,15 @@ class BlueTeamAgent:
         },
     }
 
+    # Type definitions for targeted detection
+    TYPE_DEFINITIONS = {
+        "encryption": "Missing encryption at rest/in transit, weak algorithms, unmanaged keys, missing KMS",
+        "iam": "Overly permissive policies, missing least privilege, wildcard permissions, admin access",
+        "network": "Open security groups, exposed endpoints, missing network segmentation, public subnets",
+        "logging": "Disabled audit trails, missing access logs, no monitoring, CloudTrail gaps",
+        "access_control": "Public access, missing authentication, weak authorization, open ACLs",
+    }
+
     def __init__(
         self,
         llm: BaseChatModel,
@@ -92,6 +101,11 @@ class BlueTeamAgent:
         language: str = "terraform",
         use_trivy: bool = False,
         use_checkov: bool = False,
+        strategy: str = "comprehensive",
+        target_type: Optional[str] = None,
+        compliance_framework: Optional[str] = None,
+        iterations: int = 1,
+        scenario_description: str = "",
     ):
         """
         Initialize Blue Team Agent.
@@ -102,13 +116,44 @@ class BlueTeamAgent:
             language: IaC language (terraform, cloudformation)
             use_trivy: Whether to use Trivy scanner
             use_checkov: Whether to use Checkov scanner
+            strategy: Defense strategy - "comprehensive", "targeted", "iterative", "threat_model", "compliance"
+            target_type: For "targeted" strategy - "encryption", "iam", "network", "logging", "access_control"
+            compliance_framework: For "compliance" strategy - "hipaa", "pci_dss", "soc2", "cis"
+            iterations: For "iterative" strategy - number of analysis passes
+            scenario_description: For "threat_model" strategy - scenario context
         """
         self.llm = llm
         self.mode = mode
         self.language = language
         self.use_trivy = use_trivy
         self.use_checkov = use_checkov
+        self.strategy = strategy
+        self.target_type = target_type
+        self.compliance_framework = compliance_framework
+        self.iterations = iterations
+        self.scenario_description = scenario_description
         self.logger = logging.getLogger("BlueTeamAgent")
+        
+        # Validate strategy
+        valid_strategies = ["comprehensive", "targeted", "iterative", "threat_model", "compliance"]
+        if strategy not in valid_strategies:
+            raise ValueError(f"Invalid strategy '{strategy}'. Valid: {valid_strategies}")
+        
+        # Validate target_type for targeted strategy
+        if strategy == "targeted":
+            valid_types = list(self.TYPE_DEFINITIONS.keys())
+            if not target_type:
+                raise ValueError("target_type required for 'targeted' strategy")
+            if target_type not in valid_types:
+                raise ValueError(f"Invalid target_type '{target_type}'. Valid: {valid_types}")
+        
+        # Validate compliance_framework for compliance strategy
+        if strategy == "compliance":
+            valid_frameworks = ["hipaa", "pci_dss", "soc2", "cis"]
+            if not compliance_framework:
+                raise ValueError("compliance_framework required for 'compliance' strategy")
+            if compliance_framework not in valid_frameworks:
+                raise ValueError(f"Invalid compliance_framework '{compliance_framework}'. Valid: {valid_frameworks}")
         
         self.lang_config = self.LANGUAGE_CONFIGS.get(
             language, self.LANGUAGE_CONFIGS["terraform"]
@@ -124,14 +169,31 @@ class BlueTeamAgent:
         Returns:
             BlueTeamOutput with findings and analysis
         """
-        self.logger.info(f"Blue Team analyzing code in {self.mode.value} mode")
+        self.logger.info(f"Blue Team analyzing code in {self.mode.value} mode with {self.strategy} strategy")
         
         all_findings: List[Finding] = []
+        strategy_metadata: Dict[str, Any] = {"strategy": self.strategy}
         
-        # Step 1: LLM Analysis (if enabled)
+        # Step 1: Strategy-specific LLM Analysis (if enabled)
         if self.mode in [DetectionMode.LLM_ONLY, DetectionMode.HYBRID]:
-            self.logger.info("Step 1: Running LLM analysis")
-            llm_findings = await self._analyze_with_llm(code)
+            self.logger.info(f"Step 1: Running {self.strategy} LLM analysis")
+            
+            if self.strategy == "targeted":
+                llm_findings = await self._analyze_targeted(code)
+                strategy_metadata["target_type"] = self.target_type
+            elif self.strategy == "iterative":
+                llm_findings, iteration_data = await self._analyze_iterative(code)
+                strategy_metadata["iterations"] = iteration_data
+            elif self.strategy == "threat_model":
+                llm_findings, threat_model = await self._analyze_threat_model(code)
+                strategy_metadata["threat_model"] = threat_model
+            elif self.strategy == "compliance":
+                llm_findings, compliance_report = await self._analyze_compliance(code)
+                strategy_metadata["compliance_report"] = compliance_report
+            else:
+                # Default comprehensive strategy
+                llm_findings = await self._analyze_with_llm(code)
+            
             all_findings.extend(llm_findings)
             self.logger.info(f"LLM found {len(llm_findings)} potential issues")
         
@@ -160,15 +222,17 @@ class BlueTeamAgent:
             analysis_summary=self._create_summary(all_findings, code),
             detection_stats={
                 "mode": self.mode.value,
+                "strategy": self.strategy,
                 "total_findings": len(all_findings),
                 "by_source": self._count_by_source(all_findings),
                 "by_severity": self._count_by_severity(all_findings),
+                "strategy_metadata": strategy_metadata,
             },
         )
         
         self.logger.info(
             f"Blue Team complete: {len(all_findings)} findings, "
-            f"mode={self.mode.value}"
+            f"mode={self.mode.value}, strategy={self.strategy}"
         )
         
         return output
@@ -195,6 +259,200 @@ class BlueTeamAgent:
         findings = self._parse_llm_findings(response)
         
         return findings
+
+    async def _analyze_targeted(self, code: Dict[str, str]) -> List[Finding]:
+        """Analyze code with focus on a specific vulnerability type."""
+        findings = []
+        
+        # Combine all code files for analysis
+        combined_code = ""
+        for filename, content in code.items():
+            combined_code += f"\n# === {filename} ===\n{content}\n"
+        
+        # Build targeted detection prompt
+        prompt = BlueTeamStrategyPrompts.TARGETED_DETECTION.format(
+            target_type=self.target_type,
+            type_definition=self.TYPE_DEFINITIONS.get(self.target_type, ""),
+            language=self.language,
+            code=combined_code,
+        )
+        
+        # Get LLM analysis
+        response = await self._invoke_llm(prompt)
+        
+        # Parse findings
+        findings = self._parse_llm_findings(response)
+        
+        # Tag findings with strategy
+        for f in findings:
+            f.source = f"llm_targeted_{self.target_type}"
+        
+        return findings
+
+    async def _analyze_iterative(self, code: Dict[str, str]) -> tuple[List[Finding], Dict[str, Any]]:
+        """Analyze code with multiple iterative passes."""
+        all_findings = []
+        iteration_data = {"passes": [], "refinements": []}
+        previous_findings_json = "[]"
+        investigation_areas_json = "[]"
+        
+        # Combine all code files for analysis
+        combined_code = ""
+        for filename, content in code.items():
+            combined_code += f"\n# === {filename} ===\n{content}\n"
+        
+        for pass_num in range(1, self.iterations + 1):
+            self.logger.info(f"Iterative analysis pass {pass_num}/{self.iterations}")
+            
+            if pass_num == 1:
+                # First pass
+                prompt = BlueTeamStrategyPrompts.ITERATIVE_DETECTION_PASS1.format(
+                    pass_number=pass_num,
+                    total_passes=self.iterations,
+                    language=self.language,
+                    code=combined_code,
+                )
+            else:
+                # Refinement passes
+                prompt = BlueTeamStrategyPrompts.ITERATIVE_DETECTION_REFINE.format(
+                    pass_number=pass_num,
+                    total_passes=self.iterations,
+                    language=self.language,
+                    code=combined_code,
+                    previous_findings=previous_findings_json,
+                    investigation_areas=investigation_areas_json,
+                )
+            
+            response = await self._invoke_llm(prompt)
+            pass_findings = self._parse_llm_findings(response)
+            
+            # Extract investigation areas for next pass
+            try:
+                parsed = json.loads(self._extract_json(response))
+                investigation_areas_json = json.dumps(
+                    parsed.get("areas_for_deeper_investigation", [])
+                )
+            except:
+                investigation_areas_json = "[]"
+            
+            # Store previous findings for next pass
+            previous_findings_json = json.dumps([{
+                "finding_id": f.finding_id,
+                "resource_name": f.resource_name,
+                "title": f.title,
+                "severity": f.severity,
+                "confidence": f.confidence,
+            } for f in pass_findings])
+            
+            # Tag findings with pass number
+            for f in pass_findings:
+                f.source = f"llm_iterative_pass{pass_num}"
+            
+            iteration_data["passes"].append({
+                "pass_number": pass_num,
+                "findings_count": len(pass_findings),
+            })
+            
+            all_findings = pass_findings  # Each pass refines, so keep latest
+        
+        return all_findings, iteration_data
+
+    async def _analyze_threat_model(self, code: Dict[str, str]) -> tuple[List[Finding], Dict[str, Any]]:
+        """Analyze code using threat modeling approach."""
+        # Combine all code files for analysis
+        combined_code = ""
+        for filename, content in code.items():
+            combined_code += f"\n# === {filename} ===\n{content}\n"
+        
+        # Build threat model detection prompt
+        prompt = BlueTeamStrategyPrompts.THREAT_MODEL_DETECTION.format(
+            language=self.language,
+            code=combined_code,
+            scenario_description=self.scenario_description or "Infrastructure deployment",
+        )
+        
+        # Get LLM analysis
+        response = await self._invoke_llm(prompt)
+        
+        # Parse findings and threat model
+        findings = self._parse_llm_findings(response)
+        
+        # Extract threat model data
+        threat_model = {}
+        try:
+            parsed = json.loads(self._extract_json(response))
+            threat_model = parsed.get("threat_model", {})
+        except:
+            pass
+        
+        # Tag findings with strategy
+        for f in findings:
+            f.source = "llm_threat_model"
+        
+        return findings, threat_model
+
+    async def _analyze_compliance(self, code: Dict[str, str]) -> tuple[List[Finding], Dict[str, Any]]:
+        """Analyze code against a specific compliance framework."""
+        # Combine all code files for analysis
+        combined_code = ""
+        for filename, content in code.items():
+            combined_code += f"\n# === {filename} ===\n{content}\n"
+        
+        # Get framework requirements
+        framework_requirements = self._get_framework_requirements()
+        
+        # Build compliance detection prompt
+        prompt = BlueTeamStrategyPrompts.COMPLIANCE_DETECTION.format(
+            framework=self.compliance_framework.upper(),
+            framework_requirements=framework_requirements,
+            language=self.language,
+            code=combined_code,
+        )
+        
+        # Get LLM analysis
+        response = await self._invoke_llm(prompt)
+        
+        # Parse findings
+        findings = self._parse_llm_findings(response)
+        
+        # Extract compliance report
+        compliance_report = {}
+        try:
+            parsed = json.loads(self._extract_json(response))
+            compliance_report = parsed.get("compliance_summary", {})
+        except:
+            pass
+        
+        # Tag findings with framework
+        for f in findings:
+            f.source = f"llm_compliance_{self.compliance_framework}"
+        
+        return findings, compliance_report
+
+    def _get_framework_requirements(self) -> str:
+        """Get the compliance framework requirements text."""
+        framework_map = {
+            "hipaa": BlueTeamStrategyPrompts.HIPAA_REQUIREMENTS,
+            "pci_dss": BlueTeamStrategyPrompts.PCI_DSS_REQUIREMENTS,
+            "soc2": BlueTeamStrategyPrompts.SOC2_REQUIREMENTS,
+            "cis": BlueTeamStrategyPrompts.CIS_REQUIREMENTS,
+        }
+        return framework_map.get(self.compliance_framework, "")
+
+    def _extract_json(self, text: str) -> str:
+        """Extract JSON from LLM response text."""
+        # Try to find JSON in code blocks
+        import re
+        json_match = re.search(r'```(?:json)?\s*([\s\S]*?)```', text)
+        if json_match:
+            return json_match.group(1).strip()
+        
+        # Try to find raw JSON
+        json_match = re.search(r'\{[\s\S]*\}', text)
+        if json_match:
+            return json_match.group(0)
+        
+        return text
 
     async def _analyze_with_trivy(self, code: Dict[str, str]) -> List[Finding]:
         """Analyze code using Trivy scanner."""
@@ -580,6 +838,11 @@ def create_blue_team_agent(
     language: str = "terraform",
     use_trivy: bool = False,
     use_checkov: bool = False,
+    strategy: str = "comprehensive",
+    target_type: Optional[str] = None,
+    compliance_framework: Optional[str] = None,
+    iterations: int = 1,
+    scenario_description: str = "",
 ) -> BlueTeamAgent:
     """
     Create a Blue Team Agent with AWS Bedrock.
@@ -591,6 +854,11 @@ def create_blue_team_agent(
         language: terraform or cloudformation
         use_trivy: Enable Trivy scanner
         use_checkov: Enable Checkov scanner
+        strategy: Defense strategy - "comprehensive", "targeted", "iterative", "threat_model", "compliance"
+        target_type: For "targeted" strategy - "encryption", "iam", "network", "logging", "access_control"
+        compliance_framework: For "compliance" strategy - "hipaa", "pci_dss", "soc2", "cis"
+        iterations: For "iterative" strategy - number of analysis passes
+        scenario_description: For "threat_model" strategy - scenario context
         
     Returns:
         Configured BlueTeamAgent
@@ -612,4 +880,9 @@ def create_blue_team_agent(
         language=language,
         use_trivy=use_trivy,
         use_checkov=use_checkov,
+        strategy=strategy,
+        target_type=target_type,
+        compliance_framework=compliance_framework,
+        iterations=iterations,
+        scenario_description=scenario_description,
     )

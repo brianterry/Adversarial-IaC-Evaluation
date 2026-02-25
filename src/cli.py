@@ -31,6 +31,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.agents.red_team_agent import RedTeamAgent, Difficulty, create_red_team_agent
 from src.agents.blue_team_agent import BlueTeamAgent, DetectionMode, create_blue_team_agent
 from src.game.scenarios import ScenarioGenerator
+from src.models import (
+    MODEL_REGISTRY, TIER_INFO, DEFAULT_MODELS,
+    get_model_id, get_model_tier, list_all_models,
+    get_interactive_model_choices,
+)
 
 # Load environment variables
 load_dotenv()
@@ -51,6 +56,134 @@ logger = logging.getLogger("AdversarialIaC")
 def cli():
     """Adversarial IaC Evaluation - Red Team vs Blue Team security testing"""
     pass
+
+
+@cli.command()
+@click.option("--tier", "-t", type=click.Choice(["frontier", "strong", "efficient", "specialized", "all"]), default="all", help="Filter by tier")
+def models(tier: str):
+    """
+    List available Bedrock models organized by capability tier.
+    
+    Tiers:
+    - frontier: Best quality, highest cost (Claude 3 Opus, Nova Premier)
+    - strong: Good balance (Claude 3.5 Haiku, Nova Pro, Llama 70B)
+    - efficient: Fast and cheap (Nova Lite, Llama 8B, Mistral Small)
+    - specialized: Experimental models (DeepSeek, Jamba)
+    """
+    console.print(Panel.fit(
+        "[bold cyan]Available Bedrock Models[/]\n"
+        "[dim]Use short names with --red-model or --blue-model[/]",
+        title="Model Registry",
+    ))
+    console.print()
+    
+    tiers_to_show = [tier] if tier != "all" else TIER_INFO.keys()
+    
+    for tier_name in tiers_to_show:
+        info = TIER_INFO[tier_name]
+        tier_models = MODEL_REGISTRY.get(tier_name, {})
+        
+        table = Table(title=f"{info['emoji']} {info['name']} Tier - {info['description']}")
+        table.add_column("Short Name", style="cyan")
+        table.add_column("Full Model ID", style="dim")
+        
+        for short_name, full_id in tier_models.items():
+            table.add_row(short_name, full_id)
+        
+        console.print(table)
+        console.print()
+    
+    # Show usage examples
+    console.print("[bold]Usage Examples:[/]")
+    console.print("  [cyan]adversarial-iac game --red-model claude-3.5-sonnet --blue-model nova-pro ...[/]")
+    console.print("  [cyan]adversarial-iac game --red-model mistral-large --blue-model llama-3.1-70b ...[/]")
+    console.print()
+    console.print("[dim]You can also use full model IDs directly for newer/custom models.[/]")
+
+
+@cli.command()
+@click.option("--category", "-c", type=click.Choice(["infrastructure", "aws_service", "industry", "security", "all"]), default="all", help="Filter by category")
+@click.option("--domain", "-d", help="Show scenarios for a specific domain")
+def scenarios(category: str, domain: str):
+    """
+    List available test scenarios organized by category and domain.
+    
+    Categories:
+    - infrastructure: Core AWS infrastructure (storage, compute, network, iam)
+    - aws_service: Specific AWS services (secrets, containers, databases, api)
+    - industry: Industry-specific compliance (healthcare, financial, government)
+    - security: Security-focused patterns (zero_trust, disaster_recovery)
+    """
+    from src.prompts import ScenarioTemplates
+    
+    counts = ScenarioTemplates.get_scenario_count()
+    
+    console.print(Panel.fit(
+        f"[bold cyan]Infrastructure Scenarios[/]\n"
+        f"[dim]{counts['total']} scenarios across {len(counts['by_domain'])} domains[/]",
+        title="Scenario Library",
+    ))
+    console.print()
+    
+    # If specific domain requested, show its scenarios
+    if domain:
+        if domain not in ScenarioTemplates.SCENARIOS:
+            console.print(f"[red]Error:[/] Unknown domain '{domain}'")
+            console.print(f"[dim]Valid domains: {', '.join(ScenarioTemplates.SCENARIOS.keys())}[/]")
+            return
+        
+        info = ScenarioTemplates.DOMAIN_INFO.get(domain, {})
+        scenarios_list = ScenarioTemplates.SCENARIOS[domain]
+        
+        table = Table(title=f"{info.get('icon', '📋')} {domain.replace('_', ' ').title()} - {info.get('description', '')}")
+        table.add_column("#", style="dim", width=3)
+        table.add_column("Scenario Description", style="white")
+        
+        for i, scenario in enumerate(scenarios_list):
+            table.add_row(str(i), scenario)
+        
+        console.print(table)
+        console.print()
+        console.print(f"[dim]Use: adversarial-iac game --scenario \"{scenarios_list[0][:50]}...\"[/]")
+        return
+    
+    # Show domains by category
+    domains = ScenarioTemplates.list_domains()
+    
+    category_names = {
+        "infrastructure": "🏗️  Infrastructure Domains",
+        "aws_service": "☁️  AWS Service Domains",
+        "industry": "🏢  Industry Verticals",
+        "security": "🔒  Security Patterns",
+    }
+    
+    categories_to_show = [category] if category != "all" else ["infrastructure", "aws_service", "industry", "security"]
+    
+    for cat in categories_to_show:
+        cat_domains = [d for d in domains if d["category"] == cat]
+        if not cat_domains:
+            continue
+            
+        table = Table(title=category_names.get(cat, cat))
+        table.add_column("Domain", style="cyan", width=18)
+        table.add_column("Icon", width=4)
+        table.add_column("Description", style="dim")
+        table.add_column("Count", justify="right", style="green")
+        
+        for d in cat_domains:
+            table.add_row(d["name"], d["icon"], d["description"], str(d["count"]))
+        
+        console.print(table)
+        console.print()
+    
+    # Summary
+    console.print("[bold]Category Summary:[/]")
+    for cat, count in counts["by_category"].items():
+        emoji = {"infrastructure": "🏗️", "aws_service": "☁️", "industry": "🏢", "security": "🔒"}.get(cat, "📋")
+        console.print(f"  {emoji} {cat}: {count} scenarios")
+    console.print(f"  [bold]Total: {counts['total']} scenarios[/]")
+    console.print()
+    console.print("[dim]Use --domain <name> to see specific scenarios (e.g., --domain healthcare)[/]")
 
 
 @cli.command()
@@ -266,54 +399,6 @@ async def _run_red_team(
         "timestamp": timestamp,
     }
     (run_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
-
-
-@cli.command()
-@click.option(
-    "--domains",
-    "-d",
-    multiple=True,
-    default=["storage", "compute", "network"],
-    help="Domains to generate scenarios for",
-)
-@click.option(
-    "--count",
-    "-n",
-    default=2,
-    help="Number of scenarios per domain",
-)
-def scenarios(domains: tuple, count: int):
-    """List available test scenarios."""
-    
-    generator = ScenarioGenerator()
-    
-    # Get matrix
-    matrix = generator.get_scenario_matrix()
-    
-    console.print(Panel.fit(
-        f"[bold]Scenario Space[/]\n"
-        f"Domains: {', '.join(matrix['domains'])}\n"
-        f"Providers: {', '.join(matrix['cloud_providers'])}\n"
-        f"Languages: {', '.join(matrix['languages'])}\n"
-        f"Difficulties: {', '.join(matrix['difficulty_levels'])}\n"
-        f"[bold]Total Combinations: {matrix['total_combinations']}[/]",
-        title="Available Scenarios",
-    ))
-    
-    # Show scenarios by domain
-    from src.prompts import ScenarioTemplates
-    
-    for domain in domains:
-        table = Table(title=f"Domain: {domain}")
-        table.add_column("Index", style="cyan")
-        table.add_column("Description")
-        
-        scenarios_list = ScenarioTemplates.SCENARIOS.get(domain, [])
-        for i, desc in enumerate(scenarios_list[:count]):
-            table.add_row(str(i), desc)
-        
-        console.print(table)
-        console.print()
 
 
 @cli.command()
@@ -721,6 +806,54 @@ def score(red_dir: str, blue_dir: str, output_dir: str):
     default="standard",
     help="Verification mode: standard judge or adversarial debate",
 )
+@click.option(
+    "--red-strategy",
+    type=click.Choice(["balanced", "targeted", "stealth", "blitz", "chained"]),
+    default="balanced",
+    help="Red Team attack strategy",
+)
+@click.option(
+    "--red-target-type",
+    type=click.Choice(["encryption", "iam", "network", "logging", "access_control"]),
+    default=None,
+    help="Target vuln type for 'targeted' red strategy",
+)
+@click.option(
+    "--blue-strategy",
+    type=click.Choice(["comprehensive", "targeted", "iterative", "threat_model", "compliance"]),
+    default="comprehensive",
+    help="Blue Team defense strategy",
+)
+@click.option(
+    "--blue-target-type",
+    type=click.Choice(["encryption", "iam", "network", "logging", "access_control"]),
+    default=None,
+    help="Target vuln type for 'targeted' blue strategy",
+)
+@click.option(
+    "--compliance-framework",
+    type=click.Choice(["hipaa", "pci_dss", "soc2", "cis"]),
+    default=None,
+    help="Compliance framework for 'compliance' blue strategy",
+)
+@click.option(
+    "--blue-iterations",
+    type=int,
+    default=1,
+    help="Number of passes for 'iterative' blue strategy",
+)
+@click.option(
+    "--use-trivy",
+    is_flag=True,
+    default=False,
+    help="Enable Trivy static analysis for Blue Team",
+)
+@click.option(
+    "--use-checkov",
+    is_flag=True,
+    default=False,
+    help="Enable Checkov static analysis for Blue Team",
+)
 @click.option("--region", default="us-east-1", help="AWS region")
 def game(
     scenario: str,
@@ -733,6 +866,14 @@ def game(
     blue_team_mode: str,
     consensus_method: str,
     verification_mode: str,
+    red_strategy: str,
+    red_target_type: str,
+    blue_strategy: str,
+    blue_target_type: str,
+    compliance_framework: str,
+    blue_iterations: int,
+    use_trivy: bool,
+    use_checkov: bool,
     region: str,
 ):
     """
@@ -745,10 +886,48 @@ def game(
     - --red-team-mode pipeline: Multi-agent attack chain (Architect→Selector→Generator→Reviewer)
     - --blue-team-mode ensemble: Multi-agent defense (Security+Compliance+Architecture→Consensus)
     - --verification-mode debate: Adversarial debate verification (Prosecutor vs Defender)
+    
+    Attack Strategies (--red-strategy):
+    - balanced: Standard mix of vulnerability types and stealth
+    - targeted: Focus on specific vulnerability type (use --red-target-type)
+    - stealth: Fewer vulns but maximum evasion techniques
+    - blitz: Maximum vulnerabilities, less stealth
+    - chained: Vulnerabilities that exploit each other in sequence
+    
+    Defense Strategies (--blue-strategy):
+    - comprehensive: Check for all vulnerability types
+    - targeted: Focus on specific vulnerability type (use --blue-target-type)
+    - iterative: Multiple analysis passes with refinement (use --blue-iterations)
+    - threat_model: Start with threat model, then hunt for matching vulns
+    - compliance: Check against compliance framework (use --compliance-framework)
+    
+    Static Analysis Tools:
+    - --use-trivy: Enable Trivy IaC scanner (must be installed)
+    - --use-checkov: Enable Checkov scanner (must be installed)
     """
     # Build mode display strings
     red_display = f"{red_team_mode}" + (" (4-stage)" if red_team_mode == "pipeline" else "")
+    red_strategy_display = red_strategy
+    if red_strategy == "targeted" and red_target_type:
+        red_strategy_display = f"targeted:{red_target_type}"
+    
     blue_display = f"{blue_team_mode}" + (f" ({consensus_method})" if blue_team_mode == "ensemble" else "")
+    blue_strategy_display = blue_strategy
+    if blue_strategy == "targeted" and blue_target_type:
+        blue_strategy_display = f"targeted:{blue_target_type}"
+    elif blue_strategy == "compliance" and compliance_framework:
+        blue_strategy_display = f"compliance:{compliance_framework}"
+    elif blue_strategy == "iterative":
+        blue_strategy_display = f"iterative:{blue_iterations}x"
+    
+    # Static tools display
+    tools_display = []
+    if use_trivy:
+        tools_display.append("Trivy")
+    if use_checkov:
+        tools_display.append("Checkov")
+    tools_str = ", ".join(tools_display) if tools_display else "None"
+    
     verify_display = verification_mode
     
     console.print(
@@ -756,7 +935,10 @@ def game(
             "[bold magenta]🎮 ADVERSARIAL GAME[/]\n"
             f"Scenario: {scenario}\n"
             f"Red Team: {red_model.split('.')[-1][:20]} ({red_display})\n"
+            f"  Strategy: {red_strategy_display}\n"
             f"Blue Team: {blue_model.split('.')[-1][:20]} ({blue_display})\n"
+            f"  Strategy: {blue_strategy_display}\n"
+            f"  Static Tools: {tools_str}\n"
             f"Difficulty: {difficulty}\n"
             f"Verification: {verify_display}",
             title="Game Configuration",
@@ -776,6 +958,14 @@ def game(
                 blue_team_mode=blue_team_mode,
                 consensus_method=consensus_method,
                 verification_mode=verification_mode,
+                red_strategy=red_strategy,
+                red_target_type=red_target_type,
+                blue_strategy=blue_strategy,
+                blue_target_type=blue_target_type,
+                compliance_framework=compliance_framework,
+                blue_iterations=blue_iterations,
+                use_trivy=use_trivy,
+                use_checkov=use_checkov,
                 region=region,
             )
         )
@@ -795,11 +985,23 @@ async def _run_game(
     blue_team_mode: str,
     consensus_method: str,
     verification_mode: str,
-    region: str,
+    red_strategy: str = "balanced",
+    red_target_type: str = None,
+    blue_strategy: str = "comprehensive",
+    blue_target_type: str = None,
+    compliance_framework: str = None,
+    blue_iterations: int = 1,
+    use_trivy: bool = False,
+    use_checkov: bool = False,
+    region: str = "us-east-1",
 ):
     """Async implementation of game command."""
     from src.game.engine import GameEngine, GameConfig
     from src.game.scenarios import ScenarioGenerator
+    
+    # Resolve model short names to full IDs
+    red_model_id = get_model_id(red_model)
+    blue_model_id = get_model_id(blue_model)
     
     # Create scenario
     scenario_gen = ScenarioGenerator(
@@ -813,19 +1015,33 @@ async def _run_game(
         difficulty=difficulty,
     )
     
+    # Determine detection mode based on tools
+    if use_trivy or use_checkov:
+        detection_mode = "hybrid"  # LLM + tools
+    else:
+        detection_mode = "llm_only"
+    
     # Create game config
     config = GameConfig(
-        red_model=red_model,
-        blue_model=blue_model,
+        red_model=red_model_id,
+        blue_model=blue_model_id,
         difficulty=difficulty,
         language=language,
         cloud_provider=cloud_provider,
-        detection_mode="llm_only",
+        detection_mode=detection_mode,
+        use_trivy=use_trivy,
+        use_checkov=use_checkov,
         region=region,
         red_team_mode=red_team_mode,
+        red_strategy=red_strategy,
+        red_target_type=red_target_type,
         blue_team_mode=blue_team_mode,
         ensemble_specialists=["security", "compliance", "architecture"] if blue_team_mode == "ensemble" else None,
         consensus_method=consensus_method,
+        blue_strategy=blue_strategy,
+        blue_target_type=blue_target_type,
+        compliance_framework=compliance_framework,
+        blue_iterations=blue_iterations,
         verification_mode=verification_mode,
     )
     
@@ -931,6 +1147,866 @@ async def _run_game(
     console.print(table)
     
     console.print(f"\n[dim]Full results saved to output/games/{result.game_id}[/]")
+
+
+@cli.command()
+def play():
+    """
+    🎮 Interactive mode - guided game setup with explanations.
+    
+    This wizard walks you through setting up and running an adversarial
+    game, then explains the results in detail.
+    """
+    import questionary
+    from questionary import Style
+    
+    # Custom style for the wizard
+    custom_style = Style([
+        ('qmark', 'fg:#673ab7 bold'),
+        ('question', 'bold'),
+        ('answer', 'fg:#2196f3 bold'),
+        ('pointer', 'fg:#673ab7 bold'),
+        ('highlighted', 'fg:#673ab7 bold'),
+        ('selected', 'fg:#2196f3'),
+        ('separator', 'fg:#cc5454'),
+        ('instruction', 'fg:#808080'),
+    ])
+    
+    console.print(Panel.fit(
+        "[bold magenta]🎮 ADVERSARIAL IAC EVALUATION[/]\n"
+        "[dim]Interactive Mode - Let's set up a security game![/]\n\n"
+        "Red Team will try to hide vulnerabilities in infrastructure code.\n"
+        "Blue Team will try to find them. Let's see who wins!",
+        title="Welcome",
+        border_style="magenta",
+    ))
+    console.print()
+    
+    # Import scenario templates
+    from src.prompts import ScenarioTemplates
+    
+    # First, ask how user wants to select scenario
+    scenario_method = questionary.select(
+        "How would you like to choose a scenario?",
+        choices=[
+            questionary.Choice("🎲 Random - Let me pick something interesting", "random"),
+            questionary.Choice("🏗️  Infrastructure - Core AWS components", "infrastructure"),
+            questionary.Choice("☁️  AWS Services - Specific services (containers, databases...)", "aws_service"),
+            questionary.Choice("🏢 Industry - Healthcare, Financial, Government...", "industry"),
+            questionary.Choice("🔒 Security - Zero-trust, disaster recovery...", "security"),
+            questionary.Choice("✏️  Custom - Describe your own scenario", "custom"),
+        ],
+        style=custom_style,
+    ).ask()
+    
+    if scenario_method is None:
+        console.print("[dim]Cancelled.[/]")
+        return
+    
+    scenario = None
+    
+    if scenario_method == "random":
+        # Get a random scenario
+        random_scenario = ScenarioTemplates.get_random_scenario()
+        info = ScenarioTemplates.DOMAIN_INFO.get(random_scenario["domain"], {})
+        scenario = random_scenario["description"]
+        console.print(f"\n[bold green]Selected:[/] {info.get('icon', '📋')} {random_scenario['domain'].replace('_', ' ').title()}")
+        console.print(f"[dim]{scenario}[/]\n")
+        
+    elif scenario_method == "custom":
+        scenario = questionary.text(
+            "Describe your custom scenario:",
+            style=custom_style,
+        ).ask()
+        if not scenario:
+            console.print("[dim]Cancelled.[/]")
+            return
+            
+    else:
+        # Browse category
+        domains = [d for d in ScenarioTemplates.list_domains() if d["category"] == scenario_method]
+        
+        domain_choices = [
+            questionary.Choice(f"{d['icon']} {d['name'].replace('_', ' ').title()} ({d['count']} scenarios)", d["name"])
+            for d in domains
+        ]
+        
+        selected_domain = questionary.select(
+            "Select a domain:",
+            choices=domain_choices,
+            style=custom_style,
+        ).ask()
+        
+        if selected_domain is None:
+            console.print("[dim]Cancelled.[/]")
+            return
+        
+        # Show scenarios from that domain
+        domain_scenarios = ScenarioTemplates.SCENARIOS[selected_domain]
+        scenario_choices = [
+            questionary.Choice(f"{s[:70]}..." if len(s) > 70 else s, s)
+            for s in domain_scenarios
+        ]
+        
+        scenario = questionary.select(
+            f"Select a {selected_domain.replace('_', ' ')} scenario:",
+            choices=scenario_choices,
+            style=custom_style,
+        ).ask()
+        
+        if scenario is None:
+            console.print("[dim]Cancelled.[/]")
+            return
+    
+    console.print()
+    
+    # Difficulty selection with explanations
+    difficulty_choices = [
+        questionary.Choice(
+            "🟢 Easy - Obvious vulnerabilities (good for learning)",
+            "easy"
+        ),
+        questionary.Choice(
+            "🟡 Medium - Subtle issues requiring context (recommended)", 
+            "medium"
+        ),
+        questionary.Choice(
+            "🔴 Hard - Hidden, chained vulnerabilities (expert mode)",
+            "hard"
+        ),
+    ]
+    
+    difficulty = questionary.select(
+        "Select difficulty level:",
+        choices=difficulty_choices,
+        style=custom_style,
+        instruction="(Use arrow keys)",
+    ).ask()
+    
+    if difficulty is None:
+        console.print("[dim]Cancelled.[/]")
+        return
+    
+    console.print()
+    
+    # IaC Language selection
+    language_choices = [
+        questionary.Choice(
+            "📄 Terraform (HCL) - Most popular, recommended",
+            "terraform"
+        ),
+        questionary.Choice(
+            "☁️  CloudFormation (YAML/JSON) - AWS native",
+            "cloudformation"
+        ),
+    ]
+    
+    language = questionary.select(
+        "Which Infrastructure-as-Code language?",
+        choices=language_choices,
+        style=custom_style,
+    ).ask()
+    
+    if language is None:
+        console.print("[dim]Cancelled.[/]")
+        return
+    
+    console.print()
+    
+    # Model selection - organized by tier
+    def build_model_choices():
+        """Build model choices organized by tier."""
+        choices = []
+        
+        # Quick picks at the top
+        choices.append(questionary.Choice(
+            "⭐ claude-3.5-sonnet (Recommended - best quality)",
+            "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+        ))
+        choices.append(questionary.Choice(
+            "⚡ claude-3.5-haiku (Fast - good balance)",
+            "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+        ))
+        choices.append(questionary.Choice(
+            "💰 nova-lite (Cheap - for testing)",
+            "amazon.nova-lite-v1:0"
+        ))
+        choices.append(questionary.Separator("─── More Models ───"))
+        
+        # Frontier tier
+        choices.append(questionary.Separator("🏆 Frontier (best quality)"))
+        for name, model_id in MODEL_REGISTRY.get("frontier", {}).items():
+            if name not in ["claude-3.5-sonnet"]:  # Skip already shown
+                choices.append(questionary.Choice(f"   {name}", model_id))
+        
+        # Strong tier
+        choices.append(questionary.Separator("💪 Strong (balanced)"))
+        for name, model_id in MODEL_REGISTRY.get("strong", {}).items():
+            if name not in ["claude-3.5-haiku"]:  # Skip already shown
+                choices.append(questionary.Choice(f"   {name}", model_id))
+        
+        # Efficient tier
+        choices.append(questionary.Separator("⚡ Efficient (fast/cheap)"))
+        for name, model_id in MODEL_REGISTRY.get("efficient", {}).items():
+            if name not in ["nova-lite"]:  # Skip already shown
+                choices.append(questionary.Choice(f"   {name}", model_id))
+        
+        # Specialized tier
+        choices.append(questionary.Separator("🔬 Specialized"))
+        for name, model_id in MODEL_REGISTRY.get("specialized", {}).items():
+            choices.append(questionary.Choice(f"   {name}", model_id))
+        
+        # Custom option
+        choices.append(questionary.Separator("───────────────"))
+        choices.append(questionary.Choice("✏️  Enter custom model ID...", "custom"))
+        
+        return choices
+    
+    model_choices = build_model_choices()
+    
+    red_model = questionary.select(
+        "Choose Red Team model (attacker):",
+        choices=model_choices,
+        style=custom_style,
+    ).ask()
+    
+    if red_model is None:
+        console.print("[dim]Cancelled.[/]")
+        return
+    
+    if red_model == "custom":
+        console.print("[dim]Tip: Run 'adversarial-iac models' to see all available models[/]")
+        red_model = questionary.text(
+            "Enter Red Team model ID (short name or full ID):",
+            style=custom_style,
+        ).ask()
+        if not red_model:
+            console.print("[dim]Cancelled.[/]")
+            return
+        red_model = get_model_id(red_model)  # Resolve short name
+    
+    console.print()
+    
+    # Blue Team model
+    blue_same = questionary.confirm(
+        "Use the same model for Blue Team (defender)?",
+        default=True,
+        style=custom_style,
+    ).ask()
+    
+    if blue_same is None:
+        console.print("[dim]Cancelled.[/]")
+        return
+    
+    if blue_same:
+        blue_model = red_model
+    else:
+        blue_model = questionary.select(
+            "Choose Blue Team model (defender):",
+            choices=model_choices,
+            style=custom_style,
+        ).ask()
+        
+        if blue_model is None:
+            console.print("[dim]Cancelled.[/]")
+            return
+        
+        if blue_model == "custom":
+            blue_model = questionary.text(
+                "Enter Blue Team model ID (short name or full ID):",
+                style=custom_style,
+            ).ask()
+            if not blue_model:
+                console.print("[dim]Cancelled.[/]")
+                return
+            blue_model = get_model_id(blue_model)  # Resolve short name
+    
+    console.print()
+    
+    # Advanced options
+    use_advanced = questionary.confirm(
+        "Configure advanced options? (strategies, multi-agent modes)",
+        default=False,
+        style=custom_style,
+    ).ask()
+    
+    red_team_mode = "single"
+    blue_team_mode = "single"
+    consensus_method = "debate"
+    verification_mode = "standard"
+    red_strategy = "balanced"
+    red_target_type = None
+    blue_strategy = "comprehensive"
+    blue_target_type = None
+    compliance_framework = None
+    blue_iterations = 1
+    use_trivy = False
+    use_checkov = False
+    
+    if use_advanced:
+        console.print()
+        
+        # Red Team configuration
+        console.print("[bold red]🔴 Red Team Configuration[/]")
+        
+        red_team_mode = questionary.select(
+            "Red Team mode:",
+            choices=[
+                questionary.Choice("Single agent (standard)", "single"),
+                questionary.Choice("Pipeline (4-stage attack chain)", "pipeline"),
+            ],
+            style=custom_style,
+        ).ask() or "single"
+        
+        red_strategy = questionary.select(
+            "Red Team attack strategy:",
+            choices=[
+                questionary.Choice("Balanced - Standard mix of vulnerabilities", "balanced"),
+                questionary.Choice("Targeted - Focus on specific vulnerability type", "targeted"),
+                questionary.Choice("Stealth - Fewer but harder to detect", "stealth"),
+                questionary.Choice("Blitz - Maximum vulnerabilities", "blitz"),
+                questionary.Choice("Chained - Vulnerabilities that work together", "chained"),
+            ],
+            style=custom_style,
+        ).ask() or "balanced"
+        
+        if red_strategy == "targeted":
+            red_target_type = questionary.select(
+                "Target vulnerability type:",
+                choices=[
+                    questionary.Choice("🔐 Encryption", "encryption"),
+                    questionary.Choice("👤 IAM/Permissions", "iam"),
+                    questionary.Choice("🌐 Network", "network"),
+                    questionary.Choice("📝 Logging/Monitoring", "logging"),
+                    questionary.Choice("🚪 Access Control", "access_control"),
+                ],
+                style=custom_style,
+            ).ask() or "encryption"
+        
+        console.print()
+        
+        # Blue Team configuration
+        console.print("[bold blue]🔵 Blue Team Configuration[/]")
+        
+        blue_team_mode = questionary.select(
+            "Blue Team mode:",
+            choices=[
+                questionary.Choice("Single agent (standard)", "single"),
+                questionary.Choice("Ensemble (3 specialists + consensus)", "ensemble"),
+            ],
+            style=custom_style,
+        ).ask() or "single"
+        
+        if blue_team_mode == "ensemble":
+            consensus_method = questionary.select(
+                "Consensus method for ensemble:",
+                choices=[
+                    questionary.Choice("Debate (agents discuss findings)", "debate"),
+                    questionary.Choice("Vote (majority wins)", "vote"),
+                    questionary.Choice("Union (all unique findings)", "union"),
+                    questionary.Choice("Intersection (only agreed findings)", "intersection"),
+                ],
+                style=custom_style,
+            ).ask() or "debate"
+        else:
+            # Single agent can use strategies
+            blue_strategy = questionary.select(
+                "Blue Team defense strategy:",
+                choices=[
+                    questionary.Choice("Comprehensive - Check all vulnerability types", "comprehensive"),
+                    questionary.Choice("Targeted - Focus on specific vulnerability type", "targeted"),
+                    questionary.Choice("Iterative - Multiple analysis passes", "iterative"),
+                    questionary.Choice("Threat Model - STRIDE-based analysis", "threat_model"),
+                    questionary.Choice("Compliance - Framework-specific audit", "compliance"),
+                ],
+                style=custom_style,
+            ).ask() or "comprehensive"
+            
+            if blue_strategy == "targeted":
+                blue_target_type = questionary.select(
+                    "Target vulnerability type:",
+                    choices=[
+                        questionary.Choice("🔐 Encryption", "encryption"),
+                        questionary.Choice("👤 IAM/Permissions", "iam"),
+                        questionary.Choice("🌐 Network", "network"),
+                        questionary.Choice("📝 Logging/Monitoring", "logging"),
+                        questionary.Choice("🚪 Access Control", "access_control"),
+                    ],
+                    style=custom_style,
+                ).ask() or "encryption"
+            elif blue_strategy == "iterative":
+                blue_iterations = questionary.select(
+                    "Number of analysis passes:",
+                    choices=[
+                        questionary.Choice("2 passes (quick refinement)", 2),
+                        questionary.Choice("3 passes (thorough)", 3),
+                        questionary.Choice("5 passes (exhaustive)", 5),
+                    ],
+                    style=custom_style,
+                ).ask() or 2
+            elif blue_strategy == "compliance":
+                compliance_framework = questionary.select(
+                    "Compliance framework:",
+                    choices=[
+                        questionary.Choice("🏥 HIPAA (Healthcare)", "hipaa"),
+                        questionary.Choice("💳 PCI-DSS (Payment)", "pci_dss"),
+                        questionary.Choice("📋 SOC 2 (Service Org)", "soc2"),
+                        questionary.Choice("🔒 CIS Benchmarks", "cis"),
+                    ],
+                    style=custom_style,
+                ).ask() or "hipaa"
+        
+        console.print()
+        
+        # Static Analysis Tools
+        console.print("[bold green]🔧 Static Analysis Tools[/]")
+        console.print("[dim]These tools must be installed separately (trivy, checkov)[/]")
+        
+        static_tools = questionary.checkbox(
+            "Enable static analysis tools (in addition to LLM):",
+            choices=[
+                questionary.Choice("Trivy (IaC security scanner)", "trivy"),
+                questionary.Choice("Checkov (policy-as-code scanner)", "checkov"),
+            ],
+            style=custom_style,
+        ).ask() or []
+        
+        use_trivy = "trivy" in static_tools
+        use_checkov = "checkov" in static_tools
+        
+        console.print()
+        
+        # Verification mode
+        console.print("[bold yellow]⚖️ Verification Configuration[/]")
+        
+        verification_mode = questionary.select(
+            "Verification mode:",
+            choices=[
+                questionary.Choice("Standard (direct matching)", "standard"),
+                questionary.Choice("Adversarial Debate (prosecutor vs defender)", "debate"),
+            ],
+            style=custom_style,
+        ).ask() or "standard"
+    
+    console.print()
+    
+    # Build strategy display strings
+    red_strategy_display = red_strategy
+    if red_strategy == "targeted" and red_target_type:
+        red_strategy_display = f"targeted:{red_target_type}"
+    
+    blue_strategy_display = blue_strategy
+    if blue_strategy == "targeted" and blue_target_type:
+        blue_strategy_display = f"targeted:{blue_target_type}"
+    elif blue_strategy == "compliance" and compliance_framework:
+        blue_strategy_display = f"compliance:{compliance_framework}"
+    elif blue_strategy == "iterative":
+        blue_strategy_display = f"iterative:{blue_iterations}x"
+    
+    # Static tools display
+    tools_list = []
+    if use_trivy:
+        tools_list.append("Trivy")
+    if use_checkov:
+        tools_list.append("Checkov")
+    tools_display = ", ".join(tools_list) if tools_list else "None"
+    
+    # Language display
+    language_display = "Terraform (HCL)" if language == "terraform" else "CloudFormation (YAML)"
+    
+    # Confirmation
+    console.print(Panel.fit(
+        f"[bold]Scenario:[/] {scenario[:60]}{'...' if len(scenario) > 60 else ''}\n"
+        f"[bold]Language:[/] {language_display}\n"
+        f"[bold]Difficulty:[/] {difficulty}\n"
+        f"[bold]Red Team:[/] {red_model.split('.')[-1][:30]} ({red_team_mode}, {red_strategy_display})\n"
+        f"[bold]Blue Team:[/] {blue_model.split('.')[-1][:30]} ({blue_team_mode}, {blue_strategy_display})\n"
+        f"[bold]Static Tools:[/] {tools_display}\n"
+        f"[bold]Verification:[/] {verification_mode}",
+        title="Game Configuration",
+        border_style="cyan",
+    ))
+    
+    console.print()
+    
+    ready = questionary.confirm(
+        "Ready to start the game?",
+        default=True,
+        style=custom_style,
+    ).ask()
+    
+    if not ready:
+        console.print("[dim]Cancelled.[/]")
+        return
+    
+    console.print()
+    
+    # Run the game
+    try:
+        result = asyncio.run(
+            _run_interactive_game(
+                scenario=scenario,
+                red_model=red_model,
+                blue_model=blue_model,
+                difficulty=difficulty,
+                language=language,
+                red_team_mode=red_team_mode,
+                blue_team_mode=blue_team_mode,
+                consensus_method=consensus_method,
+                verification_mode=verification_mode,
+                red_strategy=red_strategy,
+                red_target_type=red_target_type,
+                blue_strategy=blue_strategy,
+                blue_target_type=blue_target_type,
+                compliance_framework=compliance_framework,
+                blue_iterations=blue_iterations,
+                use_trivy=use_trivy,
+                use_checkov=use_checkov,
+            )
+        )
+        
+        # Show explained results
+        _display_explained_results(result)
+        
+        # Ask what to do next
+        console.print()
+        next_action = questionary.select(
+            "What would you like to do next?",
+            choices=[
+                questionary.Choice("🎮 Play another game", "play"),
+                questionary.Choice("📂 Open results folder", "open"),
+                questionary.Choice("📊 View detailed match analysis", "details"),
+                questionary.Choice("👋 Exit", "exit"),
+            ],
+            style=custom_style,
+        ).ask()
+        
+        if next_action == "play":
+            play()  # Recursive call for another game
+        elif next_action == "open":
+            import subprocess
+            subprocess.run(["open", f"output/games/{result.game_id}"])
+        elif next_action == "details":
+            _display_detailed_analysis(result)
+            
+    except Exception as e:
+        console.print(f"[bold red]Error:[/] {e}")
+        import traceback
+        console.print(f"[dim]{traceback.format_exc()}[/]")
+
+
+async def _run_interactive_game(
+    scenario: str,
+    red_model: str,
+    blue_model: str,
+    difficulty: str,
+    language: str = "terraform",
+    red_team_mode: str = "single",
+    blue_team_mode: str = "single",
+    consensus_method: str = "debate",
+    verification_mode: str = "standard",
+    red_strategy: str = "balanced",
+    red_target_type: str = None,
+    blue_strategy: str = "comprehensive",
+    blue_target_type: str = None,
+    compliance_framework: str = None,
+    blue_iterations: int = 1,
+    use_trivy: bool = False,
+    use_checkov: bool = False,
+):
+    """Run the game with nice progress display."""
+    from src.game.engine import GameEngine, GameConfig
+    from src.game.scenarios import ScenarioGenerator
+    
+    # Resolve model short names to full IDs
+    red_model_id = get_model_id(red_model)
+    blue_model_id = get_model_id(blue_model)
+    
+    # Create scenario
+    scenario_gen = ScenarioGenerator(
+        cloud_providers=["aws"],
+        languages=[language],
+    )
+    test_scenario = scenario_gen.generate_single_scenario(
+        description=scenario,
+        cloud_provider="aws",
+        language=language,
+        difficulty=difficulty,
+    )
+    
+    # Determine detection mode based on tools
+    if use_trivy or use_checkov:
+        detection_mode = "hybrid"  # LLM + tools
+    else:
+        detection_mode = "llm_only"
+    
+    # Create game config
+    config = GameConfig(
+        red_model=red_model_id,
+        blue_model=blue_model_id,
+        difficulty=difficulty,
+        language=language,
+        cloud_provider="aws",
+        detection_mode=detection_mode,
+        use_trivy=use_trivy,
+        use_checkov=use_checkov,
+        region="us-east-1",
+        red_team_mode=red_team_mode,
+        red_strategy=red_strategy,
+        red_target_type=red_target_type,
+        blue_team_mode=blue_team_mode,
+        ensemble_specialists=["security", "compliance", "architecture"] if blue_team_mode == "ensemble" else None,
+        consensus_method=consensus_method,
+        blue_strategy=blue_strategy,
+        blue_target_type=blue_target_type,
+        compliance_framework=compliance_framework,
+        blue_iterations=blue_iterations,
+        verification_mode=verification_mode,
+    )
+    
+    # Run game with progress
+    engine = GameEngine(output_dir="output/games", region="us-east-1")
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        transient=True,
+    ) as progress:
+        task = progress.add_task("[cyan]Phase 1: Red Team generating code with hidden vulnerabilities...", total=None)
+        
+        result = await engine.run_game(test_scenario, config)
+        
+        progress.update(task, description="[green]Saving results...")
+        engine._save_game_result(result)
+    
+    return result
+
+
+def _display_explained_results(result):
+    """Display game results with plain-English explanations."""
+    
+    console.print()
+    console.print(Panel.fit(
+        "[bold green]🎉 GAME COMPLETE![/]",
+        border_style="green",
+    ))
+    console.print()
+    
+    # What Red Team did
+    red_vulns = result.red_output.manifest
+    console.print("[bold red]🔴 RED TEAM (Attacker)[/]")
+    console.print(f"   Red Team hid [bold]{len(red_vulns)} vulnerabilities[/] in the code:\n")
+    
+    for i, vuln in enumerate(red_vulns, 1):
+        title = vuln.title if hasattr(vuln, 'title') else str(vuln.get('title', 'Unknown'))
+        resource = vuln.resource_name if hasattr(vuln, 'resource_name') else str(vuln.get('resource_name', 'Unknown'))
+        console.print(f"   • V{i}: [yellow]{title[:50]}{'...' if len(title) > 50 else ''}[/]")
+        console.print(f"         [dim]Resource: {resource}[/]")
+    
+    console.print()
+    
+    # What Blue Team found
+    blue_findings = result.blue_output.findings
+    console.print("[bold blue]🔵 BLUE TEAM (Defender)[/]")
+    console.print(f"   Blue Team reported [bold]{len(blue_findings)} potential issues[/]:\n")
+    
+    for i, finding in enumerate(blue_findings, 1):
+        title = finding.title if hasattr(finding, 'title') else str(finding.get('title', 'Unknown'))
+        resource = finding.resource_name if hasattr(finding, 'resource_name') else str(finding.get('resource_name', 'Unknown'))
+        console.print(f"   • F{i}: [cyan]{title[:50]}{'...' if len(title) > 50 else ''}[/]")
+        console.print(f"         [dim]Resource: {resource}[/]")
+    
+    console.print()
+    
+    # The verdict
+    scoring = result.scoring
+    console.print("[bold yellow]⚖️ THE VERDICT[/]\n")
+    
+    # Build match explanation
+    console.print("   [bold]Match Results:[/]")
+    for match in scoring.matches:
+        if match.match_type == "exact":
+            icon = "✅"
+            desc = "Detected (exact match)"
+            color = "green"
+        elif match.match_type == "partial":
+            icon = "✅"
+            desc = "Detected"
+            color = "green"
+        else:
+            icon = "❌"
+            desc = "EVADED - Blue Team missed this!"
+            color = "red"
+        
+        console.print(f"   {icon} {match.red_vuln_id} → {match.blue_finding_id or '—'} [{color}]{desc}[/]")
+    
+    console.print()
+    
+    # Metrics explained
+    console.print("   [bold]What the numbers mean:[/]\n")
+    
+    # Precision
+    precision_pct = scoring.precision * 100
+    if precision_pct >= 80:
+        precision_verdict = "Excellent - Most reports were real issues"
+        precision_color = "green"
+    elif precision_pct >= 50:
+        precision_verdict = "Good - More hits than false alarms"
+        precision_color = "yellow"
+    else:
+        precision_verdict = "Needs work - Many false alarms"
+        precision_color = "red"
+    
+    console.print(f"   📊 [bold]Precision: [{precision_color}]{precision_pct:.0f}%[/][/]")
+    console.print(f"      {precision_verdict}")
+    console.print(f"      [dim]({len(scoring.true_positives)} correct out of {len(blue_findings)} reported)[/]\n")
+    
+    # Recall
+    recall_pct = scoring.recall * 100
+    if recall_pct >= 80:
+        recall_verdict = "Excellent - Found most vulnerabilities"
+        recall_color = "green"
+    elif recall_pct >= 50:
+        recall_verdict = "Good - Caught over half"
+        recall_color = "yellow"
+    else:
+        recall_verdict = "Needs work - Many vulnerabilities escaped"
+        recall_color = "red"
+    
+    console.print(f"   🎯 [bold]Recall: [{recall_color}]{recall_pct:.0f}%[/][/]")
+    console.print(f"      {recall_verdict}")
+    console.print(f"      [dim]({len(red_vulns) - len(scoring.false_negatives)} found out of {len(red_vulns)} hidden)[/]\n")
+    
+    # F1 Score
+    f1_pct = scoring.f1_score * 100
+    if f1_pct >= 80:
+        f1_emoji = "🏆"
+        f1_verdict = "Blue Team dominated!"
+    elif f1_pct >= 60:
+        f1_emoji = "👍"
+        f1_verdict = "Solid performance"
+    elif f1_pct >= 40:
+        f1_emoji = "🤝"
+        f1_verdict = "Close match"
+    else:
+        f1_emoji = "😈"
+        f1_verdict = "Red Team won this round!"
+    
+    console.print(f"   {f1_emoji} [bold]Overall Score: {f1_pct:.0f}%[/]")
+    console.print(f"      {f1_verdict}\n")
+    
+    # Evasion rate
+    evasion_pct = scoring.evasion_rate * 100
+    evaded_count = len(scoring.false_negatives)
+    
+    if evasion_pct == 0:
+        evasion_verdict = "🛡️ Perfect defense - nothing escaped!"
+    elif evasion_pct <= 20:
+        evasion_verdict = "🛡️ Strong defense - minimal evasion"
+    elif evasion_pct <= 50:
+        evasion_verdict = "⚔️ Balanced match - some got through"
+    else:
+        evasion_verdict = "🎭 Red Team's stealth techniques worked!"
+    
+    console.print(f"   [bold]Evasion Rate: [red]{evasion_pct:.0f}%[/][/] ({evaded_count} vulnerability(ies) escaped)")
+    console.print(f"      {evasion_verdict}")
+    
+    # Key insight
+    console.print()
+    console.print(Panel.fit(
+        _generate_insight(result),
+        title="💡 Key Insight",
+        border_style="cyan",
+    ))
+    
+    # Model summary
+    console.print()
+    red_model_name = result.config.red_model.split(".")[-1] if "." in result.config.red_model else result.config.red_model
+    blue_model_name = result.config.blue_model.split(".")[-1] if "." in result.config.blue_model else result.config.blue_model
+    
+    if red_model_name == blue_model_name:
+        model_summary = f"Both teams used [bold]{red_model_name}[/]"
+    else:
+        model_summary = f"Red Team: [bold]{red_model_name}[/] vs Blue Team: [bold]{blue_model_name}[/]"
+    
+    console.print(Panel.fit(
+        f"[bold]Models:[/] {model_summary}\n"
+        f"[bold]Difficulty:[/] {result.config.difficulty}\n"
+        f"[bold]Red Team Mode:[/] {result.red_team_mode}\n"
+        f"[bold]Blue Team Mode:[/] {result.blue_team_mode}\n"
+        f"[bold]Game ID:[/] {result.game_id}",
+        title="🤖 Game Configuration",
+        border_style="dim",
+    ))
+    
+    console.print(f"\n[dim]Full results saved to: output/games/{result.game_id}[/]")
+
+
+def _generate_insight(result) -> str:
+    """Generate a contextual insight based on the game results."""
+    scoring = result.scoring
+    
+    # Check for different scenarios
+    if scoring.evasion_rate == 0 and scoring.precision == 1.0:
+        return "Perfect game for Blue Team! All vulnerabilities were found with no false positives. This is rare - the defender performed exceptionally well."
+    
+    if scoring.evasion_rate > 0.5:
+        # Most vulns evaded
+        evaded = [m for m in scoring.matches if m.match_type == "missed"]
+        if evaded:
+            return f"Red Team successfully hid {len(evaded)} vulnerabilities using stealth techniques. LLM detectors often miss subtle contextual issues like missing configurations that 'look' normal."
+    
+    if scoring.precision < 0.5 and len(scoring.false_positives) > 0:
+        return f"Blue Team reported {len(scoring.false_positives)} false positives. This is common with LLM-based detection - they can be overly cautious and flag non-issues."
+    
+    if scoring.f1_score >= 0.8:
+        return "Excellent detection performance! The Blue Team model shows strong security analysis capabilities for this type of infrastructure."
+    
+    if result.config.difficulty == "hard" and scoring.evasion_rate > 0.3:
+        return "Hard difficulty creates sophisticated vulnerabilities using techniques like variable indirection and misleading comments. Even skilled defenders struggle with these."
+    
+    # Default insight
+    return f"This game tested {result.config.difficulty} difficulty vulnerabilities. The balance between detection rate ({scoring.recall:.0%}) and accuracy ({scoring.precision:.0%}) shows the challenge of automated security analysis."
+
+
+def _display_detailed_analysis(result):
+    """Show detailed match-by-match analysis."""
+    console.print()
+    console.print("[bold]Detailed Match Analysis[/]\n")
+    
+    for match in result.scoring.matches:
+        # Find the corresponding vuln and finding
+        vuln = next(
+            (v for v in result.red_output.manifest 
+             if (v.vuln_id if hasattr(v, 'vuln_id') else v.get('vuln_id')) == match.red_vuln_id),
+            None
+        )
+        
+        finding = None
+        if match.blue_finding_id:
+            finding = next(
+                (f for f in result.blue_output.findings 
+                 if (f.finding_id if hasattr(f, 'finding_id') else f.get('finding_id')) == match.blue_finding_id),
+                None
+            )
+        
+        # Display match details - both exact and partial are successful detections
+        match_color = {"exact": "green", "partial": "green", "missed": "red"}.get(match.match_type, "white")
+        
+        console.print(Panel.fit(
+            f"[bold]Red Team ({match.red_vuln_id}):[/]\n"
+            f"  {vuln.title if vuln and hasattr(vuln, 'title') else 'Unknown'}\n"
+            f"  Resource: {vuln.resource_name if vuln and hasattr(vuln, 'resource_name') else 'Unknown'}\n\n"
+            f"[bold]Blue Team ({match.blue_finding_id or 'No match'}):[/]\n"
+            f"  {finding.title if finding and hasattr(finding, 'title') else 'Not detected'}\n"
+            f"  Resource: {finding.resource_name if finding and hasattr(finding, 'resource_name') else 'N/A'}\n\n"
+            f"[bold]Verdict:[/] [{match_color}]{match.match_type.upper()}[/] (confidence: {match.confidence:.0%})\n"
+            f"[dim]{match.explanation}[/]",
+            title=f"Match: {match.red_vuln_id} → {match.blue_finding_id or '—'}",
+            border_style=match_color,
+        ))
+        console.print()
 
 
 @cli.command()

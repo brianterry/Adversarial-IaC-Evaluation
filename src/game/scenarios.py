@@ -88,14 +88,15 @@ class ScenarioGenerator:
         Generate a set of test scenarios.
         
         Args:
-            domains: List of domains (storage, compute, network, iam, multi_service)
+            domains: List of domains (see ScenarioTemplates.SCENARIOS for all available)
             scenarios_per_domain: Number of scenarios per domain
             
         Returns:
             List of Scenario objects
         """
         if domains is None:
-            domains = ["storage", "compute", "network", "iam", "multi_service"]
+            # Use all available domains by default
+            domains = list(ScenarioTemplates.SCENARIOS.keys())
         
         scenarios = []
         
@@ -164,6 +165,7 @@ class ScenarioGenerator:
     def _get_requirements(self, domain: str, cloud_provider: str) -> List[str]:
         """Get security requirements for a domain and provider."""
         base_requirements = {
+            # Infrastructure domains
             "storage": [
                 "Encryption at rest",
                 "Access logging",
@@ -194,6 +196,89 @@ class ScenarioGenerator:
                 "Audit logging",
                 "Network isolation",
             ],
+            # AWS service domains
+            "secrets": [
+                "Secret rotation",
+                "Access policies",
+                "Encryption with KMS",
+                "Audit logging",
+            ],
+            "containers": [
+                "Pod security policies",
+                "Image scanning",
+                "Network policies",
+                "Secrets management",
+            ],
+            "databases": [
+                "Encryption at rest",
+                "Encryption in transit",
+                "Backup retention",
+                "Public accessibility disabled",
+            ],
+            "api": [
+                "Authentication",
+                "Authorization",
+                "Rate limiting",
+                "Input validation",
+            ],
+            "messaging": [
+                "Encryption in transit",
+                "Dead-letter queues",
+                "Access policies",
+                "Message retention",
+            ],
+            "monitoring": [
+                "Log retention",
+                "Alert configuration",
+                "Access controls",
+                "Cross-account logging",
+            ],
+            # Industry verticals
+            "healthcare": [
+                "HIPAA compliance",
+                "PHI encryption",
+                "Audit trails",
+                "Access controls",
+                "Data retention policies",
+            ],
+            "financial": [
+                "PCI-DSS compliance",
+                "Data encryption",
+                "Transaction logging",
+                "Segregation of duties",
+                "Key management",
+            ],
+            "government": [
+                "FedRAMP compliance",
+                "NIST 800-53 controls",
+                "Data sovereignty",
+                "Audit logging",
+            ],
+            "ecommerce": [
+                "PCI compliance",
+                "Customer data protection",
+                "Session management",
+                "Rate limiting",
+            ],
+            "saas": [
+                "Tenant isolation",
+                "Data segregation",
+                "API security",
+                "Multi-tenancy controls",
+            ],
+            # Security patterns
+            "zero_trust": [
+                "Continuous verification",
+                "Microsegmentation",
+                "Least privilege access",
+                "Identity-based access",
+            ],
+            "disaster_recovery": [
+                "Cross-region replication",
+                "Backup encryption",
+                "Recovery testing",
+                "Failover automation",
+            ],
         }
         
         provider_additions = {
@@ -202,7 +287,7 @@ class ScenarioGenerator:
             "gcp": ["Cloud IAM bindings", "CMEK configuration"],
         }
         
-        requirements = base_requirements.get(domain, [])
+        requirements = base_requirements.get(domain, ["Security best practices"])
         requirements.extend(provider_additions.get(cloud_provider, []))
         
         return requirements

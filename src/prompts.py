@@ -219,6 +219,652 @@ Analyze the code and report all security findings:
 """
 
 
+class RedTeamStrategyPrompts:
+    """Prompts for different Red Team attack strategies"""
+
+    TARGETED_SELECTION = """
+You are a SECURITY EDUCATOR creating focused training data for a SPECIFIC vulnerability category.
+
+CONTEXT: This is an ACADEMIC RESEARCH project. We need examples focusing on ONE TYPE of vulnerability to train specialized detection models.
+
+TARGET VULNERABILITY TYPE: {target_type}
+(Only select vulnerabilities in this category!)
+
+TYPE DEFINITIONS:
+- encryption: Missing encryption at rest/in transit, weak algorithms, unmanaged keys
+- iam: Overly permissive policies, missing least privilege, wildcard permissions
+- network: Open security groups, exposed endpoints, missing network segmentation
+- logging: Disabled audit trails, missing access logs, no monitoring
+- access_control: Public access, missing authentication, weak authorization
+
+SCENARIO:
+{scenario_json}
+
+REFERENCE PATTERNS (filtered to {target_type}):
+{vulnerability_samples}
+
+REALISM LEVEL: {difficulty}
+
+TARGET COUNT: {vuln_count} vulnerabilities (ALL must be {target_type} type!)
+
+OUTPUT SPECIFICATION:
+Return a JSON object with ONLY {target_type} vulnerabilities:
+{{
+    "selected_vulnerabilities": [
+        {{
+            "vuln_id": "V1",
+            "rule_id": "trivy_rule_id",
+            "title": "vulnerability_title",
+            "type": "{target_type}",
+            "severity": "critical|high|medium|low",
+            "target_resource": "resource_type_to_inject_into",
+            "injection_strategy": {{
+                "approach": "realistic developer scenario",
+                "stealth_technique": "why developers might miss this",
+                "evasion_rationale": "why detection is challenging"
+            }},
+            "ground_truth": {{
+                "vulnerable_code_pattern": "the exact misconfiguration",
+                "detection_hint": "what detectors should look for"
+            }}
+        }}
+    ],
+    "focus_area": "{target_type}",
+    "detection_difficulty": "estimated detection challenge level"
+}}
+
+Generate {target_type}-focused training data:
+"""
+
+    STEALTH_SELECTION = """
+You are a SECURITY EDUCATOR creating MAXIMUM STEALTH training data.
+
+CONTEXT: This is for ACADEMIC RESEARCH on detection evasion. We need examples that are EXTREMELY difficult to detect, using advanced obfuscation and misdirection techniques.
+
+STEALTH REQUIREMENTS:
+1. Each vulnerability must use at least TWO evasion techniques
+2. Code must look production-quality and intentional
+3. Vulnerabilities should be hidden in seemingly-secure configurations
+4. Use naming conventions that suggest security (e.g., "secure_bucket", "encrypted_storage")
+5. Add legitimate-looking comments that justify the vulnerable configuration
+
+STEALTH TECHNIQUES TO USE:
+- Variable indirection (values passed through variables/locals)
+- Dynamic expressions (conditionals that evaluate to insecure values)
+- Misleading comments ("encryption handled by application layer")
+- Security-suggesting names ("private_", "internal_", "secure_")
+- Split configurations (vulnerable parts spread across multiple blocks)
+- Default value exploitation (relying on insecure defaults)
+- Partial security (some controls present, critical ones missing)
+
+SCENARIO:
+{scenario_json}
+
+REFERENCE PATTERNS:
+{vulnerability_samples}
+
+DIFFICULTY: {difficulty} (but MAXIMIZE stealth regardless)
+
+TARGET COUNT: {vuln_count} vulnerabilities (FEWER but HARDER to detect)
+
+OUTPUT SPECIFICATION:
+Return a JSON object emphasizing stealth:
+{{
+    "selected_vulnerabilities": [
+        {{
+            "vuln_id": "V1",
+            "rule_id": "trivy_rule_id",
+            "title": "vulnerability_title",
+            "type": "access_control|encryption|network|iam|logging",
+            "severity": "critical|high|medium|low",
+            "target_resource": "resource_type_to_inject_into",
+            "injection_strategy": {{
+                "approach": "stealth-first approach",
+                "stealth_techniques": ["technique1", "technique2"],
+                "evasion_rationale": "detailed explanation of evasion strategy",
+                "expected_detector_behavior": "why scanners will miss this"
+            }},
+            "ground_truth": {{
+                "vulnerable_code_pattern": "the exact misconfiguration",
+                "obfuscation_method": "how it's hidden",
+                "detection_hint": "what an expert would look for"
+            }}
+        }}
+    ],
+    "stealth_strategy": "overall approach to maximize evasion",
+    "expected_evasion_rate": "high/very_high"
+}}
+
+Generate maximum-stealth training data:
+"""
+
+    BLITZ_SELECTION = """
+You are a SECURITY EDUCATOR creating COMPREHENSIVE training data with MAXIMUM coverage.
+
+CONTEXT: This is for ACADEMIC RESEARCH needing MANY vulnerability examples for statistical analysis. Quantity over stealth - we want diverse examples across all categories.
+
+BLITZ REQUIREMENTS:
+1. MAXIMIZE the number of vulnerabilities
+2. Cover ALL vulnerability types (encryption, iam, network, logging, access_control)
+3. Include multiple severities (critical, high, medium, low)
+4. Each vulnerability can be relatively obvious (training data benefit)
+5. Prioritize diversity and coverage over evasion
+
+SCENARIO:
+{scenario_json}
+
+REFERENCE PATTERNS (include as many as applicable):
+{vulnerability_samples}
+
+TARGET COUNT: {vuln_count} vulnerabilities (MAXIMIZE - go above if realistic)
+
+OUTPUT SPECIFICATION:
+Return a JSON object with MANY vulnerabilities:
+{{
+    "selected_vulnerabilities": [
+        {{
+            "vuln_id": "V1",
+            "rule_id": "trivy_rule_id",
+            "title": "vulnerability_title",
+            "type": "access_control|encryption|network|iam|logging",
+            "severity": "critical|high|medium|low",
+            "target_resource": "resource_type_to_inject_into",
+            "injection_strategy": {{
+                "approach": "direct injection for clear training signal",
+                "example_purpose": "what this teaches"
+            }},
+            "ground_truth": {{
+                "vulnerable_code_pattern": "the exact misconfiguration",
+                "detection_hint": "what detectors should look for"
+            }}
+        }}
+    ],
+    "coverage_stats": {{
+        "types_covered": ["encryption", "iam", "network"],
+        "severity_distribution": {{"critical": 2, "high": 3, "medium": 2}}
+    }},
+    "diversity_notes": "explanation of coverage achieved"
+}}
+
+Generate comprehensive training data with maximum vulnerability coverage:
+"""
+
+    CHAINED_SELECTION = """
+You are a SECURITY EDUCATOR creating CHAINED VULNERABILITY training data.
+
+CONTEXT: This is for ACADEMIC RESEARCH on multi-step attack detection. We need examples where vulnerabilities WORK TOGETHER - each individual issue may seem minor, but combined they create serious security gaps.
+
+CHAINING REQUIREMENTS:
+1. Vulnerabilities must form LOGICAL ATTACK CHAINS
+2. Individual vulns should appear low-severity when isolated
+3. Combined impact must be HIGH/CRITICAL
+4. Chain should follow realistic attack patterns
+
+CHAIN EXAMPLES:
+- Public S3 bucket + Sensitive data without encryption = Data breach
+- Overly permissive IAM + No CloudTrail = Undetected lateral movement
+- Open security group + No encryption in transit = MitM attack
+- Missing authentication + Excessive permissions = Privilege escalation
+
+SCENARIO:
+{scenario_json}
+
+REFERENCE PATTERNS:
+{vulnerability_samples}
+
+DIFFICULTY: {difficulty}
+
+TARGET COUNT: {vuln_count} vulnerabilities (organized into chains)
+
+OUTPUT SPECIFICATION:
+Return a JSON object with CHAINED vulnerabilities:
+{{
+    "vulnerability_chains": [
+        {{
+            "chain_id": "CHAIN-1",
+            "chain_name": "Data Exfiltration Path",
+            "attack_narrative": "Step-by-step how these combine into an attack",
+            "combined_impact": "critical",
+            "individual_severities": ["low", "medium"],
+            "vulnerabilities": [
+                {{
+                    "vuln_id": "V1",
+                    "chain_position": 1,
+                    "role_in_chain": "enables access",
+                    "rule_id": "trivy_rule_id",
+                    "title": "vulnerability_title",
+                    "type": "access_control",
+                    "individual_severity": "low",
+                    "target_resource": "resource_type",
+                    "ground_truth": {{
+                        "vulnerable_code_pattern": "the misconfiguration",
+                        "detection_hint": "what to look for"
+                    }}
+                }},
+                {{
+                    "vuln_id": "V2",
+                    "chain_position": 2,
+                    "role_in_chain": "enables data access",
+                    "rule_id": "trivy_rule_id",
+                    "title": "vulnerability_title",
+                    "type": "encryption",
+                    "individual_severity": "medium",
+                    "target_resource": "resource_type",
+                    "ground_truth": {{
+                        "vulnerable_code_pattern": "the misconfiguration",
+                        "detection_hint": "what to look for"
+                    }}
+                }}
+            ]
+        }}
+    ],
+    "selected_vulnerabilities": [/* flattened list of all vulns from all chains */],
+    "chain_analysis": "explanation of how chains were constructed"
+}}
+
+Generate chained vulnerability training data:
+"""
+
+
+class BlueTeamStrategyPrompts:
+    """Prompts for different Blue Team defense strategies"""
+
+    TARGETED_DETECTION = """
+You are a SECURITY SPECIALIST focused EXCLUSIVELY on {target_type} vulnerabilities.
+
+CONTEXT: This is ACADEMIC RESEARCH evaluating focused detection capabilities. You are hunting for ONE SPECIFIC TYPE of vulnerability.
+
+TARGET VULNERABILITY TYPE: {target_type}
+
+TYPE DEFINITION:
+{type_definition}
+
+CODE TO ANALYZE:
+```{language}
+{code}
+```
+
+FOCUSED ANALYSIS:
+1. Identify ALL resources that could have {target_type} issues
+2. Check each resource against {target_type} best practices
+3. Look for subtle {target_type} misconfigurations
+4. Consider {target_type} issues that interact across resources
+5. IGNORE other vulnerability types - focus only on {target_type}
+
+OUTPUT SPECIFICATION:
+Return a JSON object with ONLY {target_type} findings:
+{{
+    "target_type": "{target_type}",
+    "detected_vulnerabilities": [
+        {{
+            "finding_id": "F1",
+            "resource_name": "resource_identifier",
+            "resource_type": "aws_s3_bucket",
+            "vulnerability_type": "{target_type}",
+            "severity": "critical|high|medium|low",
+            "title": "brief description",
+            "description": "detailed explanation",
+            "evidence": "the specific code causing the issue",
+            "line_number_estimate": 45,
+            "confidence": 0.95,
+            "reasoning": "why this is a {target_type} issue",
+            "remediation": "how to fix"
+        }}
+    ],
+    "analysis_summary": {{
+        "resources_checked_for_{target_type}": 5,
+        "findings_count": 3
+    }}
+}}
+
+Analyze for {target_type} vulnerabilities ONLY:
+"""
+
+    ITERATIVE_DETECTION_PASS1 = """
+You are a SECURITY ANALYST performing the FIRST PASS of an iterative security review.
+
+CONTEXT: This is ACADEMIC RESEARCH on iterative analysis techniques. This is pass {pass_number} of {total_passes}. Find as many issues as you can - subsequent passes will refine.
+
+CODE TO ANALYZE:
+```{language}
+{code}
+```
+
+FIRST PASS OBJECTIVES:
+1. Quick scan for obvious security issues
+2. Identify all resources and their security-relevant configurations
+3. Flag anything that looks suspicious
+4. Note areas that need deeper investigation
+
+OUTPUT SPECIFICATION:
+Return a JSON object:
+{{
+    "pass_number": {pass_number},
+    "detected_vulnerabilities": [
+        {{
+            "finding_id": "P1-F1",
+            "resource_name": "resource_identifier",
+            "resource_type": "aws_s3_bucket",
+            "vulnerability_type": "access_control|encryption|network|iam|logging",
+            "severity": "critical|high|medium|low",
+            "title": "brief description",
+            "description": "detailed explanation",
+            "evidence": "the specific code",
+            "confidence": 0.80,
+            "reasoning": "initial assessment",
+            "needs_deeper_review": true
+        }}
+    ],
+    "areas_for_deeper_investigation": [
+        {{
+            "resource": "resource_name",
+            "concern": "what needs more analysis",
+            "priority": "high|medium|low"
+        }}
+    ]
+}}
+
+Perform first-pass analysis:
+"""
+
+    ITERATIVE_DETECTION_REFINE = """
+You are a SECURITY ANALYST performing a REFINEMENT PASS of an iterative security review.
+
+CONTEXT: This is pass {pass_number} of {total_passes}. Review and refine previous findings.
+
+CODE TO ANALYZE:
+```{language}
+{code}
+```
+
+PREVIOUS FINDINGS:
+{previous_findings}
+
+AREAS FLAGGED FOR INVESTIGATION:
+{investigation_areas}
+
+REFINEMENT OBJECTIVES:
+1. VALIDATE previous findings - confirm or reject with deeper analysis
+2. INVESTIGATE flagged areas in detail
+3. Look for issues MISSED in previous passes
+4. Update confidence scores based on deeper analysis
+5. Check for INTERACTIONS between previously found issues
+
+OUTPUT SPECIFICATION:
+Return a JSON object:
+{{
+    "pass_number": {pass_number},
+    "refined_findings": [
+        {{
+            "finding_id": "P{pass_number}-F1",
+            "original_finding_id": "P1-F1 or null if new",
+            "status": "confirmed|rejected|modified|new",
+            "resource_name": "resource_identifier",
+            "resource_type": "aws_s3_bucket",
+            "vulnerability_type": "access_control|encryption|network|iam|logging",
+            "severity": "critical|high|medium|low",
+            "title": "brief description",
+            "description": "refined explanation",
+            "evidence": "the specific code",
+            "confidence": 0.95,
+            "reasoning": "refined analysis with cross-references",
+            "remediation": "how to fix"
+        }}
+    ],
+    "rejected_findings": [
+        {{
+            "original_finding_id": "P1-F3",
+            "rejection_reason": "why this was a false positive"
+        }}
+    ],
+    "analysis_summary": {{
+        "confirmed": 3,
+        "rejected": 1,
+        "modified": 2,
+        "new_discoveries": 1
+    }}
+}}
+
+Perform refinement analysis:
+"""
+
+    THREAT_MODEL_DETECTION = """
+You are a SECURITY ANALYST using THREAT MODELING to guide vulnerability detection.
+
+CONTEXT: This is ACADEMIC RESEARCH on threat-model-driven analysis. First understand the threats, then hunt for vulnerabilities that enable those threats.
+
+CODE TO ANALYZE:
+```{language}
+{code}
+```
+
+SCENARIO CONTEXT: {scenario_description}
+
+THREAT MODELING METHODOLOGY (STRIDE):
+1. **S**poofing - Can attackers impersonate users/services?
+2. **T**ampering - Can data be modified without detection?
+3. **R**epudiation - Can actions be performed without audit trail?
+4. **I**nformation Disclosure - Can sensitive data leak?
+5. **D**enial of Service - Can the system be disrupted?
+6. **E**levation of Privilege - Can attackers gain unauthorized access?
+
+ANALYSIS STEPS:
+1. Identify assets and their sensitivity
+2. Map trust boundaries in the infrastructure
+3. Enumerate potential threats (STRIDE categories)
+4. Hunt for vulnerabilities that ENABLE each threat
+5. Prioritize by threat impact
+
+OUTPUT SPECIFICATION:
+Return a JSON object:
+{{
+    "threat_model": {{
+        "assets": [
+            {{
+                "name": "asset_name",
+                "sensitivity": "high|medium|low",
+                "data_types": ["PII", "credentials", "configs"]
+            }}
+        ],
+        "trust_boundaries": ["boundary descriptions"],
+        "identified_threats": [
+            {{
+                "threat_id": "T1",
+                "stride_category": "Information Disclosure",
+                "description": "threat description",
+                "target_asset": "asset_name",
+                "impact": "critical|high|medium|low"
+            }}
+        ]
+    }},
+    "detected_vulnerabilities": [
+        {{
+            "finding_id": "F1",
+            "enables_threat": "T1",
+            "resource_name": "resource_identifier",
+            "resource_type": "aws_s3_bucket",
+            "vulnerability_type": "access_control|encryption|network|iam|logging",
+            "severity": "critical|high|medium|low",
+            "title": "brief description",
+            "description": "how this enables the threat",
+            "evidence": "the specific code",
+            "confidence": 0.90,
+            "reasoning": "threat-driven analysis",
+            "remediation": "how to fix"
+        }}
+    ],
+    "analysis_summary": {{
+        "threats_identified": 5,
+        "vulnerabilities_enabling_threats": 3,
+        "unmitigated_threats": ["T1", "T3"]
+    }}
+}}
+
+Perform threat-model-driven analysis:
+"""
+
+    COMPLIANCE_DETECTION = """
+You are a COMPLIANCE AUDITOR checking Infrastructure-as-Code against {framework} requirements.
+
+CONTEXT: This is ACADEMIC RESEARCH on compliance-driven vulnerability detection.
+
+COMPLIANCE FRAMEWORK: {framework}
+
+{framework_requirements}
+
+CODE TO ANALYZE:
+```{language}
+{code}
+```
+
+COMPLIANCE ANALYSIS:
+1. Map code resources to {framework} control requirements
+2. Check each requirement against the implementation
+3. Flag non-compliant configurations
+4. Note missing controls required by {framework}
+5. Prioritize by compliance criticality
+
+OUTPUT SPECIFICATION:
+Return a JSON object:
+{{
+    "compliance_framework": "{framework}",
+    "detected_vulnerabilities": [
+        {{
+            "finding_id": "F1",
+            "resource_name": "resource_identifier",
+            "resource_type": "aws_s3_bucket",
+            "vulnerability_type": "compliance",
+            "severity": "critical|high|medium|low",
+            "title": "brief description",
+            "description": "detailed explanation",
+            "evidence": "the specific code",
+            "compliance_control": "{framework} control ID",
+            "compliance_requirement": "specific requirement text",
+            "confidence": 0.95,
+            "reasoning": "how this violates {framework}",
+            "remediation": "how to achieve compliance"
+        }}
+    ],
+    "compliance_summary": {{
+        "framework": "{framework}",
+        "controls_checked": 15,
+        "controls_passed": 10,
+        "controls_failed": 5,
+        "compliance_score": 0.67
+    }}
+}}
+
+Perform {framework} compliance audit:
+"""
+
+    # Compliance framework requirements
+    HIPAA_REQUIREMENTS = """
+HIPAA Security Rule Requirements for Cloud Infrastructure:
+
+1. ACCESS CONTROL (§164.312(a)(1)):
+   - Unique user identification
+   - Emergency access procedures
+   - Automatic logoff
+   - Encryption and decryption
+
+2. AUDIT CONTROLS (§164.312(b)):
+   - Hardware, software, and procedural mechanisms to record and examine access
+   - Audit logs must be retained and protected
+
+3. INTEGRITY (§164.312(c)(1)):
+   - Mechanisms to authenticate ePHI
+   - Ensure data is not improperly altered or destroyed
+
+4. TRANSMISSION SECURITY (§164.312(e)(1)):
+   - Encryption for data in transit
+   - Integrity controls for transmitted data
+
+5. ENCRYPTION (§164.312(a)(2)(iv)):
+   - Encryption of ePHI at rest when appropriate
+   - Key management procedures
+"""
+
+    PCI_DSS_REQUIREMENTS = """
+PCI DSS Requirements for Cloud Infrastructure:
+
+1. REQUIREMENT 1 - Network Security:
+   - Install and maintain network security controls
+   - Firewall/security group configurations
+
+2. REQUIREMENT 2 - Secure Configurations:
+   - Apply secure configurations to all system components
+   - No default credentials
+
+3. REQUIREMENT 3 - Protect Stored Data:
+   - Protect stored account data with encryption
+   - Key management procedures
+
+4. REQUIREMENT 4 - Encrypt Transmissions:
+   - Encrypt cardholder data over open networks
+   - TLS 1.2 or higher
+
+5. REQUIREMENT 10 - Logging and Monitoring:
+   - Log all access to system components
+   - Audit trail history
+   - Time synchronization
+
+6. REQUIREMENT 12 - Security Policies:
+   - Information security policy
+   - Risk assessments
+"""
+
+    SOC2_REQUIREMENTS = """
+SOC 2 Trust Services Criteria for Cloud Infrastructure:
+
+1. SECURITY (Common Criteria):
+   - CC6.1: Logical and physical access controls
+   - CC6.2: Prior to issuing system credentials and granting access
+   - CC6.3: Restricts system access to authorized users
+   - CC6.6: Restricts external access
+   - CC6.7: Transmissions of data are protected
+
+2. AVAILABILITY:
+   - A1.1: Processing capacity maintained
+   - A1.2: Environmental protections
+
+3. CONFIDENTIALITY:
+   - C1.1: Confidential information identified
+   - C1.2: Confidential information disposed of
+
+4. PRIVACY:
+   - P1-P8: Privacy principles
+
+5. PROCESSING INTEGRITY:
+   - PI1: Processing is complete, valid, accurate, timely, authorized
+"""
+
+    CIS_REQUIREMENTS = """
+CIS Benchmarks for AWS (Key Controls):
+
+1. IDENTITY AND ACCESS MANAGEMENT:
+   - 1.1: Avoid root account use
+   - 1.4: Ensure access keys rotated
+   - 1.5: Ensure IAM password policy
+   - 1.16: Ensure IAM policies attached only to groups/roles
+
+2. STORAGE:
+   - 2.1.1: Ensure S3 bucket policy is set to deny HTTP requests
+   - 2.1.2: Ensure MFA Delete is enabled on S3 buckets
+   - 2.1.5: Ensure S3 bucket access logging is enabled
+   - 2.2.1: Ensure EBS volume encryption is enabled
+
+3. LOGGING:
+   - 3.1: Ensure CloudTrail is enabled
+   - 3.2: Ensure CloudTrail log file validation is enabled
+   - 3.4: Ensure CloudTrail trails are integrated with CloudWatch Logs
+
+4. NETWORKING:
+   - 5.1: Ensure no security groups allow ingress from 0.0.0.0/0 to port 22
+   - 5.2: Ensure no security groups allow ingress from 0.0.0.0/0 to port 3389
+   - 5.3: Ensure VPC flow logging is enabled
+"""
+
+
 class RedTeamPipelinePrompts:
     """Prompts for Red Team Pipeline multi-agent attack chain"""
 
@@ -930,39 +1576,221 @@ Synthesize the findings and provide your expert consensus:
 
 
 class ScenarioTemplates:
-    """Templates for generating test scenarios"""
+    """Templates for generating test scenarios - organized by domain and industry"""
 
     SCENARIOS = {
+        # =================================================================
+        # INFRASTRUCTURE DOMAINS
+        # =================================================================
+        
         "storage": [
             "Create an S3 bucket for storing healthcare PHI data with encryption and access logging",
             "Create a DynamoDB table for storing user session data with appropriate security controls",
             "Create an EFS file system for shared application data across multiple EC2 instances",
             "Create an S3 bucket for hosting a static website with CloudFront distribution",
+            "Create an S3 bucket for storing application logs with lifecycle policies",
+            "Create a DynamoDB table for a high-traffic e-commerce product catalog",
         ],
+        
         "compute": [
             "Create a Lambda function that processes credit card transactions",
             "Create an EC2 instance for running a web application with proper security groups",
             "Create an ECS cluster for running containerized microservices",
             "Create an Auto Scaling group for a high-availability web tier",
+            "Create a Lambda function for image processing with S3 trigger",
+            "Create an EC2 instance for a bastion host with restricted SSH access",
         ],
+        
         "network": [
             "Create a VPC with public and private subnets for a three-tier web application",
             "Create a security group configuration for a database tier",
             "Create an Application Load Balancer with HTTPS termination",
             "Create a VPN connection to on-premises data center",
+            "Create a NAT Gateway configuration for private subnet internet access",
+            "Create a Transit Gateway for multi-VPC connectivity",
+            "Create a Network ACL for additional subnet-level security",
         ],
+        
         "iam": [
             "Create IAM roles for a CI/CD pipeline with appropriate permissions",
             "Create cross-account access roles for a multi-account AWS organization",
             "Create service-linked roles for an EKS cluster",
             "Create IAM policies for a data analytics team with least privilege",
+            "Create an IAM role for Lambda functions accessing DynamoDB and S3",
+            "Create IAM policies for developers with read-only production access",
+            "Create a service account for external application integration",
         ],
+        
         "multi_service": [
             "Create a serverless data pipeline with S3, Lambda, and DynamoDB",
             "Create a web application stack with ALB, EC2, RDS, and ElastiCache",
             "Create an IoT data ingestion platform with Kinesis, Lambda, and Timestream",
             "Create a machine learning inference pipeline with SageMaker and API Gateway",
+            "Create a real-time analytics platform with Kinesis, Lambda, and OpenSearch",
+            "Create a disaster recovery setup with cross-region S3 replication and Route53",
         ],
+        
+        # =================================================================
+        # AWS SERVICE-SPECIFIC DOMAINS
+        # =================================================================
+        
+        "secrets": [
+            "Create a Secrets Manager secret for database credentials with rotation",
+            "Create KMS keys for encrypting sensitive application data",
+            "Create Parameter Store entries for application configuration",
+            "Create a KMS key policy for cross-account encryption access",
+            "Create Secrets Manager secrets for API keys with automatic rotation",
+            "Create a centralized secrets management setup for microservices",
+        ],
+        
+        "containers": [
+            "Create an EKS cluster with managed node groups for production workloads",
+            "Create a Fargate task definition for a stateless API service",
+            "Create an ECR repository with image scanning and lifecycle policies",
+            "Create EKS pod security policies for multi-tenant clusters",
+            "Create a Fargate service with Application Load Balancer integration",
+            "Create an ECS service with secrets injection from Secrets Manager",
+        ],
+        
+        "databases": [
+            "Create an RDS PostgreSQL instance for a production application",
+            "Create an Aurora Serverless cluster for variable workload applications",
+            "Create a Redshift cluster for data warehousing with encryption",
+            "Create an ElastiCache Redis cluster for session management",
+            "Create a DocumentDB cluster for MongoDB-compatible workloads",
+            "Create an RDS instance with read replicas for high availability",
+        ],
+        
+        "api": [
+            "Create an API Gateway REST API with Lambda integration",
+            "Create an API Gateway with Cognito user pool authentication",
+            "Create a CloudFront distribution for API caching and WAF integration",
+            "Create an AppSync GraphQL API with DynamoDB resolvers",
+            "Create an API Gateway with usage plans and API key authentication",
+            "Create a WebSocket API for real-time notifications",
+        ],
+        
+        "messaging": [
+            "Create an SQS queue for asynchronous order processing",
+            "Create an SNS topic for application alerts and notifications",
+            "Create an EventBridge rule for scheduled Lambda invocations",
+            "Create a dead-letter queue configuration for failed message handling",
+            "Create an SQS FIFO queue for exactly-once processing",
+            "Create an SNS topic with subscription filters for event routing",
+        ],
+        
+        "monitoring": [
+            "Create CloudWatch alarms for EC2 instance health monitoring",
+            "Create a CloudTrail trail for API activity logging",
+            "Create CloudWatch Logs with metric filters for error tracking",
+            "Create X-Ray tracing configuration for distributed applications",
+            "Create a CloudWatch dashboard for application performance metrics",
+            "Create Config rules for compliance monitoring",
+        ],
+        
+        # =================================================================
+        # INDUSTRY VERTICALS
+        # =================================================================
+        
+        "healthcare": [
+            "Create HIPAA-compliant S3 storage for patient medical records",
+            "Create a Lambda function for processing HL7 FHIR healthcare messages",
+            "Create an API Gateway for a patient portal with strict authentication",
+            "Create a DynamoDB table for patient appointment scheduling",
+            "Create an encrypted RDS instance for electronic health records (EHR)",
+            "Create a VPC configuration for healthcare application isolation",
+            "Create CloudWatch logging for HIPAA audit trail requirements",
+            "Create IAM roles for healthcare application with minimum necessary access",
+        ],
+        
+        "financial": [
+            "Create PCI-DSS compliant infrastructure for payment card processing",
+            "Create a Lambda function for real-time fraud detection",
+            "Create an S3 bucket for financial transaction archives with immutability",
+            "Create a DynamoDB table for high-frequency trading order book",
+            "Create an API Gateway for banking API with mutual TLS",
+            "Create KMS encryption setup for financial data at rest",
+            "Create a VPC with strict network segmentation for payment systems",
+            "Create CloudTrail logging for financial regulatory compliance",
+        ],
+        
+        "government": [
+            "Create FedRAMP-compliant S3 storage for government documents",
+            "Create a GovCloud VPC with appropriate security controls",
+            "Create IAM policies following NIST 800-53 guidelines",
+            "Create encrypted RDS for citizen data with audit logging",
+            "Create a secure API Gateway for public government services",
+            "Create CloudWatch logging meeting government retention requirements",
+        ],
+        
+        "ecommerce": [
+            "Create an S3 bucket for product images with CloudFront CDN",
+            "Create a DynamoDB table for shopping cart with TTL",
+            "Create an ElastiCache cluster for product catalog caching",
+            "Create a Lambda function for inventory management",
+            "Create an SQS queue for order processing pipeline",
+            "Create an API Gateway for storefront with rate limiting",
+            "Create RDS for customer accounts and order history",
+        ],
+        
+        "saas": [
+            "Create multi-tenant S3 bucket structure with prefix-based isolation",
+            "Create a DynamoDB table with tenant partition key design",
+            "Create an API Gateway with tenant-aware authentication",
+            "Create IAM roles for tenant data isolation",
+            "Create a Lambda function for tenant onboarding automation",
+            "Create CloudWatch metrics with tenant-level dimensions",
+            "Create an RDS instance with schema-per-tenant isolation",
+        ],
+        
+        # =================================================================
+        # SECURITY-FOCUSED SCENARIOS
+        # =================================================================
+        
+        "zero_trust": [
+            "Create a VPC with zero-trust network architecture",
+            "Create IAM policies implementing zero-trust identity verification",
+            "Create an API Gateway with continuous authentication",
+            "Create a Lambda authorizer for fine-grained access control",
+            "Create security groups following zero-trust microsegmentation",
+        ],
+        
+        "disaster_recovery": [
+            "Create cross-region S3 replication for disaster recovery",
+            "Create an RDS instance with cross-region read replica",
+            "Create a Route53 failover routing configuration",
+            "Create a backup and restore configuration for critical data",
+            "Create a multi-region API Gateway with failover",
+        ],
+    }
+    
+    # Domain metadata for display and filtering
+    DOMAIN_INFO = {
+        # Infrastructure
+        "storage": {"category": "infrastructure", "icon": "📦", "description": "S3, DynamoDB, EFS storage"},
+        "compute": {"category": "infrastructure", "icon": "💻", "description": "Lambda, EC2, ECS compute"},
+        "network": {"category": "infrastructure", "icon": "🌐", "description": "VPC, Security Groups, Load Balancers"},
+        "iam": {"category": "infrastructure", "icon": "🔐", "description": "IAM roles, policies, permissions"},
+        "multi_service": {"category": "infrastructure", "icon": "🔗", "description": "Multi-service architectures"},
+        
+        # AWS Services
+        "secrets": {"category": "aws_service", "icon": "🔑", "description": "Secrets Manager, KMS, Parameter Store"},
+        "containers": {"category": "aws_service", "icon": "🐳", "description": "EKS, ECS, Fargate, ECR"},
+        "databases": {"category": "aws_service", "icon": "🗄️", "description": "RDS, Aurora, ElastiCache, Redshift"},
+        "api": {"category": "aws_service", "icon": "🔌", "description": "API Gateway, AppSync, CloudFront"},
+        "messaging": {"category": "aws_service", "icon": "📨", "description": "SQS, SNS, EventBridge"},
+        "monitoring": {"category": "aws_service", "icon": "📊", "description": "CloudWatch, CloudTrail, X-Ray"},
+        
+        # Industry Verticals
+        "healthcare": {"category": "industry", "icon": "🏥", "description": "HIPAA-compliant healthcare systems"},
+        "financial": {"category": "industry", "icon": "💳", "description": "PCI-DSS financial systems"},
+        "government": {"category": "industry", "icon": "🏛️", "description": "FedRAMP government systems"},
+        "ecommerce": {"category": "industry", "icon": "🛒", "description": "E-commerce platforms"},
+        "saas": {"category": "industry", "icon": "☁️", "description": "Multi-tenant SaaS applications"},
+        
+        # Security-Focused
+        "zero_trust": {"category": "security", "icon": "🛡️", "description": "Zero-trust architecture patterns"},
+        "disaster_recovery": {"category": "security", "icon": "🔄", "description": "DR and business continuity"},
     }
 
     @classmethod
@@ -970,7 +1798,7 @@ class ScenarioTemplates:
         """Get a scenario by domain and index.
         
         Args:
-            domain: One of 'storage', 'compute', 'network', 'iam', 'multi_service'
+            domain: One of the valid domain names (see list_domains())
             index: Which scenario within the domain (wraps around)
             
         Returns:
@@ -990,6 +1818,91 @@ class ScenarioTemplates:
         """Get all scenarios as a flat list"""
         all_scenarios = []
         for domain, scenarios in cls.SCENARIOS.items():
-            for scenario in scenarios:
-                all_scenarios.append({"domain": domain, "description": scenario})
+            for i, scenario in enumerate(scenarios):
+                info = cls.DOMAIN_INFO.get(domain, {})
+                all_scenarios.append({
+                    "domain": domain,
+                    "index": i,
+                    "description": scenario,
+                    "category": info.get("category", "unknown"),
+                    "icon": info.get("icon", "📋"),
+                })
         return all_scenarios
+
+    @classmethod
+    def list_domains(cls) -> list:
+        """List all available domains with metadata"""
+        return [
+            {
+                "name": domain,
+                "count": len(scenarios),
+                **cls.DOMAIN_INFO.get(domain, {"category": "unknown", "icon": "📋", "description": ""})
+            }
+            for domain, scenarios in cls.SCENARIOS.items()
+        ]
+
+    @classmethod
+    def get_domains_by_category(cls, category: str) -> list:
+        """Get domains filtered by category.
+        
+        Args:
+            category: One of 'infrastructure', 'aws_service', 'industry', 'security'
+        
+        Returns:
+            List of domain names in that category
+        """
+        return [
+            domain for domain, info in cls.DOMAIN_INFO.items()
+            if info.get("category") == category
+        ]
+
+    @classmethod
+    def get_random_scenario(cls, domain: str = None, category: str = None) -> dict:
+        """Get a random scenario, optionally filtered by domain or category.
+        
+        Args:
+            domain: Specific domain to pick from (optional)
+            category: Category to filter by (optional)
+            
+        Returns:
+            Dict with domain, index, and description
+        """
+        import random
+        
+        if domain:
+            if domain not in cls.SCENARIOS:
+                raise ValueError(f"Invalid domain: {domain}")
+            scenarios = cls.SCENARIOS[domain]
+            idx = random.randint(0, len(scenarios) - 1)
+            return {"domain": domain, "index": idx, "description": scenarios[idx]}
+        
+        if category:
+            domains = cls.get_domains_by_category(category)
+            if not domains:
+                raise ValueError(f"Invalid category: {category}")
+            domain = random.choice(domains)
+        else:
+            domain = random.choice(list(cls.SCENARIOS.keys()))
+        
+        scenarios = cls.SCENARIOS[domain]
+        idx = random.randint(0, len(scenarios) - 1)
+        return {"domain": domain, "index": idx, "description": scenarios[idx]}
+
+    @classmethod
+    def get_scenario_count(cls) -> dict:
+        """Get count of scenarios by category and total.
+        
+        Returns:
+            Dict with counts per category and total
+        """
+        counts = {"total": 0, "by_category": {}, "by_domain": {}}
+        
+        for domain, scenarios in cls.SCENARIOS.items():
+            count = len(scenarios)
+            counts["total"] += count
+            counts["by_domain"][domain] = count
+            
+            category = cls.DOMAIN_INFO.get(domain, {}).get("category", "unknown")
+            counts["by_category"][category] = counts["by_category"].get(category, 0) + count
+        
+        return counts

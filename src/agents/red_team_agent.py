@@ -63,7 +63,7 @@ class VulnerabilityDatabase:
     def get_sample_for_prompt(self, provider, language):
         return self._db.get_sample_for_prompt(provider, language)
 
-from ..prompts import AdversarialPrompts, ScenarioTemplates
+from ..prompts import AdversarialPrompts, ScenarioTemplates, RedTeamStrategyPrompts
 
 
 class Difficulty(Enum):
@@ -165,12 +165,23 @@ class RedTeamAgent:
         },
     }
 
+    # Strategy-specific vuln count adjustments
+    STRATEGY_VULN_ADJUSTMENTS = {
+        "balanced": 1.0,    # Normal count
+        "targeted": 1.0,    # Normal count, but focused type
+        "stealth": 0.6,     # Fewer but harder to detect
+        "blitz": 1.5,       # More vulnerabilities
+        "chained": 1.0,     # Normal count, but organized as chains
+    }
+
     def __init__(
         self,
         llm: BaseChatModel,
         difficulty: Difficulty = Difficulty.MEDIUM,
         cloud_provider: str = "aws",
         language: str = "terraform",
+        strategy: str = "balanced",
+        target_type: Optional[str] = None,
     ):
         """
         Initialize Red Team Agent.
@@ -180,12 +191,29 @@ class RedTeamAgent:
             difficulty: Vulnerability injection difficulty
             cloud_provider: Target cloud provider (aws, azure, gcp)
             language: IaC language (terraform, cloudformation)
+            strategy: Attack strategy ("balanced", "targeted", "stealth", "blitz", "chained")
+            target_type: For "targeted" strategy: vulnerability type to focus on
         """
         self.llm = llm
         self.difficulty = difficulty
         self.cloud_provider = cloud_provider
         self.language = language
+        self.strategy = strategy
+        self.target_type = target_type
         self.logger = logging.getLogger("RedTeamAgent")
+        
+        # Validate strategy
+        valid_strategies = ["balanced", "targeted", "stealth", "blitz", "chained"]
+        if strategy not in valid_strategies:
+            raise ValueError(f"Invalid strategy '{strategy}'. Valid: {valid_strategies}")
+        
+        # Validate target_type for targeted strategy
+        if strategy == "targeted":
+            valid_types = ["encryption", "iam", "network", "logging", "access_control"]
+            if not target_type:
+                raise ValueError("target_type required for 'targeted' strategy")
+            if target_type not in valid_types:
+                raise ValueError(f"Invalid target_type '{target_type}'. Valid: {valid_types}")
         
         # Load Trivy vulnerability database from generator
         self.vulnerability_db = VulnerabilityDatabase()
@@ -195,6 +223,10 @@ class RedTeamAgent:
         self.lang_config = self.LANGUAGE_CONFIGS.get(
             language, self.LANGUAGE_CONFIGS["terraform"]
         )
+        
+        # Adjust vuln count based on strategy
+        adjustment = self.STRATEGY_VULN_ADJUSTMENTS.get(strategy, 1.0)
+        self.adjusted_vuln_count = max(1, int(self.config.vuln_count * adjustment))
 
     async def execute(self, scenario: Dict[str, Any]) -> RedTeamOutput:
         """
@@ -241,46 +273,147 @@ class RedTeamAgent:
         return output
 
     async def _select_adversarial_vulnerabilities(
-        self, scenario: Dict[str, Any]
+        self, scenario: Dict[str, Any], max_retries: int = 3
     ) -> List[Dict[str, Any]]:
         """
-        Select vulnerabilities optimized for evasion.
+        Select vulnerabilities optimized for evasion based on strategy.
         
         Uses the Trivy database from the generator but selects
         vulnerabilities that are harder to detect.
+        
+        Includes retry logic for when LLM returns incomplete responses.
+        
+        Args:
+            scenario: Test scenario
+            max_retries: Maximum number of retry attempts (default: 3)
+            
+        Returns:
+            List of selected vulnerabilities
         """
         # Get vulnerability samples from Trivy database
         db_sample = self.vulnerability_db.get_sample_for_prompt(
             self.cloud_provider, self.language
         )
         
-        # Build adversarial selection prompt
-        prompt = AdversarialPrompts.RED_TEAM_VULNERABILITY_SELECTION.format(
-            scenario_json=json.dumps(scenario, indent=2),
-            vulnerability_samples=json.dumps(
-                db_sample.get("sample_vulnerabilities", [])[:10],
-                indent=2,
-            ),
-            difficulty=self.difficulty.value,
-            vuln_count=self.config.vuln_count,
-        )
+        # Filter samples for targeted strategy
+        vuln_samples = db_sample.get("sample_vulnerabilities", [])[:10]
+        if self.strategy == "targeted" and self.target_type:
+            # Filter to only vulnerabilities matching the target type
+            filtered = [v for v in vuln_samples if self._matches_target_type(v)]
+            if filtered:
+                vuln_samples = filtered
+            self.logger.info(f"Targeted strategy: filtered to {len(vuln_samples)} {self.target_type} samples")
         
-        # Get LLM selection
-        response = await self._invoke_llm(prompt)
+        # Build strategy-specific selection prompt
+        prompt = self._build_selection_prompt(scenario, vuln_samples)
         
-        # Parse response
-        selected = self._parse_vulnerability_selection(response)
+        for attempt in range(max_retries):
+            # Get LLM selection
+            response = await self._invoke_llm(prompt)
+            
+            # Parse response
+            selected = self._parse_vulnerability_selection(response)
+            
+            if selected:
+                if attempt > 0:
+                    self.logger.info(f"Vulnerability selection succeeded on retry {attempt}")
+                self.logger.info(f"Selected {len(selected)} adversarial vulnerabilities")
+                return selected
+            
+            if attempt < max_retries - 1:
+                self.logger.warning(
+                    f"Vulnerability selection attempt {attempt + 1}/{max_retries} returned empty. Retrying..."
+                )
+                # Add retry hint for subsequent attempts
+                if attempt == 0:
+                    prompt += "\n\nIMPORTANT: You MUST respond with a valid JSON object containing 'selected_vulnerabilities' array."
+            else:
+                self.logger.error(
+                    f"Vulnerability selection failed after {max_retries} attempts"
+                )
         
-        self.logger.info(f"Selected {len(selected)} adversarial vulnerabilities")
-        return selected
+        # All retries exhausted - return empty
+        return []
+
+    def _matches_target_type(self, vuln: Dict[str, Any]) -> bool:
+        """Check if a vulnerability matches the target type for targeted strategy."""
+        vuln_type = vuln.get("type", "").lower()
+        title = vuln.get("title", "").lower()
+        desc = vuln.get("description", "").lower()
+        
+        type_keywords = {
+            "encryption": ["encrypt", "kms", "ssl", "tls", "cipher"],
+            "iam": ["iam", "role", "policy", "permission", "privilege"],
+            "network": ["security group", "vpc", "subnet", "ingress", "egress", "firewall"],
+            "logging": ["log", "audit", "trail", "monitor", "cloudtrail"],
+            "access_control": ["public", "access", "acl", "bucket policy", "authentication"],
+        }
+        
+        keywords = type_keywords.get(self.target_type, [])
+        search_text = f"{vuln_type} {title} {desc}"
+        
+        return any(kw in search_text for kw in keywords)
+
+    def _build_selection_prompt(self, scenario: Dict[str, Any], vuln_samples: List[Dict]) -> str:
+        """Build the appropriate selection prompt based on strategy."""
+        vuln_samples_json = json.dumps(vuln_samples, indent=2)
+        scenario_json = json.dumps(scenario, indent=2)
+        
+        if self.strategy == "targeted":
+            return RedTeamStrategyPrompts.TARGETED_SELECTION.format(
+                target_type=self.target_type,
+                scenario_json=scenario_json,
+                vulnerability_samples=vuln_samples_json,
+                difficulty=self.difficulty.value,
+                vuln_count=self.adjusted_vuln_count,
+            )
+        elif self.strategy == "stealth":
+            return RedTeamStrategyPrompts.STEALTH_SELECTION.format(
+                scenario_json=scenario_json,
+                vulnerability_samples=vuln_samples_json,
+                difficulty=self.difficulty.value,
+                vuln_count=self.adjusted_vuln_count,
+            )
+        elif self.strategy == "blitz":
+            return RedTeamStrategyPrompts.BLITZ_SELECTION.format(
+                scenario_json=scenario_json,
+                vulnerability_samples=vuln_samples_json,
+                vuln_count=self.adjusted_vuln_count,
+            )
+        elif self.strategy == "chained":
+            return RedTeamStrategyPrompts.CHAINED_SELECTION.format(
+                scenario_json=scenario_json,
+                vulnerability_samples=vuln_samples_json,
+                difficulty=self.difficulty.value,
+                vuln_count=self.adjusted_vuln_count,
+            )
+        else:
+            # Default "balanced" strategy uses the original prompt
+            return AdversarialPrompts.RED_TEAM_VULNERABILITY_SELECTION.format(
+                scenario_json=scenario_json,
+                vulnerability_samples=vuln_samples_json,
+                difficulty=self.difficulty.value,
+                vuln_count=self.config.vuln_count,
+            )
 
     async def _generate_vulnerable_iac(
         self,
         scenario: Dict[str, Any],
         vulnerabilities: List[Dict[str, Any]],
+        max_retries: int = 3,
     ) -> tuple[Dict[str, str], List[VulnerabilityManifest]]:
         """
         Generate IaC code with hidden vulnerabilities.
+        
+        Includes retry logic for when LLM returns incomplete responses.
+        
+        Args:
+            scenario: Test scenario
+            vulnerabilities: Selected vulnerabilities to inject
+            max_retries: Maximum number of retry attempts (default: 3)
+            
+        Returns:
+            Tuple of (code files dict, vulnerability manifest list)
         """
         # Build generation prompt
         prompt = AdversarialPrompts.RED_TEAM_CODE_GENERATION.format(
@@ -292,13 +425,50 @@ class RedTeamAgent:
             extension=self.lang_config["extension"],
         )
         
-        # Generate code
-        response = await self._invoke_llm(prompt)
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                # Generate code
+                response = await self._invoke_llm(prompt)
+                
+                # Check for obviously incomplete responses
+                if len(response) < 500:
+                    raise ValueError(
+                        f"Response too short ({len(response)} chars) - likely incomplete"
+                    )
+                
+                # Parse response into files and manifest
+                code, manifest = self._parse_code_response(response)
+                
+                # Validate we got something useful
+                if not code:
+                    raise ValueError("Failed to extract code from LLM response")
+                
+                if not manifest:
+                    raise ValueError("Failed to extract vulnerability manifest from LLM response")
+                
+                # Success!
+                if attempt > 0:
+                    self.logger.info(f"Code generation succeeded on retry {attempt}")
+                return code, manifest
+                
+            except ValueError as e:
+                last_error = e
+                if attempt < max_retries - 1:
+                    self.logger.warning(
+                        f"Code generation attempt {attempt + 1}/{max_retries} failed: {e}. Retrying..."
+                    )
+                    # Add retry hint to prompt for subsequent attempts
+                    if attempt == 0:
+                        prompt += "\n\nIMPORTANT: Please provide complete code with all markers (MAIN_FILE_BEGINS_HERE, VULNERABILITY_MANIFEST_BEGINS_HERE, etc.)"
+                else:
+                    self.logger.error(
+                        f"Code generation failed after {max_retries} attempts: {e}"
+                    )
         
-        # Parse response into files and manifest
-        code, manifest = self._parse_code_response(response)
-        
-        return code, manifest
+        # All retries exhausted - return empty results
+        self.logger.error(f"Red Team code generation failed: {last_error}")
+        return {}, []
 
     async def _verify_stealth(self, code: Dict[str, str]) -> int:
         """
@@ -636,6 +806,8 @@ def create_red_team_agent(
     difficulty: str = "medium",
     cloud_provider: str = "aws",
     language: str = "terraform",
+    strategy: str = "balanced",
+    target_type: Optional[str] = None,
 ) -> RedTeamAgent:
     """
     Create a Red Team Agent with AWS Bedrock.
@@ -646,6 +818,8 @@ def create_red_team_agent(
         difficulty: easy, medium, or hard
         cloud_provider: aws, azure, or gcp
         language: terraform or cloudformation
+        strategy: Attack strategy - "balanced", "targeted", "stealth", "blitz", "chained"
+        target_type: For "targeted" strategy - "encryption", "iam", "network", "logging", "access_control"
         
     Returns:
         Configured RedTeamAgent
@@ -666,4 +840,6 @@ def create_red_team_agent(
         difficulty=Difficulty(difficulty),
         cloud_provider=cloud_provider,
         language=language,
+        strategy=strategy,
+        target_type=target_type,
     )

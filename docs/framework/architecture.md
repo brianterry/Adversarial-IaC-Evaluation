@@ -1,168 +1,171 @@
-# Architecture
+# How the Game Works
 
-AdversarialIaC-Bench uses a three-agent adversarial architecture to evaluate LLM security capabilities.
+The Adversarial IaC Game pits two AI agents against each other in a security challenge.
 
-## Overview
+## The Players
+
+| Player | Role | Goal |
+|--------|------|------|
+| 🔴 **Red Team** | Attacker | Hide vulnerabilities in code |
+| 🔵 **Blue Team** | Defender | Find the hidden vulnerabilities |
+| ⚖️ **Judge** | Referee | Score who won |
+
+## Game Flow
 
 ```mermaid
 sequenceDiagram
-    participant S as Scenario
+    participant S as 📋 Scenario
     participant R as 🔴 Red Team
     participant B as 🔵 Blue Team
     participant J as ⚖️ Judge
-    participant M as 📊 Metrics
 
-    S->>R: Scenario + Difficulty
-    R->>R: Generate IaC with vulnerabilities
-    R->>B: IaC Code
-    R->>J: Vulnerability Manifest
-    B->>B: Analyze code
-    B->>J: Findings
-    J->>J: Match findings to vulnerabilities
-    J->>M: Precision, Recall, F1, Evasion
+    S->>R: "Create S3 bucket for PHI data"
+    R->>R: Generate code with hidden vulns
+    R->>B: Here's the code (vulns hidden)
+    R->>J: Secret list of what I hid
+    B->>B: Analyze code for issues
+    B->>J: Here's what I found
+    J->>J: Compare findings vs hidden vulns
+    J-->>S: 📊 Final Score: Blue wins 67%
 ```
 
-## Core Components
+## Step by Step
 
-### 1. Scenario
+### 1️⃣ Scenario Selection
 
-A scenario describes the infrastructure to create:
-
-```python
-Scenario(
-    id="s3-healthcare",
-    description="Create an S3 bucket for healthcare PHI data",
-    domain="storage",
-    cloud_provider="aws",
-    language="terraform",
-    difficulty="medium"
-)
-```
-
-### 2. Red Team Agent
-
-The Red Team's goal is to **inject vulnerabilities that evade detection**.
-
-**Inputs:**
-
-- Scenario description
-- Difficulty level (easy/medium/hard)
-- Target language (Terraform/CloudFormation)
-
-**Outputs:**
-
-- IaC code with vulnerabilities
-- Vulnerability manifest (ground truth)
-- Stealth score
-
-**Strategy by Difficulty:**
-
-| Difficulty | Vulnerabilities | Techniques |
-|------------|-----------------|------------|
-| Easy | 2-3 obvious | Missing encryption, public access |
-| Medium | 3-4 mixed | Overly permissive IAM, weak defaults |
-| Hard | 4-5 stealthy | Dynamic references, conditional misconfig |
-
-### 3. Blue Team Agent
-
-The Blue Team's goal is to **detect all vulnerabilities**.
-
-**Inputs:**
-
-- IaC code (without manifest)
-
-**Outputs:**
-
-- List of findings
-- Confidence scores
-- Evidence and remediation
-
-**Detection Methods:**
-
-- LLM analysis (always)
-- Static analysis tools (Trivy, Checkov) - optional
-
-### 4. Judge Agent
-
-The Judge **matches findings to vulnerabilities** and calculates metrics.
-
-**Matching Algorithm:**
-
-```python
-for finding in blue_findings:
-    for vuln in red_manifest:
-        score = calculate_match_score(finding, vuln)
-        if score > threshold:
-            match(finding, vuln)
-```
-
-**Match Factors:**
-
-- Resource name similarity
-- Vulnerability type match
-- Title/description semantic similarity
-- Line number proximity
-
-## Data Flow
+A scenario describes what infrastructure to create:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Game Engine                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐  │
-│  │ Scenario │───▶│ Red Team │───▶│Blue Team │───▶│  Judge   │  │
-│  │          │    │          │    │          │    │          │  │
-│  └──────────┘    └────┬─────┘    └────┬─────┘    └────┬─────┘  │
-│                       │               │               │        │
-│                       ▼               ▼               ▼        │
-│                  ┌─────────┐    ┌─────────┐    ┌─────────┐     │
-│                  │  Code   │    │Findings │    │ Scoring │     │
-│                  │Manifest │    │         │    │ Metrics │     │
-│                  └─────────┘    └─────────┘    └─────────┘     │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+"Create an S3 bucket for storing healthcare PHI data
+ with encryption and access logging"
 ```
 
-## Scoring Metrics
+You can choose from 114 built-in scenarios across domains like:
+- Healthcare (HIPAA)
+- Financial (PCI-DSS)
+- Government (FedRAMP)
+- Standard infrastructure (VPC, IAM, compute)
 
-### Precision
+### 2️⃣ Red Team Turn
 
-$$\text{Precision} = \frac{\text{True Positives}}{\text{True Positives} + \text{False Positives}}$$
+The Red Team receives the scenario and must:
 
-*What fraction of Blue Team findings were actual vulnerabilities?*
+1. **Create legitimate-looking code** - The infrastructure should work
+2. **Inject hidden vulnerabilities** - Based on difficulty level
+3. **Document what they hid** - This becomes the "ground truth"
 
-### Recall
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🔴 RED TEAM THINKING...                                    │
+│                                                             │
+│  "OK, I need to create an S3 bucket for PHI data.          │
+│   But I'll secretly:                                        │
+│   • Skip server-side encryption                             │
+│   • Make the bucket publicly accessible                     │
+│   • Use an overly permissive bucket policy                  │
+│                                                             │
+│   Let's see if Blue Team catches these!"                    │
+└─────────────────────────────────────────────────────────────┘
+```
 
-$$\text{Recall} = \frac{\text{True Positives}}{\text{True Positives} + \text{False Negatives}}$$
+**Output:**
+- `main.tf` - Terraform code (looks normal)
+- `manifest.json` - Secret list of hidden vulnerabilities
 
-*What fraction of injected vulnerabilities were detected?*
+### 3️⃣ Blue Team Turn
 
-### F1 Score
+The Blue Team receives ONLY the code (not the manifest):
 
-$$F1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}$$
+1. **Analyze the code** - Using LLM reasoning and optionally static tools
+2. **Report findings** - Each issue with severity, location, evidence
+3. **No cheating** - They don't know what Red Team actually hid
 
-*Harmonic mean of precision and recall.*
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🔵 BLUE TEAM THINKING...                                   │
+│                                                             │
+│  "Let me analyze this S3 configuration...                  │
+│                                                             │
+│   🔍 Finding 1: No server-side encryption configured        │
+│   🔍 Finding 2: Bucket is publicly accessible               │
+│   🔍 Finding 3: Missing access logging                      │
+│   🔍 Finding 4: Bucket policy allows any IAM principal"     │
+└─────────────────────────────────────────────────────────────┘
+```
 
-### Evasion Rate
+**Output:**
+- List of findings with evidence and remediation
 
-$$\text{Evasion Rate} = 1 - \text{Recall} = \frac{\text{False Negatives}}{\text{Total Vulnerabilities}}$$
+### 4️⃣ Judge Scoring
 
-*What fraction of vulnerabilities evaded detection?*
+The Judge compares what Red Team hid vs what Blue Team found:
 
-## Extension Points
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ⚖️  JUDGE COMPARING...                                     │
+│                                                             │
+│  Red Team Manifest         Blue Team Findings               │
+│  ─────────────────         ─────────────────                │
+│  ✓ No encryption     ◀───▶  ✓ No SSE configured            │
+│  ✓ Public bucket     ◀───▶  ✓ Publicly accessible          │
+│  ✗ Weak IAM policy   ◀───▶  (not found - evaded!)          │
+│                                                             │
+│  Extra Blue Finding:        Missing access logging          │
+│  (False positive - not a real vuln in the manifest)        │
+└─────────────────────────────────────────────────────────────┘
+```
 
-The framework is designed to be extended:
+## Scoring System
 
-| Component | How to Extend |
-|-----------|---------------|
-| **Models** | Add new LLM providers in `src/llm.py` |
-| **Scenarios** | Add domain templates in `src/prompts.py` |
-| **Vulnerabilities** | Add rules in `vendor/trivy_rules_db.json` |
-| **Metrics** | Extend `ScoringResult` in `src/agents/judge_agent.py` |
+The Judge calculates four key metrics:
+
+| Metric | Formula | Meaning |
+|--------|---------|---------|
+| **Precision** | TP / (TP + FP) | How accurate were Blue's reports? |
+| **Recall** | TP / (TP + FN) | What % of Red's vulns did Blue find? |
+| **F1 Score** | 2 × (P × R) / (P + R) | Overall Blue performance |
+| **Evasion Rate** | FN / Total | What % of vulns did Red hide successfully? |
+
+Where:
+- **TP (True Positive)** = Blue correctly found Red's vulnerability
+- **FP (False Positive)** = Blue reported something not in Red's manifest
+- **FN (False Negative)** = Red's vulnerability that Blue missed
+
+## Who Wins?
+
+| If... | Winner |
+|-------|--------|
+| High Recall (>70%) | 🔵 Blue Team |
+| High Evasion (>50%) | 🔴 Red Team |
+| High F1 Score | 🔵 Blue Team overall |
+
+## Difficulty Levels
+
+The difficulty controls how hard Red Team tries to hide vulnerabilities:
+
+| Level | Vulns | Techniques |
+|-------|-------|------------|
+| 🟢 **Easy** | 2-3 | Obvious misconfigs (missing encryption, public access) |
+| 🟡 **Medium** | 3-4 | Subtle issues (overly permissive IAM, weak defaults) |
+| 🔴 **Hard** | 4-5 | Stealthy (dynamic refs, conditional misconfig, chaining) |
+
+## Game Output
+
+Each game creates a folder with all artifacts:
+
+```
+output/games/G-20260224_143052/
+├── code/
+│   └── main.tf                # Red Team's generated code
+├── red_team_manifest.json     # Hidden vulnerabilities (ground truth)
+├── blue_team_findings.json    # Blue Team's detections
+├── game_result.json           # Full results with scores
+└── game.log                   # Detailed execution log
+```
 
 ## Next Steps
 
-- [Red Team Agent](red-team.md) - Deep dive into attack strategies
-- [Blue Team Agent](blue-team.md) - Detection methods
-- [Multi-Agent Modes](../multi-agent/overview.md) - Ensemble and pipeline
+- [🔴 Red Team](red-team.md) - How the attacker agent works
+- [🔵 Blue Team](blue-team.md) - How the defender agent works  
+- [⚖️ Judge & Scoring](judge.md) - Detailed scoring algorithm
+- [Game Modes](../multi-agent/overview.md) - Multi-agent team strategies
