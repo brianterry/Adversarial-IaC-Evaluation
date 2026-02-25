@@ -7,6 +7,9 @@ This agent:
 3. Identifies true positives, false positives, and false negatives
 4. Provides detailed match explanations
 
+Uses optimal bipartite matching (Hungarian algorithm) to find the best
+global assignment between vulnerabilities and findings.
+
 Part of the Adversarial IaC Evaluation framework.
 """
 
@@ -14,6 +17,9 @@ import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+from scipy.optimize import linear_sum_assignment
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
@@ -87,6 +93,9 @@ class JudgeAgent:
         """
         Score Blue Team findings against Red Team ground truth.
         
+        Uses optimal bipartite matching (Hungarian algorithm) to find the
+        globally optimal assignment between vulnerabilities and findings.
+        
         Args:
             red_manifest: List of vulnerabilities injected by Red Team
             blue_findings: List of findings detected by Blue Team
@@ -102,14 +111,84 @@ class JudgeAgent:
         matched_blue_ids = set()
         matched_red_ids = set()
         
-        # Step 1: Find matches for each Red Team vulnerability
-        for red_vuln in red_manifest:
-            best_match = self._find_best_match(red_vuln, blue_findings, matched_blue_ids)
-            matches.append(best_match)
+        # Step 1: Build cost matrix for optimal matching
+        n_red = len(red_manifest)
+        n_blue = len(blue_findings)
+        
+        if n_red == 0 or n_blue == 0:
+            # Handle empty cases
+            for red_vuln in red_manifest:
+                matches.append(Match(
+                    red_vuln_id=red_vuln.get("vuln_id", "unknown"),
+                    blue_finding_id=None,
+                    match_type="missed",
+                    confidence=0.0,
+                    explanation=f"No findings to match against: {red_vuln.get('title', '')}",
+                ))
+        else:
+            # Build score matrix (we'll convert to cost for Hungarian algorithm)
+            score_matrix = np.zeros((n_red, n_blue))
+            match_type_matrix = [[None] * n_blue for _ in range(n_red)]
             
-            if best_match.blue_finding_id:
-                matched_blue_ids.add(best_match.blue_finding_id)
-                matched_red_ids.add(red_vuln.get("vuln_id", ""))
+            for i, red_vuln in enumerate(red_manifest):
+                for j, blue_finding in enumerate(blue_findings):
+                    score, match_type = self._calculate_match_score(red_vuln, blue_finding)
+                    score_matrix[i, j] = score
+                    match_type_matrix[i][j] = match_type
+            
+            # Hungarian algorithm finds minimum cost, so we negate scores
+            # to find maximum score assignment
+            cost_matrix = -score_matrix
+            
+            # Find optimal assignment
+            row_ind, col_ind = linear_sum_assignment(cost_matrix)
+            
+            # Build matches from optimal assignment
+            assigned_reds = set()
+            assigned_blues = set()
+            
+            for i, j in zip(row_ind, col_ind):
+                red_vuln = red_manifest[i]
+                blue_finding = blue_findings[j]
+                score = score_matrix[i, j]
+                match_type = match_type_matrix[i][j]
+                
+                red_id = red_vuln.get("vuln_id", "unknown")
+                blue_id = blue_finding.get("finding_id", "")
+                
+                if score >= 0.3:  # Minimum threshold for a valid match
+                    matches.append(Match(
+                        red_vuln_id=red_id,
+                        blue_finding_id=blue_id,
+                        match_type=match_type,
+                        confidence=score,
+                        explanation=self._generate_explanation(red_vuln, blue_finding, match_type),
+                    ))
+                    matched_blue_ids.add(blue_id)
+                    matched_red_ids.add(red_id)
+                    assigned_reds.add(i)
+                    assigned_blues.add(j)
+                else:
+                    # Score too low, count as missed
+                    matches.append(Match(
+                        red_vuln_id=red_id,
+                        blue_finding_id=None,
+                        match_type="missed",
+                        confidence=0.0,
+                        explanation=f"No matching finding for vulnerability: {red_vuln.get('title', red_id)}",
+                    ))
+                    assigned_reds.add(i)
+            
+            # Handle any unmatched reds (when n_red > n_blue)
+            for i, red_vuln in enumerate(red_manifest):
+                if i not in assigned_reds:
+                    matches.append(Match(
+                        red_vuln_id=red_vuln.get("vuln_id", "unknown"),
+                        blue_finding_id=None,
+                        match_type="missed",
+                        confidence=0.0,
+                        explanation=f"No matching finding for vulnerability: {red_vuln.get('title', '')}",
+                    ))
         
         # Step 2: Identify true positives, false positives, false negatives
         true_positives = []

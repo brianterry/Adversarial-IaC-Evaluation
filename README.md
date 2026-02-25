@@ -489,17 +489,31 @@ Think of this like a game of hide-and-seek:
 
 ### How the Judge Works
 
-The Judge Agent is responsible for fairly scoring each game. Since vulnerabilities can be described differently by Red Team and Blue Team, the Judge uses a **multi-criteria matching algorithm**.
+The Judge Agent is responsible for fairly scoring each game. Since vulnerabilities can be described differently by Red Team and Blue Team, the Judge uses a **multi-criteria matching algorithm** with **optimal bipartite matching**.
 
 #### The Matching Process
 
+The Judge uses the **Hungarian algorithm** (optimal bipartite matching) to find the globally best assignment between vulnerabilities and findings. This is important because greedy matching (processing items in order) can produce suboptimal pairings.
+
 ```
-For each Red Team vulnerability:
-    1. Compare against all Blue Team findings
-    2. Calculate a match score (0.0 - 1.0)
-    3. Keep the best match above threshold
-    4. Mark unmatched vulnerabilities as "evaded"
+Step 1: Build Score Matrix
+         F1    F2    F3   (Blue Team Findings)
+    V1  0.45  0.85  0.20  ← Red Team Vulnerabilities
+    V2  0.82  0.40  0.15
+    V3  0.10  0.25  0.90
+
+Step 2: Find Optimal Assignment (Hungarian Algorithm)
+    - Maximizes total match score across all pairs
+    - Each vulnerability matches to at most one finding
+    - Each finding matches to at most one vulnerability
+
+Step 3: Result
+    V1 → F2 (score 0.85) ✓ Exact match
+    V2 → F1 (score 0.82) ✓ Exact match  
+    V3 → F3 (score 0.90) ✓ Exact match
 ```
+
+**Why optimal matching matters:** Without it, V1 might greedily take F1 (its first "good enough" match), leaving V2 with a worse pairing even though F1 was V2's best match.
 
 #### Match Score Calculation
 
@@ -532,12 +546,52 @@ Total Score: 0.85 → "exact" match ✓
 
 #### Match Types
 
-| Score Range | Match Type | Meaning |
-|-------------|------------|---------|
-| ≥ 0.70 | **Exact** | Clear match, counted as True Positive |
-| 0.40 - 0.69 | **Partial** | Related finding, still counted as True Positive |
-| 0.30 - 0.39 | **Weak** | Borderline, may be coincidental |
-| < 0.30 | **Missed** | Vulnerability evaded detection (False Negative) |
+| Score Range | Match Type | Meaning | Counted As |
+|-------------|------------|---------|------------|
+| ≥ 0.70 | **Exact** | Clear match—Blue Team described the same issue | True Positive |
+| 0.40 - 0.69 | **Partial** | Related finding—Blue Team found the issue but described it differently | True Positive |
+| 0.30 - 0.39 | **Threshold** | Borderline match—may be coincidental | True Positive (weak) |
+| < 0.30 | **Missed** | No match—vulnerability evaded detection | False Negative |
+
+> **Note:** Both "Exact" and "Partial" matches count as True Positives for precision/recall calculations. The distinction helps analyze *how well* Blue Team described the issue, not *whether* it found it.
+
+#### Why Are Most Matches "Partial"?
+
+Partial matches are **expected and correct behavior**. Red Team and Blue Team describe vulnerabilities differently:
+
+| Red Team Says | Blue Team Says | Match Type |
+|---------------|----------------|------------|
+| "PHI data requires customer-managed KMS keys" | "S3 bucket missing encryption configuration" | **Partial** ✓ |
+| "KMS key rotation not enabled" | "Missing key rotation setting" | **Partial** ✓ |
+| "Overly permissive egress rules" | "Security group allows all outbound traffic" | **Partial** ✓ |
+
+Both teams identified the same underlying issue, but they used different words. The Judge correctly scores these as successful detections.
+
+**When do "Exact" matches occur?**
+- Blue Team uses nearly identical terminology to Red Team
+- Both reference the same resource name AND same attribute
+- This happens less often because the agents are independent
+
+#### Reading CLI Match Output
+
+When you run a game, you'll see a Match Details table:
+
+```
+             Match Details             
+┏━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Red Vuln ┃ Blue Finding ┃ Result    ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ V1       │ F2           │ ~ Partial │   ← V1 matched to F2 (not F1!)
+│ V2       │ F1           │ ~ Partial │   ← Optimal matching found best pairs
+│ V3       │ F3           │ ✓ Exact   │
+└──────────┴──────────────┴───────────┘
+```
+
+**Key observations:**
+- `~` indicates a partial match (vulnerability detected, different wording)
+- `✓` indicates an exact match (vulnerability detected with same description)
+- `✗` indicates a miss (vulnerability evaded detection)
+- Notice V1 matched to F2, not F1—the Hungarian algorithm found the optimal global assignment
 
 #### Related Type Recognition
 
