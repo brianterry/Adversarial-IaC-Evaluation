@@ -19,9 +19,17 @@ An **adversarial benchmark** where AI agents compete in security scenarios:
 
 - 🔴 **Red Team (Attacker)**: Generates infrastructure code with hidden vulnerabilities
 - 🔵 **Blue Team (Defender)**: Analyzes code to detect those vulnerabilities
-- ⚖️ **Judge**: Scores using optimal bipartite matching (precision, recall, F1, evasion)
+- ⚖️ **Judge**: Scores using hybrid LLM + rule-based matching (precision, recall, F1, evasion)
+- 🔍 **Validator**: Independently verifies ground truth using static analysis tools
 
 This enables rigorous evaluation of LLM security capabilities with reproducible metrics.
+
+!!! success "New in v2.0"
+    - **Multi-Model Consensus Judge**: Cohen's κ inter-rater reliability across GPT-4, Claude, and Gemini
+    - **Tool-Triangulated Matching**: "Corroborated" tier when Red + Blue + Tool all agree (non-LLM anchor)
+    - **Multi-Provider Support**: Use OpenAI, Google, and AWS Bedrock models together
+    - **Ground Truth Validation**: Static tools (Trivy/Checkov) independently verify Red Team claims
+    - **Comparative Experiment Runner**: Generate publication-ready tables with statistical analysis
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -99,6 +107,8 @@ This enables rigorous evaluation of LLM security capabilities with reproducible 
 | Which evasion techniques are most effective? | Analyze Red Team strategy success rates |
 | How well do LLMs understand compliance frameworks? | Test HIPAA vs PCI-DSS vs FedRAMP scenarios |
 | Does adversarial debate reduce false positives? | Compare standard vs debate verification |
+| Is the LLM judge reliable? | Multi-model consensus with Cohen's κ > 0.70 |
+| How accurate is the Red Team manifest? | Manifest accuracy & hallucination rate metrics |
 
 ---
 
@@ -191,6 +201,22 @@ The interactive wizard guides you through scenario selection, model choices, and
     Run batch experiments across model combinations and generate publication-ready data.
 
     [:octicons-arrow-right-24: Run experiments](experiments/batch.md)
+
+-   :material-check-decagram:{ .lg .middle } __Ground Truth Validation__
+
+    ---
+
+    Static tools independently verify Red Team claims. Know your manifest accuracy.
+
+    [:octicons-arrow-right-24: Validation](research/validation.md)
+
+-   :material-scale-balance:{ .lg .middle } __Multi-Model Consensus Judge__
+
+    ---
+
+    Cohen's κ inter-rater reliability with GPT-4, Claude, and Gemini. Tool triangulation for non-LLM anchors.
+
+    [:octicons-arrow-right-24: Scoring system](framework/judge.md)
 
 </div>
 

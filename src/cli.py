@@ -813,6 +813,17 @@ def score(red_dir: str, blue_dir: str, output_dir: str):
     help="Disable LLM for ambiguous matches (faster but less accurate)",
 )
 @click.option(
+    "--use-consensus-judge",
+    is_flag=True,
+    default=False,
+    help="Enable multi-model consensus for inter-rater reliability (requires --consensus-models)",
+)
+@click.option(
+    "--consensus-models",
+    default=None,
+    help="Comma-separated model IDs for consensus judging (e.g., 'claude-3.5-sonnet,nova-pro,llama-70b')",
+)
+@click.option(
     "--red-strategy",
     type=click.Choice(["balanced", "targeted", "stealth", "blitz", "chained"]),
     default="balanced",
@@ -873,6 +884,8 @@ def game(
     consensus_method: str,
     verification_mode: str,
     no_llm_judge: bool,
+    use_consensus_judge: bool,
+    consensus_models: str,
     red_strategy: str,
     red_target_type: str,
     blue_strategy: str,
@@ -966,6 +979,8 @@ def game(
                 consensus_method=consensus_method,
                 verification_mode=verification_mode,
                 use_llm_judge=not no_llm_judge,
+                use_consensus_judge=use_consensus_judge,
+                consensus_models=consensus_models.split(",") if consensus_models else None,
                 red_strategy=red_strategy,
                 red_target_type=red_target_type,
                 blue_strategy=blue_strategy,
@@ -994,6 +1009,8 @@ async def _run_game(
     consensus_method: str,
     verification_mode: str,
     use_llm_judge: bool = False,
+    use_consensus_judge: bool = False,
+    consensus_models: list = None,
     red_strategy: str = "balanced",
     red_target_type: str = None,
     blue_strategy: str = "comprehensive",
@@ -1030,6 +1047,11 @@ async def _run_game(
     else:
         detection_mode = "llm_only"
     
+    # Resolve consensus model short names to full IDs if provided
+    resolved_consensus_models = None
+    if use_consensus_judge and consensus_models:
+        resolved_consensus_models = [get_model_id(m.strip()) for m in consensus_models]
+    
     # Create game config
     config = GameConfig(
         red_model=red_model_id,
@@ -1053,6 +1075,8 @@ async def _run_game(
         blue_iterations=blue_iterations,
         verification_mode=verification_mode,
         use_llm_judge=use_llm_judge,
+        use_consensus_judge=use_consensus_judge,
+        consensus_models=resolved_consensus_models,
     )
     
     # Run game

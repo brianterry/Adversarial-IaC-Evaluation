@@ -22,7 +22,23 @@ adversarial-iac game [OPTIONS]
 | `--blue-team-mode` | choice | ❌ | `single` | `single`, `ensemble` |
 | `--consensus-method` | choice | ❌ | `debate` | `debate`, `vote`, `union`, `intersection` |
 | `--verification-mode` | choice | ❌ | `standard` | `standard`, `debate` |
-| `--region` | string | ❌ | `us-west-2` | AWS region |
+| `--no-llm-judge` | flag | ❌ | `false` | Disable LLM for ambiguous matches |
+| `--use-consensus-judge` | flag | ❌ | `false` | Enable multi-model consensus judging |
+| `--consensus-models` | string | ❌ | - | Comma-separated models for consensus |
+| `--use-trivy` | flag | ❌ | `false` | Enable Trivy static analysis |
+| `--use-checkov` | flag | ❌ | `false` | Enable Checkov static analysis |
+| `--region` | string | ❌ | `us-east-1` | AWS region |
+
+#### Multi-Provider Consensus Example
+
+```bash
+# Use models from 3 different providers for inter-rater reliability
+adversarial-iac game \
+    --scenario "Create S3 bucket for PHI data" \
+    --use-consensus-judge \
+    --consensus-models "openai:gpt-4o,google:gemini-1.5-pro,bedrock:claude-3.5-sonnet" \
+    --use-trivy --use-checkov
+```
 
 ---
 
@@ -188,11 +204,38 @@ Used when `blue_team_mode: ensemble`:
 
 ## Environment Variables
 
+### AWS (Required for Bedrock)
+
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `AWS_DEFAULT_REGION` | AWS region for Bedrock | `us-west-2` |
 | `AWS_ACCESS_KEY_ID` | AWS credentials | From AWS CLI |
 | `AWS_SECRET_ACCESS_KEY` | AWS credentials | From AWS CLI |
+
+### Multi-Provider API Keys (Optional)
+
+For multi-model consensus judging with inter-rater reliability:
+
+| Variable | Description | Get From |
+|----------|-------------|----------|
+| `OPENAI_API_KEY` | OpenAI API key (for GPT-4, GPT-4o) | [platform.openai.com](https://platform.openai.com/api-keys) |
+| `GOOGLE_API_KEY` | Google AI API key (for Gemini) | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
+
+Add to your `.env` file:
+
+```bash
+# AWS (always required)
+AWS_DEFAULT_REGION=us-east-1
+
+# Multi-provider consensus (optional, for publication-quality)
+OPENAI_API_KEY=sk-...
+GOOGLE_API_KEY=AI...
+```
+
+### Other
+
+| Variable | Description | Default |
+|----------|-------------|---------|
 | `LOG_LEVEL` | Logging verbosity | `INFO` |
 
 ---

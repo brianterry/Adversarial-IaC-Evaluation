@@ -128,6 +128,7 @@ nav:
     - Agents: api/agents.md
     - Prompts: api/prompts.md
   - Research:
+    - Ground Truth Validation: research/validation.md
     - Citation: research/citation.md
     - Publications: research/publications.md
     - Contributing: research/contributing.md

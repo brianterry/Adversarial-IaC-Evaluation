@@ -74,6 +74,8 @@ class GameConfig:
     
     # Judge configuration
     use_llm_judge: bool = True  # Use LLM fallback for ambiguous matches (hybrid mode, recommended)
+    use_consensus_judge: bool = False  # Use multi-model consensus for inter-rater reliability
+    consensus_models: Optional[List[str]] = None  # Model IDs for consensus judging (requires 2+)
 
 
 @dataclass
@@ -116,6 +118,9 @@ class GameResult:
     debate_results: Optional[List[Dict[str, Any]]] = None
     verified_findings: Optional[List[Dict[str, Any]]] = None
     rejected_findings: Optional[List[Dict[str, Any]]] = None
+    
+    # Ground Truth Validation fields (validates Red Team manifest)
+    manifest_validation: Optional[Dict[str, Any]] = None
 
 
 class GameEngine:
@@ -149,21 +154,76 @@ class GameEngine:
     
     def _get_judge(self, config: 'GameConfig') -> JudgeAgent:
         """Get or create JudgeAgent with appropriate configuration."""
-        if config.use_llm_judge:
-            # Create LLM for judge
-            from langchain_aws import ChatBedrockConverse
+        from src.llm_factory import create_consensus_llms, create_llm
+        
+        # Multi-model consensus mode (for inter-rater reliability)
+        # Supports multiple providers: OpenAI, Google, Bedrock
+        if config.use_consensus_judge and config.consensus_models and len(config.consensus_models) >= 2:
+            consensus_llms = create_consensus_llms(
+                model_specs=config.consensus_models,
+                region=config.region,
+            )
             
-            judge_llm = ChatBedrockConverse(
-                model=config.blue_model,  # Use Blue Team model for judging
-                region_name=config.region,
+            self.logger.info(f"Using multi-model consensus judge with: {[n for n, _ in consensus_llms]}")
+            return JudgeAgent(consensus_llms=consensus_llms)
+        
+        # Single LLM hybrid mode
+        elif config.use_llm_judge:
+            judge_llm, _ = create_llm(
+                model_id=config.blue_model,
+                region=config.region,
             )
             self.logger.info(f"Using LLM judge with {config.blue_model} for ambiguous matches")
             return JudgeAgent(llm=judge_llm, use_llm_matching=True)
+        
+        # Rule-based only
         else:
-            # Use simple rule-based judge
             if self._judge is None:
                 self._judge = JudgeAgent()
             return self._judge
+    
+    def _validate_manifest(
+        self,
+        code: Dict[str, str],
+        manifest: List[Dict[str, Any]],
+        use_trivy: bool,
+        use_checkov: bool,
+        language: str,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Validate Red Team manifest using static analysis tools.
+        
+        This provides independent ground truth verification - checking that
+        claimed vulnerabilities actually exist in the generated code.
+        
+        Args:
+            code: Generated IaC code files
+            manifest: Red Team's claimed vulnerabilities
+            use_trivy: Whether to use Trivy for validation
+            use_checkov: Whether to use Checkov for validation
+            language: IaC language
+            
+        Returns:
+            Validation results dict or None if no tools enabled
+        """
+        if not use_trivy and not use_checkov:
+            return None
+        
+        try:
+            from src.validation.manifest_validator import ManifestValidator, validation_to_dict
+            
+            validator = ManifestValidator(
+                use_trivy=use_trivy,
+                use_checkov=use_checkov,
+                language=language,
+            )
+            
+            validation = validator.validate(code, manifest)
+            return validation_to_dict(validation)
+            
+        except Exception as e:
+            self.logger.warning(f"Manifest validation failed: {e}")
+            return None
 
     def _start_game_logging(self, game_id: str) -> None:
         """
@@ -299,6 +359,23 @@ class GameEngine:
             f"mode={config.red_team_mode}, stealth={red_output.stealth_score}, time={red_time:.1f}s"
         )
         
+        # Phase 1.5: Validate Red Team manifest (ground truth verification)
+        manifest_validation = None
+        if config.use_trivy or config.use_checkov:
+            self.logger.info("Validating Red Team manifest with static tools...")
+            manifest_validation = self._validate_manifest(
+                red_output.code,
+                red_output.manifest,
+                config.use_trivy,
+                config.use_checkov,
+                config.language,
+            )
+            if manifest_validation:
+                self.logger.info(
+                    f"Manifest validation: {manifest_validation['metrics']['manifest_accuracy']:.1%} accuracy "
+                    f"({manifest_validation['metrics']['total_confirmed']}/{manifest_validation['metrics']['total_claimed']} confirmed)"
+                )
+        
         # Phase 2: Blue Team Defense
         self.logger.info(f"Phase 2: Blue Team analyzing code (mode={config.blue_team_mode})")
         blue_start = datetime.now()
@@ -427,7 +504,29 @@ class GameEngine:
             # Phase 3b: Standard Judge Scoring (with optional LLM hybrid mode)
             self.logger.info("Phase 3: Judge scoring match")
             judge = self._get_judge(config)
-            scoring = judge.score(manifest_dicts, findings_dicts)
+            
+            # Extract tool findings for corroboration (tool triangulation)
+            tool_findings_for_judge = None
+            if manifest_validation and "vuln_validation" in manifest_validation:
+                # Build list of tool findings for corroboration
+                tool_findings_for_judge = []
+                for vuln_val in manifest_validation.get("vuln_validation", []):
+                    # Add Trivy matches
+                    for match in vuln_val.get("trivy_matches", []):
+                        tool_findings_for_judge.append({
+                            "resource_name": match.get("resource", ""),
+                            "title": match.get("title", ""),
+                            "source": "trivy",
+                        })
+                    # Add Checkov matches
+                    for match in vuln_val.get("checkov_matches", []):
+                        tool_findings_for_judge.append({
+                            "resource_name": match.get("resource", ""),
+                            "title": match.get("title", ""),
+                            "source": "checkov",
+                        })
+            
+            scoring = judge.score(manifest_dicts, findings_dicts, tool_findings=tool_findings_for_judge)
         
         total_time = (datetime.now() - start_time).total_seconds()
         
@@ -440,6 +539,13 @@ class GameEngine:
         # Log summary of results
         self.logger.info(f"Summary: {len(red_output.manifest)} vulnerabilities injected, {len(blue_output.findings)} findings detected")
         self.logger.info(f"Evasion rate: {scoring.evasion_rate:.2%} ({len(scoring.false_negatives)} evaded)")
+        
+        # Log corroboration and reliability stats if available
+        if scoring.corroborated_matches > 0:
+            self.logger.info(f"Corroborated matches: {scoring.corroborated_matches} ({scoring.corroboration_rate:.1%})")
+        if scoring.inter_rater_reliability:
+            irr = scoring.inter_rater_reliability
+            self.logger.info(f"Inter-rater reliability: κ={irr.mean_kappa:.3f} (range: {irr.kappa_range[0]:.3f}-{irr.kappa_range[1]:.3f})")
         
         # Stop capturing logs and get content
         log_content = self._stop_game_logging()
@@ -467,6 +573,7 @@ class GameEngine:
             debate_results=debate_results,
             verified_findings=verified_findings,
             rejected_findings=rejected_findings,
+            manifest_validation=manifest_validation,
         )
         
         return result
@@ -632,6 +739,20 @@ class GameEngine:
                 (game_dir / "debate_results.json").write_text(
                     json.dumps(result.debate_results, indent=2)
                 )
+        
+        # Add Ground Truth Validation data if available
+        if result.manifest_validation:
+            metadata["ground_truth_validation"] = {
+                "manifest_accuracy": result.manifest_validation["metrics"]["manifest_accuracy"],
+                "total_claimed": result.manifest_validation["metrics"]["total_claimed"],
+                "total_confirmed": result.manifest_validation["metrics"]["total_confirmed"],
+                "total_unconfirmed": result.manifest_validation["metrics"]["total_unconfirmed"],
+                "hallucination_rate": result.manifest_validation["metrics"]["hallucination_rate"],
+            }
+            # Save full validation details separately
+            (game_dir / "manifest_validation.json").write_text(
+                json.dumps(result.manifest_validation, indent=2)
+            )
         
         (game_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
         

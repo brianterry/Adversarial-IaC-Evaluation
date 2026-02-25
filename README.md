@@ -14,9 +14,11 @@ An adversarial benchmark with three AI agents:
 
 - **🔴 Red Team (Attacker)**: Generates legitimate-looking infrastructure code with hidden vulnerabilities
 - **🔵 Blue Team (Defender)**: Analyzes the code to find the hidden security issues
-- **⚖️ Judge**: Scores detection accuracy using optimal bipartite matching
+- **⚖️ Judge**: Scores detection accuracy using hybrid LLM + rule-based matching
 
 Each evaluation round produces metrics (precision, recall, F1, evasion rate) that enable rigorous comparison across models and configurations.
+
+**New in v2.0:** Ground truth validation using static tools, multi-model consensus judge with Cohen's κ inter-rater reliability, tool-triangulated corroboration, and comparative experiment runner for publication-ready results.
 
 ## 🔬 Why This Matters
 
@@ -247,6 +249,14 @@ Optionally enable industry tools alongside LLM analysis:
 --use-checkov    # Enable Checkov scanner
 ```
 
+### Judge Configuration
+
+```bash
+--no-llm-judge          # Rule-based only (faster, less accurate)
+--use-consensus-judge   # Multi-model consensus for inter-rater reliability
+--consensus-models      # Comma-separated model IDs (requires 2+)
+```
+
 ## 📊 Understanding the Scoring
 
 The Judge uses **optimal bipartite matching** (Hungarian algorithm) to pair Red Team vulnerabilities with Blue Team findings for the fairest scoring:
@@ -258,6 +268,102 @@ The Judge uses **optimal bipartite matching** (Hungarian algorithm) to pair Red 
 | **F1 Score** | Balance of precision and recall | High = Blue |
 | **Evasion Rate** | % of Red's vulns that evaded detection | High = Red |
 
+### Hybrid LLM Judge (Default)
+
+The Judge uses a **hybrid approach** for maximum accuracy:
+
+1. **Rule-based matching** for clear cases (score > 0.7)
+2. **LLM fallback** for ambiguous cases (score 0.3-0.7) — the LLM evaluates whether findings truly match
+3. **Clear misses** for low-scoring pairs (score < 0.3)
+
+This prevents false negatives where semantically identical findings (e.g., "No secret rotation" vs "Missing rotation configuration") are incorrectly marked as missed.
+
+```bash
+# Disable LLM judge for faster (but less accurate) scoring
+adversarial-iac game --no-llm-judge ...
+```
+
+### Multi-Model Consensus (Inter-Rater Reliability)
+
+For publication-quality results, enable **multi-model consensus** judging. Multiple LLMs independently judge each ambiguous case, and Cohen's κ measures inter-rater agreement.
+
+#### Multi-Provider Support (Strongest)
+
+For maximum methodological rigor, use models from **different providers** (OpenAI, Google, AWS Bedrock):
+
+```bash
+# Best: 3 providers = 3 independent organizations
+adversarial-iac game \
+    --use-consensus-judge \
+    --consensus-models "openai:gpt-4o,google:gemini-1.5-pro,bedrock:claude-3.5-sonnet" \
+    --use-trivy --use-checkov ...
+```
+
+This gives you judges from **Anthropic, OpenAI, and Google** — completely independent training data, RLHF pipelines, and architectures.
+
+#### Bedrock-Only (Simpler)
+
+If you only have AWS credentials, use different model families via Bedrock:
+
+```bash
+# Good: 3 different organizations via Bedrock
+adversarial-iac game \
+    --use-consensus-judge \
+    --consensus-models claude-3.5-sonnet,nova-pro,llama-3.1-70b ...
+```
+
+#### Required API Keys
+
+| Provider | Environment Variable | Get From |
+|----------|---------------------|----------|
+| OpenAI | `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/api-keys) |
+| Google | `GOOGLE_API_KEY` | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
+| Bedrock | AWS credentials | Your AWS account |
+
+Add to your `.env` file:
+```bash
+OPENAI_API_KEY=sk-...
+GOOGLE_API_KEY=AI...
+```
+
+**Output metrics:**
+| Metric | Description | Target |
+|--------|-------------|--------|
+| **Pairwise κ** | Cohen's kappa between each model pair | > 0.70 |
+| **Mean κ** | Average across all pairs | > 0.70 |
+| **Agreement Rate** | % of cases with unanimous agreement | Report as-is |
+
+If all pairwise κ values exceed 0.70, you have strong evidence that the judge circularity concern is mitigated — different model architectures agree on the verdicts.
+
+### Tool-Triangulated Matching (Corroborated Tier)
+
+When static tools are enabled, matches can be **corroborated** — meaning the Red Team vulnerability, Blue Team finding, AND static tool all flag the same resource:
+
+| Match Type | Confidence | Description |
+|------------|------------|-------------|
+| **Corroborated** | Highest | Red + Blue + Tool agree (external anchor) |
+| **Exact** | High | Red + Blue match perfectly |
+| **Partial** | Medium | Red + Blue semantically match |
+| **Missed** | — | Blue didn't detect Red's vulnerability |
+
+Corroborated matches provide a **non-LLM external anchor** for ground truth, directly addressing reviewer concerns about LLM circularity.
+
+**Example scoring output:**
+```json
+{
+  "corroborated_matches": 3,
+  "corroboration_rate": 0.60,
+  "inter_rater_reliability": {
+    "mean_kappa": 0.78,
+    "pairwise_kappa": {
+      "claude_vs_nova": 0.82,
+      "nova_vs_llama": 0.75,
+      "claude_vs_llama": 0.77
+    }
+  }
+}
+```
+
 ### Match Types
 
 | Match Type | Description | Example |
@@ -268,9 +374,97 @@ The Judge uses **optimal bipartite matching** (Hungarian algorithm) to pair Red 
 
 All match types count as **True Positives** - the Blue Team successfully detected the vulnerability!
 
+## 🔍 Ground Truth Validation
+
+A key research concern: *who validates the validator?* The Red Team declares its own vulnerabilities — how do we know they're real?
+
+### Manifest Validation
+
+When static tools (Trivy/Checkov) are enabled, the framework **independently validates** Red Team's claims:
+
+```bash
+# Run game with manifest validation (default when tools enabled)
+adversarial-iac game --use-trivy --use-checkov ...
+```
+
+**Output metrics:**
+| Metric | Description |
+|--------|-------------|
+| **Manifest Accuracy** | % of claimed vulnerabilities confirmed by static tools |
+| **Hallucination Rate** | % of claimed vulnerabilities NOT found by tools |
+| **Confirmed Vulns** | List of independently verified vulnerabilities |
+
+This provides an **external oracle** for ground truth, addressing the self-declaration problem.
+
+### Example Validation Output
+
+```json
+{
+  "manifest_accuracy": 0.80,
+  "hallucination_rate": 0.20,
+  "confirmed_vuln_ids": ["V1", "V2", "V3", "V4"],
+  "unconfirmed_vuln_ids": ["V5"]
+}
+```
+
+Unconfirmed vulnerabilities may be:
+- **Real but tool-blind** — the vulnerability exists but tools don't detect it
+- **Hallucinated** — the LLM claimed a vulnerability that doesn't exist
+
+### Tool-Blind Vulnerabilities
+
+Static tools (Trivy, Checkov) have known coverage gaps:
+- **Logic-level IAM misconfigurations** — overly permissive policies that are syntactically valid
+- **Cross-resource dependency vulnerabilities** — issues requiring multi-resource reasoning
+- **Context-dependent misconfigurations** — settings that are only wrong in certain scenarios
+
+These "tool-blind" vulnerabilities represent a **harder class of security reasoning** that static tools cannot reach. This makes LLM-based detection more interesting, not less rigorous — these are precisely the vulnerabilities where LLM judgment adds value.
+
+Manual audit of unconfirmed vulnerabilities is recommended for publication to distinguish true hallucinations from tool-blind findings.
+
 ## 🔬 Running Research Experiments
 
-Use the game to generate data for academic papers:
+Use the framework to generate publication-ready data with statistical rigor.
+
+### Comparative Experiment Runner
+
+Run systematic experiments comparing all modes:
+
+```bash
+# Full comparative study (Red modes × Blue modes × Verification modes)
+python scripts/run_comparative_experiment.py --scenarios 20 --output results/
+
+# Quick test run
+python scripts/run_comparative_experiment.py --scenarios 5 --quick
+```
+
+**Outputs:**
+- `full_results.json` — Raw data for analysis
+- `tables.tex` — LaTeX tables ready for paper
+- `results.md` — Markdown summary
+
+### Example Paper Tables
+
+**Table 1: Red Team Mode Comparison**
+| Mode | Evasion Rate | Precision | Recall | n |
+|------|--------------|-----------|--------|---|
+| single | 0.25 ± 0.15 | 0.85 ± 0.10 | 0.75 ± 0.12 | 40 |
+| pipeline | 0.35 ± 0.18 | 0.82 ± 0.11 | 0.68 ± 0.14 | 40 |
+
+**Table 2: Ground Truth Validation**
+| Metric | Value |
+|--------|-------|
+| Manifest Accuracy | 78.5% ± 12.3% |
+| Hallucination Rate | 21.5% ± 12.3% |
+| Corroboration Rate | 64.2% ± 15.1% |
+
+**Table 3: Inter-Rater Reliability (Multi-Model Consensus)**
+| Model Pair | Cohen's κ |
+|------------|-----------|
+| Claude vs Nova | 0.82 |
+| Nova vs Llama | 0.75 |
+| Claude vs Llama | 0.77 |
+| **Mean κ** | **0.78** |
 
 ### Single Experiment
 ```bash
