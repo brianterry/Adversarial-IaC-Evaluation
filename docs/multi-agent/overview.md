@@ -1,6 +1,6 @@
-# Game Modes
+# Evaluation Modes
 
-The Adversarial IaC Game supports multiple modes for both attack and defense, from simple 1v1 games to sophisticated multi-agent collaborations.
+The Adversarial IaC Benchmark supports multiple modes for both attack and defense, from simple 1v1 evaluations to sophisticated multi-agent collaborations.
 
 ## Quick Reference
 

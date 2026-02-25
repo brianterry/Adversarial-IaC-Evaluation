@@ -1,5 +1,5 @@
-site_name: Adversarial IaC Game
-site_description: A Red Team vs Blue Team Security Game for Infrastructure-as-Code
+site_name: Adversarial IaC Benchmark
+site_description: An Adversarial Evaluation Framework for LLM Security in Infrastructure-as-Code
 site_url: https://brianterry.github.io/Adversarial-IaC-Evaluation
 repo_url: https://github.com/brianterry/Adversarial-IaC-Evaluation
 repo_name: brianterry/Adversarial-IaC-Evaluation
@@ -109,7 +109,7 @@ nav:
     - ⚖️ Judge & Scoring: framework/judge.md
     - 📊 Metrics: framework/metrics.md
   - Modes & Strategies:
-    - All Game Modes: multi-agent/overview.md
+    - Evaluation Modes: multi-agent/overview.md
     - Red Team Pipeline: multi-agent/red-pipeline.md
     - Blue Team Ensemble: multi-agent/blue-ensemble.md
     - Adversarial Debate: multi-agent/debate.md

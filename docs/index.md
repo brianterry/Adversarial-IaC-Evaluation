@@ -1,12 +1,12 @@
-# 🎮 Adversarial IaC Game
+# Adversarial IaC Benchmark
 
 <p align="center">
-  <strong>A Red Team vs Blue Team Security Game for Infrastructure-as-Code</strong>
+  <strong>An Adversarial Evaluation Framework for LLM Security in Infrastructure-as-Code</strong>
 </p>
 
 <p align="center">
-  <a href="getting-started/installation/">Play Now</a> •
-  <a href="game/how-it-works/">How It Works</a> •
+  <a href="getting-started/installation/">Get Started</a> •
+  <a href="framework/architecture/">How It Works</a> •
   <a href="experiments/single-game/">Run Experiments</a> •
   <a href="research/citation/">Cite Us</a>
 </p>
@@ -15,17 +15,17 @@
 
 ## What is This?
 
-It's a **game** where two AI agents compete:
+An **adversarial benchmark** where AI agents compete in security scenarios:
 
-- 🔴 **Red Team (Attacker)**: Creates infrastructure code with hidden security vulnerabilities
-- 🔵 **Blue Team (Defender)**: Analyzes the code to find those hidden issues
-- ⚖️ **Judge**: Scores who won based on what was found vs what was hidden
+- 🔴 **Red Team (Attacker)**: Generates infrastructure code with hidden vulnerabilities
+- 🔵 **Blue Team (Defender)**: Analyzes code to detect those vulnerabilities
+- ⚖️ **Judge**: Scores using optimal bipartite matching (precision, recall, F1, evasion)
 
-Think of it like **capture the flag**, but for cloud security.
+This enables rigorous evaluation of LLM security capabilities with reproducible metrics.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                     THE ADVERSARIAL IaC GAME                        │
+│                    ADVERSARIAL EVALUATION FLOW                      │
 └─────────────────────────────────────────────────────────────────────┘
 
   SCENARIO: "Create S3 bucket for healthcare PHI data"
@@ -218,14 +218,14 @@ The interactive wizard guides you through scenario selection, model choices, and
 🏆 Blue Team wins this round!
 ```
 
-## Game Modes
+## Evaluation Modes
 
 | Mode | Description | Use Case |
 |------|-------------|----------|
-| **Single (1v1)** | One agent per team | Fast games, baseline testing |
+| **Single (1v1)** | One agent per team | Baseline evaluation |
 | **Red Pipeline** | 4-stage attack chain | Stealthier vulnerabilities |
 | **Blue Ensemble** | Expert panel + voting | Better detection accuracy |
-| **Debate** | Prosecutor vs Defender | Verify each finding |
+| **Debate** | Prosecutor vs Defender | Finding verification |
 
 ## Next Steps
 

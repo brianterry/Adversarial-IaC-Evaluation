@@ -1,6 +1,6 @@
 # Citation & Research
 
-If you use the Adversarial IaC Game in your research, please cite our work.
+If you use the Adversarial IaC Benchmark in your research, please cite our work.
 
 ## Key Contributions
 
@@ -46,9 +46,9 @@ Reproducible evaluation with:
 ## BibTeX
 
 ```bibtex
-@software{adversarial_iac_game_2026,
+@software{adversarial_iac_bench_2026,
   author = {Terry, Brian},
-  title = {Adversarial IaC Game: A Red Team vs Blue Team Framework for LLM Security Evaluation},
+  title = {Adversarial IaC Benchmark: An Adversarial Evaluation Framework for LLM Security in Infrastructure-as-Code},
   year = {2026},
   publisher = {GitHub},
   url = {https://github.com/brianterry/Adversarial-IaC-Evaluation},
@@ -58,7 +58,7 @@ Reproducible evaluation with:
 
 ## APA
 
-Terry, B. (2026). *Adversarial IaC Game: A Red Team vs Blue Team Framework for LLM Security Evaluation* [Computer software]. GitHub. https://github.com/brianterry/Adversarial-IaC-Evaluation
+Terry, B. (2026). *Adversarial IaC Benchmark: An Adversarial Evaluation Framework for LLM Security in Infrastructure-as-Code* [Computer software]. GitHub. https://github.com/brianterry/Adversarial-IaC-Evaluation
 
 ---
 
@@ -80,12 +80,12 @@ The game enables investigation of:
 
 ## What to Include When Citing
 
-When using the game in research, please specify:
+When using the benchmark in research, please specify:
 
-1. **Game version**: Include commit hash or release version
+1. **Benchmark version**: Include commit hash or release version
 2. **Models tested**: Which LLMs for Red and Blue teams
 3. **Scenarios used**: Domains, count, and difficulty levels
-4. **Game modes**: Single, pipeline, ensemble, or debate
+4. **Evaluation modes**: Single, pipeline, ensemble, or debate
 5. **Strategies**: Attack and defense strategies used
 6. **Metrics reported**: Precision, recall, F1, evasion rate
 
@@ -109,7 +109,7 @@ When using the game in research, please specify:
 
 ## Data Outputs
 
-Each game produces structured data suitable for analysis:
+Each evaluation produces structured data suitable for analysis:
 
 | Output | Format | Contents |
 |--------|--------|----------|

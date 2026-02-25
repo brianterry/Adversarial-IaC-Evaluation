@@ -1,8 +1,8 @@
-# 🎮 Adversarial IaC Game
+# Adversarial IaC Benchmark
 
-**A Red Team vs Blue Team Security Game for Infrastructure-as-Code**
+**An Adversarial Evaluation Framework for LLM Security in Infrastructure-as-Code**
 
-An adversarial game framework where AI agents compete to hide and find security vulnerabilities in cloud infrastructure code. Use it to benchmark LLM security capabilities, run research experiments, or learn about IaC security.
+A research benchmark where AI agents compete in Red Team vs Blue Team scenarios to evaluate LLM capabilities in cloud security. The Red Team generates infrastructure code with hidden vulnerabilities; the Blue Team tries to detect them. Standardized metrics enable reproducible comparison across models, strategies, and configurations.
 
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://brianterry.github.io/Adversarial-IaC-Evaluation/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -10,13 +10,13 @@ An adversarial game framework where AI agents compete to hide and find security 
 
 ## 🎯 What Is This?
 
-It's a game where two AI agents compete:
+An adversarial benchmark with three AI agents:
 
 - **🔴 Red Team (Attacker)**: Generates legitimate-looking infrastructure code with hidden vulnerabilities
 - **🔵 Blue Team (Defender)**: Analyzes the code to find the hidden security issues
-- **⚖️ Judge**: Scores who won based on what was found vs what was hidden
+- **⚖️ Judge**: Scores detection accuracy using optimal bipartite matching
 
-Think of it like **capture the flag**, but for cloud security.
+Each evaluation round produces metrics (precision, recall, F1, evasion rate) that enable rigorous comparison across models and configurations.
 
 ## 🔬 Why This Matters
 
@@ -92,11 +92,11 @@ See all options with `adversarial-iac game --help`
 
 </details>
 
-## 🎲 How the Game Works
+## 🎲 How It Works
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         THE ADVERSARIAL IaC GAME                        │
+│                      ADVERSARIAL EVALUATION FLOW                        │
 └─────────────────────────────────────────────────────────────────────────┘
 
      SCENARIO: "Create S3 bucket for healthcare PHI data"
@@ -179,7 +179,7 @@ adversarial-iac models
 adversarial-iac game --red-model claude-3.5-sonnet --blue-model nova-pro ...
 ```
 
-## ⚔️ Game Modes
+## ⚔️ Evaluation Modes
 
 ### Standard Game (1v1)
 Single agent per team. Fast and simple.
@@ -307,9 +307,9 @@ Use the included Jupyter notebooks for analysis:
 jupyter notebook notebooks/03_analyze_results.ipynb
 ```
 
-## 📁 Game Output Structure
+## 📁 Output Structure
 
-Each game creates a results folder:
+Each evaluation creates a results folder:
 
 ```
 output/games/G-20260224_143052/
