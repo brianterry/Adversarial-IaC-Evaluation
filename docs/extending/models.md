@@ -1,6 +1,6 @@
 # Available Models
 
-The game supports **20+ AI models** via Amazon Bedrock, organized by capability tier.
+The game supports **20+ AI models** via Amazon Bedrock, plus **OpenAI** and **Google** models for multi-provider consensus judging.
 
 ## Browse Models
 
@@ -209,6 +209,44 @@ MODEL_REGISTRY = {
 
 ---
 
+## Multi-Provider Models (For Consensus Judging)
+
+For inter-rater reliability, use models from multiple providers:
+
+### OpenAI Models
+
+| Model | Description |
+|-------|-------------|
+| `gpt-4o` | GPT-4 Omni - latest multimodal |
+| `gpt-4-turbo` | GPT-4 Turbo |
+| `gpt-4` | GPT-4 base |
+
+Requires `OPENAI_API_KEY` environment variable.
+
+### Google Models
+
+| Model | Description |
+|-------|-------------|
+| `gemini-1.5-pro` | Gemini 1.5 Pro |
+| `gemini-1.5-flash` | Gemini 1.5 Flash (faster) |
+| `gemini-pro` | Gemini Pro |
+
+Requires `GOOGLE_API_KEY` environment variable.
+
+### Multi-Provider Consensus Example
+
+```bash
+# Use 3 providers for strongest inter-rater reliability
+adversarial-iac game \
+    --use-consensus-judge \
+    --consensus-models "openai:gpt-4o,google:gemini-1.5-pro,bedrock:claude-3.5-sonnet" \
+    --scenario "Create S3 bucket"
+```
+
+The provider prefix (`openai:`, `google:`, `bedrock:`) is optional — models are auto-detected by name.
+
+---
+
 ## AWS Bedrock Setup
 
 Ensure you have:
@@ -220,4 +258,14 @@ Ensure you have:
 ```bash
 # Test your setup
 aws bedrock list-foundation-models --region us-east-1 | head
+```
+
+## Multi-Provider Setup
+
+For multi-provider consensus:
+
+```bash
+# .env file
+OPENAI_API_KEY=sk-...    # From platform.openai.com
+GOOGLE_API_KEY=AI...      # From aistudio.google.com
 ```
