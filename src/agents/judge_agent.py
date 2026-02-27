@@ -96,6 +96,13 @@ class ScoringResult:
     
     # New: Inter-rater reliability (multi-model consensus)
     inter_rater_reliability: Optional[InterRaterReliability] = None
+    
+    # New: Adjusted precision (fairer Blue Team scoring)
+    # Standard precision penalizes Blue for finding real issues not in Reds manifest
+    # Adjusted precision only penalizes for findings that static tools also dont find
+    adjusted_precision: float = 0.0  # TP / (TP + true_false_positives)
+    tool_validated_fps: List[str] = field(default_factory=list)  # FPs that tools also found
+    true_false_positives: List[str] = field(default_factory=list)  # FPs tools didnt find
 
 
 class JudgeAgent:
@@ -333,12 +340,40 @@ class JudgeAgent:
             if finding_id not in matched_blue_ids:
                 false_positives.append(finding_id)
         
-        # Step 3: Calculate metrics
+        # Step 3: Split false positives into tool-validated vs true false positives
+        # Tool-validated FPs are "real issues" that Blue found but Red didn't claim
+        # True FPs are findings that neither Red's manifest nor tools confirm (potential hallucinations)
+        tool_validated_fps = []
+        true_false_positives = []
+        
+        for finding_id in false_positives:
+            # Find the finding to get its resource
+            finding = next((f for f in blue_findings if f.get("finding_id") == finding_id), None)
+            if finding:
+                finding_resource = finding.get("resource_name", "").lower()
+                finding_base = finding_resource.split(".")[-1] if "." in finding_resource else finding_resource
+                
+                # Check if this finding's resource was also flagged by static tools
+                if finding_resource in tool_flagged_resources or finding_base in tool_flagged_resources:
+                    tool_validated_fps.append(finding_id)
+                else:
+                    true_false_positives.append(finding_id)
+            else:
+                true_false_positives.append(finding_id)
+        
+        # Step 4: Calculate metrics
         tp = len(true_positives)
-        fp = len(false_positives)
+        fp = len(false_positives)  # Total FPs (for standard precision)
+        fp_adjusted = len(true_false_positives)  # Only true FPs (for adjusted precision)
         fn = len(false_negatives)
         
+        # Standard precision: penalizes Blue for ALL unmatched findings
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        
+        # Adjusted precision: only penalizes for findings tools also didn't find
+        # This is fairer to Blue Team - they shouldn't be penalized for finding real issues
+        adjusted_precision = tp / (tp + fp_adjusted) if (tp + fp_adjusted) > 0 else 1.0
+        
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
         f1_score = (
             2 * precision * recall / (precision + recall)
@@ -372,11 +407,19 @@ class JudgeAgent:
             corroborated_matches=corroborated_matches,
             corroboration_rate=corroboration_rate,
             inter_rater_reliability=inter_rater,
+            adjusted_precision=adjusted_precision,
+            tool_validated_fps=tool_validated_fps,
+            true_false_positives=true_false_positives,
         )
         
         self.logger.info(
             f"Scoring complete: P={precision:.2f}, R={recall:.2f}, F1={f1_score:.2f}"
         )
+        if tool_validated_fps:
+            self.logger.info(
+                f"Adjusted precision: {adjusted_precision:.2f} "
+                f"({len(tool_validated_fps)} tool-validated FPs not penalized)"
+            )
         if corroborated_matches > 0:
             self.logger.info(f"Corroborated matches: {corroborated_matches} ({corroboration_rate:.1%})")
         if inter_rater:
@@ -802,6 +845,7 @@ def score_results_to_dict(result: ScoringResult) -> Dict[str, Any]:
     output = {
         "metrics": {
             "precision": result.precision,
+            "adjusted_precision": result.adjusted_precision,
             "recall": result.recall,
             "f1_score": result.f1_score,
             "evasion_rate": result.evasion_rate,
@@ -811,6 +855,8 @@ def score_results_to_dict(result: ScoringResult) -> Dict[str, Any]:
             "total_blue_findings": result.total_blue_findings,
             "true_positives": len(result.true_positives),
             "false_positives": len(result.false_positives),
+            "tool_validated_fps": len(result.tool_validated_fps),
+            "true_false_positives": len(result.true_false_positives),
             "false_negatives": len(result.false_negatives),
             "exact_matches": result.exact_matches,
             "partial_matches": result.partial_matches,
@@ -819,6 +865,12 @@ def score_results_to_dict(result: ScoringResult) -> Dict[str, Any]:
         "corroboration": {
             "corroborated_matches": result.corroborated_matches,
             "corroboration_rate": result.corroboration_rate,
+        },
+        "adjusted_precision_details": {
+            "adjusted_precision": result.adjusted_precision,
+            "tool_validated_fp_ids": result.tool_validated_fps,
+            "true_false_positive_ids": result.true_false_positives,
+            "explanation": "Adjusted precision only penalizes for findings that static tools also didn't find",
         },
         "details": {
             "true_positive_ids": result.true_positives,

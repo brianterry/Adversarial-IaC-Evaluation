@@ -263,10 +263,21 @@ The Judge uses **optimal bipartite matching** (Hungarian algorithm) to pair Red 
 
 | Metric | Meaning | Who Wins? |
 |--------|---------|-----------|
-| **Precision** | % of Blue's findings that were correct | High = Blue |
+| **Precision** | % of Blue's findings that matched Red's manifest | High = Blue |
+| **Adjusted Precision** | Precision excluding tool-validated real issues | Fairer Blue metric |
 | **Recall** | % of Red's vulns that Blue found | High = Blue |
 | **F1 Score** | Balance of precision and recall | High = Blue |
 | **Evasion Rate** | % of Red's vulns that evaded detection | High = Red |
+
+### Adjusted Precision (Fairer Scoring)
+
+Standard precision penalizes Blue Team for *all* findings not in Red's manifest. But Blue might find **real vulnerabilities** that Red didn't claim! This creates an unfair penalty.
+
+**Adjusted Precision** only penalizes Blue for findings that:
+- Don't match Red's manifest, AND
+- Static tools (Trivy/Checkov) also didn't find
+
+If Blue reports something that Trivy/Checkov confirms, that's a **tool-validated finding** — a real issue Blue correctly identified. These are excluded from the adjusted precision denominator.
 
 ### Hybrid LLM Judge (Default)
 

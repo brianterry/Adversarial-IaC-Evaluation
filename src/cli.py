@@ -722,15 +722,23 @@ def score(red_dir: str, blue_dir: str, output_dir: str):
     # Metrics
     console.print(f"\n[bold]Metrics:[/]")
     console.print(f"  [blue]Precision:[/] {result.precision:.2%} ({len(result.true_positives)} true positives)")
+    if result.adjusted_precision != result.precision:
+        console.print(f"  [green]Adjusted Precision:[/] {result.adjusted_precision:.2%} (fairer score)")
     console.print(f"  [blue]Recall:[/] {result.recall:.2%} ({result.total_red_vulns - len(result.false_negatives)}/{result.total_red_vulns} detected)")
     console.print(f"  [blue]F1 Score:[/] {result.f1_score:.2%}")
     console.print(f"  [red]Evasion Rate:[/] {result.evasion_rate:.2%} ({len(result.false_negatives)} evaded)")
     
-    # False positives
+    # False positives (separated by type)
     if result.false_positives:
         console.print(f"\n[yellow]False Positives ({len(result.false_positives)}):[/]")
-        for fp_id in result.false_positives:
-            console.print(f"  • {fp_id}")
+        if result.tool_validated_fps:
+            console.print(f"  [green]Tool-validated (real issues, not penalized):[/]")
+            for fp_id in result.tool_validated_fps:
+                console.print(f"    ✓ {fp_id}")
+        if result.true_false_positives:
+            console.print(f"  [red]True false positives (penalized in adjusted precision):[/]")
+            for fp_id in result.true_false_positives:
+                console.print(f"    ✗ {fp_id}")
     
     # Save results
     output_path = Path(output_dir)
@@ -1940,7 +1948,15 @@ def _display_explained_results(result):
     
     console.print(f"   📊 [bold]Precision: [{precision_color}]{precision_pct:.0f}%[/][/]")
     console.print(f"      {precision_verdict}")
-    console.print(f"      [dim]({len(scoring.true_positives)} correct out of {len(blue_findings)} reported)[/]\n")
+    console.print(f"      [dim]({len(scoring.true_positives)} correct out of {len(blue_findings)} reported)[/]")
+    
+    # Show adjusted precision if tools found additional issues
+    if hasattr(scoring, 'adjusted_precision') and scoring.adjusted_precision != scoring.precision:
+        adj_pct = scoring.adjusted_precision * 100
+        tool_validated = len(scoring.tool_validated_fps) if hasattr(scoring, 'tool_validated_fps') else 0
+        console.print(f"   📊 [bold green]Adjusted: {adj_pct:.0f}%[/] (fairer score)")
+        console.print(f"      [dim]{tool_validated} findings were real issues not in Red's manifest[/]")
+    console.print()
     
     # Recall
     recall_pct = scoring.recall * 100

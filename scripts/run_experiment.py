@@ -256,9 +256,12 @@ class ExperimentRunner:
                 "config": game_config,
                 "scoring": {
                     "precision": scoring.precision,
+                    "adjusted_precision": getattr(scoring, 'adjusted_precision', scoring.precision),
                     "recall": scoring.recall,
                     "f1_score": scoring.f1_score,
                     "evasion_rate": scoring.evasion_rate,
+                    "tool_validated_fps": len(getattr(scoring, 'tool_validated_fps', [])),
+                    "true_false_positives": len(getattr(scoring, 'true_false_positives', [])),
                 },
                 "vulnerabilities_injected": len(result.red_output.manifest) if result.red_output else 0,
                 "findings_detected": len(result.blue_output.findings) if result.blue_output else 0,
@@ -267,10 +270,13 @@ class ExperimentRunner:
                 "output_dir": result.game_id,
             }
             
-            logger.info(
-                f"  ✓ {game_id}: P={scoring.precision:.0%} R={scoring.recall:.0%} "
-                f"F1={scoring.f1_score:.0%} Evasion={scoring.evasion_rate:.0%}"
-            )
+            adj_p = getattr(scoring, 'adjusted_precision', scoring.precision)
+            tool_fps = len(getattr(scoring, 'tool_validated_fps', []))
+            log_msg = f"  ✓ {game_id}: P={scoring.precision:.0%}"
+            if adj_p != scoring.precision:
+                log_msg += f" (adj:{adj_p:.0%}, {tool_fps} tool-validated)"
+            log_msg += f" R={scoring.recall:.0%} F1={scoring.f1_score:.0%} Evasion={scoring.evasion_rate:.0%}"
+            logger.info(log_msg)
             
             return game_result
             
@@ -472,7 +478,8 @@ class ExperimentRunner:
             'game_id', 'condition', 'difficulty', 'red_model', 'blue_model', 
             'red_mode', 'blue_mode', 'red_vuln_source', 'red_strategy',
             'verification_mode', 'scenario', 'vulns_injected', 'findings', 
-            'precision', 'recall', 'f1_score', 'evasion_rate'
+            'precision', 'adjusted_precision', 'tool_validated_fps', 'true_fps',
+            'recall', 'f1_score', 'evasion_rate'
         ]
         
         lines = [','.join(headers)]
@@ -494,6 +501,9 @@ class ExperimentRunner:
                 str(r['vulnerabilities_injected']),
                 str(r['findings_detected']),
                 f"{scoring['precision']:.4f}",
+                f"{scoring.get('adjusted_precision', scoring['precision']):.4f}",
+                str(scoring.get('tool_validated_fps', 0)),
+                str(scoring.get('true_false_positives', 0)),
                 f"{scoring['recall']:.4f}",
                 f"{scoring['f1_score']:.4f}",
                 f"{scoring['evasion_rate']:.4f}",
