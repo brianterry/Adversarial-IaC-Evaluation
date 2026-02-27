@@ -261,8 +261,8 @@ class CheckovRunner:
         if any(prefix in check_id for prefix in ["CKV_AWS_19", "CKV_AWS_20", "CKV_AWS_21"]):
             return "high"
         
-        # Check if severity is provided
-        if "severity" in check:
+        # Check if severity is provided and not None
+        if check.get("severity"):
             return check["severity"].lower()
         
         # Default to medium
