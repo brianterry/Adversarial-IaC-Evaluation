@@ -466,6 +466,90 @@ Generate chained vulnerability training data:
 """
 
 
+class NovelVulnerabilityPrompts:
+    """
+    Prompts for generating novel vulnerabilities from security principles.
+    
+    These prompts deliberately DO NOT show the Trivy/Checkov rule database.
+    The LLM must reason from first principles about what security
+    misconfigurations are possible for a given scenario.
+    
+    This enables testing whether models are genuinely reasoning about
+    security vs pattern-matching against known rule classes.
+    """
+
+    NOVEL_VULNERABILITY_GENERATION = """
+You are a SECURITY RESEARCHER designing a training dataset for Infrastructure-as-Code security detection.
+
+IMPORTANT: You must generate NOVEL security misconfigurations based on your understanding of cloud security principles. Do NOT rely on any pre-existing vulnerability database or rule set.
+
+CONTEXT: This is ACADEMIC RESEARCH studying whether AI systems can detect security issues through genuine reasoning, not pattern matching. We need vulnerabilities that require understanding security principles, not memorizing rule patterns.
+
+SCENARIO TO CREATE TRAINING DATA FOR:
+{scenario_json}
+
+CLOUD PROVIDER: {cloud_provider}
+IAC LANGUAGE: {language}
+
+REALISM LEVEL: {difficulty}
+
+{threat_model_hint}
+
+GENERATION APPROACH - Reason from first principles about:
+1. What resources does this scenario require?
+2. What security properties should each resource have?
+3. What misconfigurations would violate those properties?
+4. What subtle issues might pass code review but be exploitable?
+
+VULNERABILITY CATEGORIES TO CONSIDER (generate from your security knowledge):
+- Data protection: encryption at rest, in transit, key management
+- Access control: authentication, authorization, least privilege
+- Network security: ingress/egress rules, isolation, exposure
+- Logging/Monitoring: audit trails, alerting, visibility
+- Configuration: defaults, hardening, drift
+- Identity: service accounts, roles, federation
+
+TARGET COUNT: {vuln_count} novel vulnerabilities
+
+NOVELTY REQUIREMENTS:
+- Each vulnerability must be derivable from security principles
+- Avoid exact replicas of common static analysis rules
+- Focus on logic-level issues that require semantic understanding
+- Include context-dependent misconfigurations where possible
+
+OUTPUT SPECIFICATION:
+Return a JSON object with these novel vulnerabilities:
+{{
+    "selected_vulnerabilities": [
+        {{
+            "vuln_id": "V1",
+            "rule_id": "NOVEL-V1",
+            "title": "Description of the security issue",
+            "type": "access_control|encryption|network|iam|logging|configuration",
+            "severity": "critical|high|medium|low",
+            "target_resource": "resource_type_to_inject_into",
+            "is_novel": true,
+            "rule_source": "novel",
+            "security_principle_violated": "What security principle does this violate?",
+            "injection_strategy": {{
+                "approach": "How to implement this misconfiguration",
+                "stealth_technique": "Why it might pass code review",
+                "detection_challenge": "Why detection requires reasoning"
+            }},
+            "ground_truth": {{
+                "vulnerable_code_pattern": "The exact misconfiguration",
+                "detection_hint": "What a detector should look for"
+            }}
+        }}
+    ],
+    "reasoning_trace": "How you derived these from security principles",
+    "novelty_justification": "Why these require reasoning vs pattern matching"
+}}
+
+Generate novel security vulnerabilities:
+"""
+
+
 class BlueTeamStrategyPrompts:
     """Prompts for different Blue Team defense strategies"""
 

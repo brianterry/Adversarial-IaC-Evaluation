@@ -1,0 +1,109 @@
+# E5: Adversarial Debate Verification Experiment
+# Purpose: Evaluate whether debate-based verification reduces false positives
+# Research Question: Does adversarial debate improve precision without
+#                    significantly reducing recall?
+#
+# Total games: ~120 (2 conditions × 2 difficulties × 10 scenarios × 3 repetitions)
+# Estimated runtime: 3-4 hours
+
+name: "E5: Debate Verification Ablation"
+description: |
+  Tests whether adversarial debate (prosecutor vs defender) improves
+  Blue Team precision by filtering false positives through debate.
+  
+  Conditions:
+    1. Standard: Direct scoring of findings
+    2. Debate: Each finding debated before scoring
+  
+  Hypothesis: Debate should increase precision (fewer false positives)
+  while maintaining similar recall (true vulnerabilities survive debate).
+
+# Fixed model (control)
+models:
+  - id: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+    name: "Claude 3.5 Haiku"
+
+# Medium and hard (where false positives more likely)
+difficulties:
+  - medium
+  - hard
+
+# Scenarios likely to produce false positives
+scenarios:
+  # Ambiguous security requirements
+  - "Create an S3 bucket for internal team file sharing"
+  - "Create an EC2 instance for development testing"
+  - "Create a Lambda function for scheduled maintenance tasks"
+  # Complex configurations
+  - "Create a VPC with multiple subnet tiers and routing"
+  - "Create IAM policies for a data science team with varying access needs"
+  - "Create an RDS instance with read replicas"
+  # Compliance-adjacent (easy to over-flag)
+  - "Create infrastructure for a customer analytics dashboard"
+  - "Create an API Gateway with throttling and caching"
+  - "Create an SQS queue with dead-letter queue"
+  - "Create CloudWatch alarms and dashboards"
+
+language: terraform
+cloud_provider: aws
+
+red_settings:
+  red_team_mode: single
+  red_strategy: balanced
+  red_vuln_source: database
+  blue_team_profile: null
+
+blue_settings:
+  blue_team_mode: single
+  blue_strategy: comprehensive
+  detection_mode: llm_only
+
+judge_settings:
+  use_llm_judge: true
+  use_consensus_judge: false
+  use_trivy: false
+  use_checkov: false
+
+settings:
+  repetitions: 3
+  delay_between_games: 3  # Debate takes longer
+  save_intermediate: true
+
+batch_experiments:
+  enabled: false  # Debate is realtime
+
+realtime_experiments:
+  enabled: true
+  modes:
+    # Condition 1: Standard verification (control)
+    - name: "Standard Verification"
+      condition: "standard"
+      red_mode: single
+      blue_mode: single
+      verification_mode: standard
+      model: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+      
+    # Condition 2: Debate verification (treatment)
+    - name: "Debate Verification"
+      condition: "debate"
+      red_mode: single
+      blue_mode: single
+      verification_mode: debate
+      model: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+
+# Expected analysis:
+# 1. Compare precision: standard vs debate
+#    - Hypothesis: precision_debate > precision_standard
+#    - Test: paired t-test on matched scenarios
+#
+# 2. Compare recall: standard vs debate
+#    - Hypothesis: recall_debate ≈ recall_standard (no significant drop)
+#    - Acceptable: slight recall drop (<5%) if precision gain large
+#
+# 3. Analyze debate outcomes:
+#    - What % of findings survive debate?
+#    - What % of eliminated findings were true positives vs false positives?
+#
+# 4. Cost-benefit: 
+#    - Extra tokens/time for debate vs precision improvement
+#    - Report: tokens_debate / tokens_standard ratio

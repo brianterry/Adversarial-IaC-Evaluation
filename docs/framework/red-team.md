@@ -61,4 +61,4 @@ The Red Team selects vulnerabilities from a database of real-world security issu
 
 ## Extending
 
-Add new vulnerability types in `vendor/trivy_rules_db.json`.
+Add new vulnerability types in `src/data/trivy_rules_db.json`.

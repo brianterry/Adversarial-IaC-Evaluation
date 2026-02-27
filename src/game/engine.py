@@ -53,6 +53,19 @@ class GameConfig:
     # - "chained": Vulnerabilities that exploit each other in sequence
     red_target_type: Optional[str] = None  # For "targeted" strategy: "encryption", "iam", "network", "logging", "access_control"
     
+    # Red Team vulnerability source (addresses pattern memorization vs reasoning distinction)
+    red_vuln_source: str = "database"  # Vulnerability source options:
+    # - "database": Select from Trivy rule database (142 known patterns) - default
+    # - "novel": LLM generates from security principles (no database shown)
+    # - "mixed": 50% database, 50% novel - enables comparison
+    
+    # Red Team threat model (adaptive targeting based on Blue Team profile)
+    blue_team_profile: Optional[str] = None  # Characterize Blue Team for adaptive stealth:
+    # - "llm_only": Blue Team uses only LLM analysis
+    # - "tool_augmented": Blue Team uses LLM + static tools (Trivy/Checkov)
+    # - "ensemble": Blue Team uses multiple specialist agents
+    # - None: No adaptation (default)
+    
     # Blue Team mode configuration
     blue_team_mode: str = "single"  # "single" or "ensemble"
     ensemble_specialists: Optional[List[str]] = None  # ["security", "compliance", "architecture"]
@@ -348,6 +361,8 @@ class GameEngine:
                 language=config.language,
                 strategy=config.red_strategy,
                 target_type=config.red_target_type,
+                vuln_source=config.red_vuln_source,
+                blue_team_profile=config.blue_team_profile,
             )
             
             red_output = await red_agent.execute(scenario.to_dict())

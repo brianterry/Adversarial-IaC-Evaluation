@@ -58,7 +58,7 @@ Current LLM security benchmarks have critical limitations:
 ### Installation
 
 ```bash
-git clone --recursive https://github.com/brianterry/Adversarial-IaC-Evaluation.git
+git clone https://github.com/brianterry/Adversarial-IaC-Evaluation.git
 cd Adversarial-IaC-Evaluation
 python -m venv venv && source venv/bin/activate
 pip install -e .
@@ -564,7 +564,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
-Built upon the [Vulnerable IaC Dataset Generator](https://github.com/SymbioticSec/vulnerable-iac-dataset-generator) which provides 142 real-world vulnerability patterns.
+**Vulnerability Database:** The 142 security rules included in this benchmark are derived from [Trivy Checks](https://github.com/aquasecurity/trivy-checks) by Aqua Security. Database tooling adapted from [Vulnerable IaC Dataset Generator](https://github.com/SymbioticSec/vulnerable-iac-dataset-generator).
 
 ---
 

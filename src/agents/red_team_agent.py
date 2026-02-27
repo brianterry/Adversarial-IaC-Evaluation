@@ -20,50 +20,8 @@ from typing import Any, Dict, List, Optional
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 
-# Import VulnerabilityDatabase from the vendored submodule
-# The submodule: vendor/vulnerable-iac-generator (https://github.com/SymbioticSec/vulnerable-iac-dataset-generator)
-from pathlib import Path
-import importlib.util
-
-# Paths to vendor submodule
-_vendor_path = Path(__file__).resolve().parent.parent.parent / "vendor" / "vulnerable-iac-generator"
-_vuln_db_module_path = _vendor_path / "src" / "utils" / "vulnerability_db.py"
-_vuln_db_data_path = _vendor_path / "data" / "trivy_rules_db.json"
-
-# Load the VulnerabilityDatabase from vendored submodule (REQUIRED)
-if not _vendor_path.exists():
-    raise ImportError(
-        f"Vulnerability database submodule not found at: {_vendor_path}\n"
-        "Please initialize the submodule:\n"
-        "  git submodule update --init --recursive\n"
-        "Or clone with --recursive:\n"
-        "  git clone --recursive <repo-url>"
-    )
-
-if not _vuln_db_module_path.exists():
-    raise ImportError(
-        f"Vulnerability database module not found at: {_vuln_db_module_path}\n"
-        "The submodule may be corrupted. Try:\n"
-        "  git submodule update --init --recursive"
-    )
-
-# Load the module directly to avoid namespace conflicts with our own src/
-_spec = importlib.util.spec_from_file_location("vulnerability_db", _vuln_db_module_path)
-_vuln_db_module = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_vuln_db_module)
-_VulnerabilityDatabaseClass = _vuln_db_module.VulnerabilityDatabase
-
-
-class VulnerabilityDatabase:
-    """Wrapper for vendored VulnerabilityDatabase with proper data path"""
-    def __init__(self):
-        # Pass explicit path to avoid data file lookup issues
-        self._db = _VulnerabilityDatabaseClass(db_path=str(_vuln_db_data_path))
-    
-    def get_sample_for_prompt(self, provider, language):
-        return self._db.get_sample_for_prompt(provider, language)
-
-from ..prompts import AdversarialPrompts, ScenarioTemplates, RedTeamStrategyPrompts
+from ..utils.vulnerability_db import VulnerabilityDatabase
+from ..prompts import AdversarialPrompts, ScenarioTemplates, RedTeamStrategyPrompts, NovelVulnerabilityPrompts
 
 
 class Difficulty(Enum):
@@ -82,6 +40,13 @@ class DifficultyConfig:
     evasion_target: float  # Target evasion rate
 
 
+class VulnSource:
+    """Source of vulnerability patterns"""
+    DATABASE = "database"  # From Trivy rule database (142 known patterns)
+    NOVEL = "novel"        # LLM-generated from security principles (no database shown)
+    MIXED = "mixed"        # 50% database, 50% novel
+
+
 @dataclass
 class VulnerabilityManifest:
     """Ground truth manifest of injected vulnerabilities"""
@@ -97,6 +62,9 @@ class VulnerabilityManifest:
     vulnerable_value: str
     stealth_technique: str
     detection_hint: str
+    # New: Track vulnerability provenance for memorization analysis
+    is_novel: bool = False  # True if LLM-generated without database, False if from Trivy rules
+    rule_source: str = "database"  # "database" or "novel"
 
 
 @dataclass
@@ -182,6 +150,8 @@ class RedTeamAgent:
         language: str = "terraform",
         strategy: str = "balanced",
         target_type: Optional[str] = None,
+        vuln_source: str = "database",
+        blue_team_profile: Optional[str] = None,
     ):
         """
         Initialize Red Team Agent.
@@ -193,6 +163,15 @@ class RedTeamAgent:
             language: IaC language (terraform, cloudformation)
             strategy: Attack strategy ("balanced", "targeted", "stealth", "blitz", "chained")
             target_type: For "targeted" strategy: vulnerability type to focus on
+            vuln_source: Where to source vulnerabilities from:
+                - "database": Select from Trivy rule database (142 known patterns)
+                - "novel": LLM generates from security principles (no database shown)
+                - "mixed": 50% database, 50% novel
+            blue_team_profile: Threat model characterizing the Blue Team:
+                - "llm_only": Blue Team uses only LLM analysis
+                - "tool_augmented": Blue Team uses LLM + static tools (Trivy/Checkov)
+                - "ensemble": Blue Team uses multiple specialist agents
+                - None: No adaptation (default)
         """
         self.llm = llm
         self.difficulty = difficulty
@@ -200,6 +179,8 @@ class RedTeamAgent:
         self.language = language
         self.strategy = strategy
         self.target_type = target_type
+        self.vuln_source = vuln_source
+        self.blue_team_profile = blue_team_profile
         self.logger = logging.getLogger("RedTeamAgent")
         
         # Validate strategy
@@ -276,10 +257,12 @@ class RedTeamAgent:
         self, scenario: Dict[str, Any], max_retries: int = 3
     ) -> List[Dict[str, Any]]:
         """
-        Select vulnerabilities optimized for evasion based on strategy.
+        Select vulnerabilities optimized for evasion based on strategy and source.
         
-        Uses the Trivy database from the generator but selects
-        vulnerabilities that are harder to detect.
+        Vulnerability source determines whether we use:
+        - database: Trivy rule database (142 known patterns)
+        - novel: LLM generates from security principles (no database shown)
+        - mixed: 50% database, 50% novel
         
         Includes retry logic for when LLM returns incomplete responses.
         
@@ -288,7 +271,49 @@ class RedTeamAgent:
             max_retries: Maximum number of retry attempts (default: 3)
             
         Returns:
-            List of selected vulnerabilities
+            List of selected vulnerabilities with is_novel flag
+        """
+        self.logger.info(f"Selecting vulnerabilities with source={self.vuln_source}")
+        
+        if self.vuln_source == VulnSource.NOVEL:
+            # Pure novel mode - LLM generates from security principles
+            return await self._select_novel_vulnerabilities(scenario, max_retries)
+        
+        elif self.vuln_source == VulnSource.MIXED:
+            # Mixed mode - half from database, half novel
+            db_count = self.adjusted_vuln_count // 2
+            novel_count = self.adjusted_vuln_count - db_count
+            
+            db_vulns = await self._select_database_vulnerabilities(scenario, db_count, max_retries)
+            novel_vulns = await self._select_novel_vulnerabilities(scenario, max_retries, count_override=novel_count)
+            
+            # Mark sources
+            for v in db_vulns:
+                v["is_novel"] = False
+                v["rule_source"] = "database"
+            for v in novel_vulns:
+                v["is_novel"] = True
+                v["rule_source"] = "novel"
+            
+            combined = db_vulns + novel_vulns
+            self.logger.info(f"Mixed source: {len(db_vulns)} database + {len(novel_vulns)} novel = {len(combined)} total")
+            return combined
+        
+        else:
+            # Default database mode
+            vulns = await self._select_database_vulnerabilities(scenario, self.adjusted_vuln_count, max_retries)
+            for v in vulns:
+                v["is_novel"] = False
+                v["rule_source"] = "database"
+            return vulns
+
+    async def _select_database_vulnerabilities(
+        self, scenario: Dict[str, Any], count: int, max_retries: int = 3
+    ) -> List[Dict[str, Any]]:
+        """
+        Select vulnerabilities from the Trivy rule database.
+        
+        This is the original behavior - LLM sees the database and selects from it.
         """
         # Get vulnerability samples from Trivy database
         db_sample = self.vulnerability_db.get_sample_for_prompt(
@@ -298,42 +323,116 @@ class RedTeamAgent:
         # Filter samples for targeted strategy
         vuln_samples = db_sample.get("sample_vulnerabilities", [])[:10]
         if self.strategy == "targeted" and self.target_type:
-            # Filter to only vulnerabilities matching the target type
             filtered = [v for v in vuln_samples if self._matches_target_type(v)]
             if filtered:
                 vuln_samples = filtered
             self.logger.info(f"Targeted strategy: filtered to {len(vuln_samples)} {self.target_type} samples")
         
         # Build strategy-specific selection prompt
-        prompt = self._build_selection_prompt(scenario, vuln_samples)
+        prompt = self._build_selection_prompt(scenario, vuln_samples, count_override=count)
         
         for attempt in range(max_retries):
-            # Get LLM selection
             response = await self._invoke_llm(prompt)
-            
-            # Parse response
             selected = self._parse_vulnerability_selection(response)
             
             if selected:
                 if attempt > 0:
-                    self.logger.info(f"Vulnerability selection succeeded on retry {attempt}")
-                self.logger.info(f"Selected {len(selected)} adversarial vulnerabilities")
+                    self.logger.info(f"Database vulnerability selection succeeded on retry {attempt}")
+                self.logger.info(f"Selected {len(selected)} database vulnerabilities")
                 return selected
             
             if attempt < max_retries - 1:
                 self.logger.warning(
-                    f"Vulnerability selection attempt {attempt + 1}/{max_retries} returned empty. Retrying..."
+                    f"Database selection attempt {attempt + 1}/{max_retries} returned empty. Retrying..."
                 )
-                # Add retry hint for subsequent attempts
                 if attempt == 0:
                     prompt += "\n\nIMPORTANT: You MUST respond with a valid JSON object containing 'selected_vulnerabilities' array."
             else:
-                self.logger.error(
-                    f"Vulnerability selection failed after {max_retries} attempts"
-                )
+                self.logger.error(f"Database selection failed after {max_retries} attempts")
         
-        # All retries exhausted - return empty
         return []
+
+    async def _select_novel_vulnerabilities(
+        self, scenario: Dict[str, Any], max_retries: int = 3, count_override: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate novel vulnerabilities from security principles.
+        
+        The LLM does NOT see the Trivy database - it must reason from
+        first principles about what security misconfigurations are possible.
+        
+        This tests genuine security reasoning vs pattern matching against
+        known rule classes.
+        """
+        count = count_override or self.adjusted_vuln_count
+        scenario_json = json.dumps(scenario, indent=2)
+        
+        # Build threat model hint if Blue Team profile is known
+        threat_model_hint = ""
+        if self.blue_team_profile:
+            threat_model_hint = self._build_threat_model_hint()
+        
+        prompt = NovelVulnerabilityPrompts.NOVEL_VULNERABILITY_GENERATION.format(
+            scenario_json=scenario_json,
+            cloud_provider=self.cloud_provider,
+            language=self.language,
+            difficulty=self.difficulty.value,
+            vuln_count=count,
+            threat_model_hint=threat_model_hint,
+        )
+        
+        for attempt in range(max_retries):
+            response = await self._invoke_llm(prompt)
+            selected = self._parse_vulnerability_selection(response)
+            
+            if selected:
+                # Mark all as novel
+                for v in selected:
+                    v["is_novel"] = True
+                    v["rule_source"] = "novel"
+                    v["rule_id"] = f"NOVEL-{v.get('vuln_id', 'X')}"  # No Trivy rule ID
+                
+                if attempt > 0:
+                    self.logger.info(f"Novel vulnerability generation succeeded on retry {attempt}")
+                self.logger.info(f"Generated {len(selected)} novel vulnerabilities")
+                return selected
+            
+            if attempt < max_retries - 1:
+                self.logger.warning(
+                    f"Novel generation attempt {attempt + 1}/{max_retries} returned empty. Retrying..."
+                )
+                if attempt == 0:
+                    prompt += "\n\nIMPORTANT: You MUST respond with a valid JSON object containing 'selected_vulnerabilities' array."
+            else:
+                self.logger.error(f"Novel vulnerability generation failed after {max_retries} attempts")
+        
+        return []
+
+    def _build_threat_model_hint(self) -> str:
+        """Build adaptive stealth hints based on Blue Team profile."""
+        hints = {
+            "llm_only": """
+BLUE TEAM PROFILE: LLM-only analysis (no static tools)
+- Static rule patterns may be detected, but context-dependent issues are harder
+- Exploit semantic gaps: use correct syntax but wrong semantics
+- Misleading comments and variable names are effective
+""",
+            "tool_augmented": """
+BLUE TEAM PROFILE: LLM + Static Tools (Trivy/Checkov)
+- Static rule patterns WILL be detected by tools
+- Focus on logic-level vulnerabilities tools can't detect
+- IAM permission combinations, cross-resource dependencies
+- Context-dependent misconfigurations
+""",
+            "ensemble": """
+BLUE TEAM PROFILE: Ensemble of specialist agents
+- Multiple viewpoints will be applied (security, compliance, architecture)
+- Vulnerabilities must evade all three perspectives
+- Focus on subtle issues that look reasonable from each angle
+- Avoid obvious violations of any single framework
+""",
+        }
+        return hints.get(self.blue_team_profile, "")
 
     def _matches_target_type(self, vuln: Dict[str, Any]) -> bool:
         """Check if a vulnerability matches the target type for targeted strategy."""
@@ -354,10 +453,13 @@ class RedTeamAgent:
         
         return any(kw in search_text for kw in keywords)
 
-    def _build_selection_prompt(self, scenario: Dict[str, Any], vuln_samples: List[Dict]) -> str:
+    def _build_selection_prompt(
+        self, scenario: Dict[str, Any], vuln_samples: List[Dict], count_override: Optional[int] = None
+    ) -> str:
         """Build the appropriate selection prompt based on strategy."""
         vuln_samples_json = json.dumps(vuln_samples, indent=2)
         scenario_json = json.dumps(scenario, indent=2)
+        vuln_count = count_override or self.adjusted_vuln_count
         
         if self.strategy == "targeted":
             return RedTeamStrategyPrompts.TARGETED_SELECTION.format(
@@ -365,27 +467,27 @@ class RedTeamAgent:
                 scenario_json=scenario_json,
                 vulnerability_samples=vuln_samples_json,
                 difficulty=self.difficulty.value,
-                vuln_count=self.adjusted_vuln_count,
+                vuln_count=vuln_count,
             )
         elif self.strategy == "stealth":
             return RedTeamStrategyPrompts.STEALTH_SELECTION.format(
                 scenario_json=scenario_json,
                 vulnerability_samples=vuln_samples_json,
                 difficulty=self.difficulty.value,
-                vuln_count=self.adjusted_vuln_count,
+                vuln_count=vuln_count,
             )
         elif self.strategy == "blitz":
             return RedTeamStrategyPrompts.BLITZ_SELECTION.format(
                 scenario_json=scenario_json,
                 vulnerability_samples=vuln_samples_json,
-                vuln_count=self.adjusted_vuln_count,
+                vuln_count=vuln_count,
             )
         elif self.strategy == "chained":
             return RedTeamStrategyPrompts.CHAINED_SELECTION.format(
                 scenario_json=scenario_json,
                 vulnerability_samples=vuln_samples_json,
                 difficulty=self.difficulty.value,
-                vuln_count=self.adjusted_vuln_count,
+                vuln_count=vuln_count,
             )
         else:
             # Default "balanced" strategy uses the original prompt
@@ -393,7 +495,7 @@ class RedTeamAgent:
                 scenario_json=scenario_json,
                 vulnerability_samples=vuln_samples_json,
                 difficulty=self.difficulty.value,
-                vuln_count=self.config.vuln_count,
+                vuln_count=vuln_count,
             )
 
     async def _generate_vulnerable_iac(
@@ -708,6 +810,8 @@ class RedTeamAgent:
                         vulnerable_value=str(v.get("vulnerable_value", "")),
                         stealth_technique=v.get("stealth_technique_used", ""),
                         detection_hint=v.get("detection_hint", ""),
+                        is_novel=v.get("is_novel", False),
+                        rule_source=v.get("rule_source", "database"),
                     )
                 )
         except json.JSONDecodeError as e:
@@ -791,6 +895,9 @@ class RedTeamAgent:
             "difficulty": self.difficulty.value,
             "cloud_provider": self.cloud_provider,
             "language": self.language,
+            "strategy": self.strategy,
+            "vuln_source": self.vuln_source,
+            "blue_team_profile": self.blue_team_profile,
             "config": {
                 "vuln_count": self.config.vuln_count,
                 "subtlety": self.config.subtlety,
@@ -808,6 +915,8 @@ def create_red_team_agent(
     language: str = "terraform",
     strategy: str = "balanced",
     target_type: Optional[str] = None,
+    vuln_source: str = "database",
+    blue_team_profile: Optional[str] = None,
 ) -> RedTeamAgent:
     """
     Create a Red Team Agent with AWS Bedrock.
@@ -820,6 +929,8 @@ def create_red_team_agent(
         language: terraform or cloudformation
         strategy: Attack strategy - "balanced", "targeted", "stealth", "blitz", "chained"
         target_type: For "targeted" strategy - "encryption", "iam", "network", "logging", "access_control"
+        vuln_source: Vulnerability source - "database" (Trivy rules), "novel" (LLM-generated), "mixed"
+        blue_team_profile: Threat model - "llm_only", "tool_augmented", "ensemble", or None
         
     Returns:
         Configured RedTeamAgent
@@ -842,4 +953,6 @@ def create_red_team_agent(
         language=language,
         strategy=strategy,
         target_type=target_type,
+        vuln_source=vuln_source,
+        blue_team_profile=blue_team_profile,
     )

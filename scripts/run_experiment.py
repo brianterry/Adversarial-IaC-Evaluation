@@ -100,6 +100,11 @@ class ExperimentRunner:
         language = self.config.get('language', 'terraform')
         cloud_provider = self.config.get('cloud_provider', 'aws')
         
+        # Get global settings from config sections
+        red_settings = self.config.get('red_settings', {})
+        blue_settings = self.config.get('blue_settings', {})
+        judge_settings = self.config.get('judge_settings', {})
+        
         # Get model IDs
         model_ids = [m['id'] if isinstance(m, dict) else m for m in models]
         if not model_ids:
@@ -123,13 +128,25 @@ class ExperimentRunner:
                                 "difficulty": difficulty,
                                 "red_model": combo['red'],
                                 "blue_model": combo['blue'],
-                                "red_team_mode": "single",
-                                "blue_team_mode": "single",
-                                "verification_mode": "standard",
+                                "red_team_mode": red_settings.get('red_team_mode', 'single'),
+                                "blue_team_mode": blue_settings.get('blue_team_mode', 'single'),
+                                "verification_mode": self.config.get('verification_mode', 'standard'),
                                 "language": language,
                                 "cloud_provider": cloud_provider,
                                 "repetition": rep + 1,
                                 "experiment_type": "batch",
+                                # New Red Team parameters
+                                "red_strategy": red_settings.get('red_strategy', 'balanced'),
+                                "red_vuln_source": red_settings.get('red_vuln_source', 'database'),
+                                "blue_team_profile": red_settings.get('blue_team_profile'),
+                                # New Blue Team parameters
+                                "blue_strategy": blue_settings.get('blue_strategy', 'comprehensive'),
+                                "detection_mode": blue_settings.get('detection_mode', 'llm_only'),
+                                # New Judge parameters
+                                "use_llm_judge": judge_settings.get('use_llm_judge', True),
+                                "use_consensus_judge": judge_settings.get('use_consensus_judge', False),
+                                "use_trivy": judge_settings.get('use_trivy', False),
+                                "use_checkov": judge_settings.get('use_checkov', False),
                             })
                             game_num += 1
         
@@ -158,6 +175,19 @@ class ExperimentRunner:
                                 "repetition": rep + 1,
                                 "experiment_type": "realtime",
                                 "mode_name": mode.get('name', 'unknown'),
+                                "condition": mode.get('condition', 'unknown'),
+                                # Mode-specific Red Team parameters (override globals)
+                                "red_strategy": mode.get('red_strategy', red_settings.get('red_strategy', 'balanced')),
+                                "red_vuln_source": mode.get('red_vuln_source', red_settings.get('red_vuln_source', 'database')),
+                                "blue_team_profile": mode.get('blue_team_profile', red_settings.get('blue_team_profile')),
+                                # Mode-specific Blue Team parameters
+                                "blue_strategy": mode.get('blue_strategy', blue_settings.get('blue_strategy', 'comprehensive')),
+                                "detection_mode": mode.get('detection_mode', blue_settings.get('detection_mode', 'llm_only')),
+                                # Mode-specific Judge parameters
+                                "use_llm_judge": mode.get('use_llm_judge', judge_settings.get('use_llm_judge', True)),
+                                "use_consensus_judge": mode.get('use_consensus_judge', judge_settings.get('use_consensus_judge', False)),
+                                "use_trivy": mode.get('use_trivy', judge_settings.get('use_trivy', False)),
+                                "use_checkov": mode.get('use_checkov', judge_settings.get('use_checkov', False)),
                             })
                             game_num += 1
         
@@ -171,7 +201,7 @@ class ExperimentRunner:
         start_time = datetime.utcnow()
         
         try:
-            # Create engine config
+            # Create engine config with all supported parameters
             config = GameConfig(
                 red_model=game_config['red_model'],
                 blue_model=game_config['blue_model'],
@@ -183,6 +213,18 @@ class ExperimentRunner:
                 consensus_method=game_config.get('consensus_method', 'vote'),
                 verification_mode=game_config.get('verification_mode', 'standard'),
                 region=self.region,
+                # Red Team parameters
+                red_strategy=game_config.get('red_strategy', 'balanced'),
+                red_vuln_source=game_config.get('red_vuln_source', 'database'),
+                blue_team_profile=game_config.get('blue_team_profile'),
+                # Blue Team parameters
+                blue_strategy=game_config.get('blue_strategy', 'comprehensive'),
+                detection_mode=game_config.get('detection_mode', 'llm_only'),
+                # Judge parameters
+                use_llm_judge=game_config.get('use_llm_judge', True),
+                use_consensus_judge=game_config.get('use_consensus_judge', False),
+                use_trivy=game_config.get('use_trivy', False),
+                use_checkov=game_config.get('use_checkov', False),
             )
             
             # Create scenario
@@ -339,6 +381,44 @@ class ExperimentRunner:
             by_difficulty[diff]['avg_f1'] = by_difficulty[diff]['f1'] / count
             by_difficulty[diff]['avg_evasion'] = by_difficulty[diff]['evasion'] / count
         
+        # Calculate by condition (for ablation experiments)
+        by_condition = {}
+        for r in self.results:
+            cond = r['config'].get('condition', r['config'].get('mode_name', 'batch'))
+            if cond not in by_condition:
+                by_condition[cond] = {'count': 0, 'precision': 0, 'recall': 0, 'f1': 0, 'evasion': 0}
+            by_condition[cond]['count'] += 1
+            by_condition[cond]['precision'] += r['scoring']['precision']
+            by_condition[cond]['recall'] += r['scoring']['recall']
+            by_condition[cond]['f1'] += r['scoring']['f1_score']
+            by_condition[cond]['evasion'] += r['scoring']['evasion_rate']
+        
+        for cond in by_condition:
+            count = by_condition[cond]['count']
+            by_condition[cond]['avg_precision'] = by_condition[cond]['precision'] / count
+            by_condition[cond]['avg_recall'] = by_condition[cond]['recall'] / count
+            by_condition[cond]['avg_f1'] = by_condition[cond]['f1'] / count
+            by_condition[cond]['avg_evasion'] = by_condition[cond]['evasion'] / count
+        
+        # Calculate by vuln_source (for E3 experiment)
+        by_vuln_source = {}
+        for r in self.results:
+            src = r['config'].get('red_vuln_source', 'database')
+            if src not in by_vuln_source:
+                by_vuln_source[src] = {'count': 0, 'precision': 0, 'recall': 0, 'f1': 0, 'evasion': 0}
+            by_vuln_source[src]['count'] += 1
+            by_vuln_source[src]['precision'] += r['scoring']['precision']
+            by_vuln_source[src]['recall'] += r['scoring']['recall']
+            by_vuln_source[src]['f1'] += r['scoring']['f1_score']
+            by_vuln_source[src]['evasion'] += r['scoring']['evasion_rate']
+        
+        for src in by_vuln_source:
+            count = by_vuln_source[src]['count']
+            by_vuln_source[src]['avg_precision'] = by_vuln_source[src]['precision'] / count
+            by_vuln_source[src]['avg_recall'] = by_vuln_source[src]['recall'] / count
+            by_vuln_source[src]['avg_f1'] = by_vuln_source[src]['f1'] / count
+            by_vuln_source[src]['avg_evasion'] = by_vuln_source[src]['evasion'] / count
+        
         summary = {
             "experiment_id": self.experiment_id,
             "total_games": len(self.results) + len(self.failed_games),
@@ -346,6 +426,8 @@ class ExperimentRunner:
             "failed_games": len(self.failed_games),
             "metrics": metrics,
             "by_difficulty": by_difficulty,
+            "by_condition": by_condition,
+            "by_vuln_source": by_vuln_source,
             "completed_at": datetime.utcnow().isoformat(),
         }
         
@@ -369,6 +451,17 @@ class ExperimentRunner:
         logger.info(f"\nBy Difficulty:")
         for diff, data in by_difficulty.items():
             logger.info(f"  {diff}: F1={data['avg_f1']:.1%}, Evasion={data['avg_evasion']:.1%} (n={data['count']})")
+        
+        if len(by_condition) > 1:
+            logger.info(f"\nBy Condition:")
+            for cond, data in by_condition.items():
+                logger.info(f"  {cond}: F1={data['avg_f1']:.1%}, Evasion={data['avg_evasion']:.1%} (n={data['count']})")
+        
+        if len(by_vuln_source) > 1:
+            logger.info(f"\nBy Vulnerability Source:")
+            for src, data in by_vuln_source.items():
+                logger.info(f"  {src}: F1={data['avg_f1']:.1%}, Recall={data['avg_recall']:.1%} (n={data['count']})")
+        
         logger.info(f"\nResults saved to: {self.experiment_dir}")
         
         return summary
@@ -376,8 +469,10 @@ class ExperimentRunner:
     def _generate_csv(self):
         """Generate CSV file for easy analysis."""
         headers = [
-            'game_id', 'difficulty', 'red_model', 'blue_model', 'red_mode', 'blue_mode',
-            'scenario', 'vulns_injected', 'findings', 'precision', 'recall', 'f1_score', 'evasion_rate'
+            'game_id', 'condition', 'difficulty', 'red_model', 'blue_model', 
+            'red_mode', 'blue_mode', 'red_vuln_source', 'red_strategy',
+            'verification_mode', 'scenario', 'vulns_injected', 'findings', 
+            'precision', 'recall', 'f1_score', 'evasion_rate'
         ]
         
         lines = [','.join(headers)]
@@ -386,11 +481,15 @@ class ExperimentRunner:
             scoring = r['scoring']
             line = [
                 r['game_id'],
+                config.get('condition', config.get('mode_name', 'batch')),
                 config['difficulty'],
                 config['red_model'].split('.')[-1][:20],  # Shorten model name
                 config['blue_model'].split('.')[-1][:20],
                 config.get('red_team_mode', 'single'),
                 config.get('blue_team_mode', 'single'),
+                config.get('red_vuln_source', 'database'),
+                config.get('red_strategy', 'balanced'),
+                config.get('verification_mode', 'standard'),
                 f'"{config["scenario"][:50]}"',
                 str(r['vulnerabilities_injected']),
                 str(r['findings_detected']),

@@ -66,6 +66,8 @@ htmlcov/
 *.tfstate
 *.tfstate.*
 .terraform/
+exper.pem
+MANUAL.md
 
 # MkDocs documentation
 site/

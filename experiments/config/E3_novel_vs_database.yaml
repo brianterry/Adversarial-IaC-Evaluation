@@ -1,0 +1,125 @@
+# E3: Novel vs Database Vulnerability Experiment
+# Purpose: Test whether LLMs demonstrate genuine security reasoning vs pattern matching
+# Research Question: Do detection rates on novel vulnerabilities approximate database rates?
+#
+# THIS IS THE KEY EXPERIMENT FOR THE PAPER
+# If detection rates are similar, it proves genuine reasoning (not rule memorization)
+#
+# Total games: ~180 (3 sources × 2 difficulties × 10 scenarios × 3 repetitions)
+# Estimated runtime: 4-5 hours
+
+name: "E3: Novel vs Database Vulnerabilities"
+description: |
+  Critical experiment comparing Red Team vulnerability sources:
+    - database: Select from 142 known Trivy rules (potential memorization)
+    - novel: LLM generates from security principles (genuine reasoning)
+    - mixed: 50/50 split for within-game comparison
+  
+  Hypothesis: If detection rates are similar across sources, the Blue Team
+  demonstrates genuine security reasoning rather than pattern matching.
+  
+  This addresses the reviewer concern about rule-class familiarity.
+
+# Fixed model (control)
+models:
+  - id: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+    name: "Claude 3.5 Sonnet"
+
+# Focus on medium and hard (where reasoning matters most)
+difficulties:
+  - medium
+  - hard
+
+# Diverse scenarios to test generalization
+scenarios:
+  # Core infrastructure
+  - "Create an S3 bucket for storing sensitive financial reports"
+  - "Create an EC2 instance running a customer-facing API"
+  - "Create a Lambda function that processes payment webhooks"
+  - "Create an RDS MySQL database for user account data"
+  - "Create a VPC with DMZ and internal application tiers"
+  # Compliance-heavy (reasoning required)
+  - "Create infrastructure for a HIPAA-compliant telehealth application"
+  - "Create a PCI-DSS compliant payment processing system"
+  - "Create a FedRAMP-ready government data processing pipeline"
+  # Complex multi-resource
+  - "Create a data lake with S3, Glue, and Athena for analytics"
+  - "Create an EKS cluster with proper network policies and secrets management"
+
+language: terraform
+cloud_provider: aws
+
+# Red Team settings - THIS IS THE INDEPENDENT VARIABLE
+# The experiment runner will iterate over these three sources
+red_settings:
+  red_team_mode: single
+  red_strategy: balanced
+  # red_vuln_source: varies (database, novel, mixed)
+  blue_team_profile: null
+
+# Blue Team settings (control)
+blue_settings:
+  blue_team_mode: single
+  blue_strategy: comprehensive
+  detection_mode: llm_only
+
+# Judge settings - enable validation for ground truth checking
+judge_settings:
+  use_llm_judge: true
+  use_consensus_judge: false
+  use_trivy: true          # Validate novel vulnerabilities exist in code
+  use_checkov: true        # Additional validation
+
+verification_mode: standard
+
+settings:
+  repetitions: 3
+  delay_between_games: 2
+  save_intermediate: true
+
+batch_experiments:
+  enabled: false  # Need to control red_vuln_source per game
+
+# Three conditions based on vulnerability source
+realtime_experiments:
+  enabled: true
+  modes:
+    # Condition 1: Database vulnerabilities (known patterns)
+    - name: "Database Vulnerabilities"
+      condition: "database"
+      red_mode: single
+      blue_mode: single
+      red_vuln_source: database
+      verification_mode: standard
+      model: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+      
+    # Condition 2: Novel vulnerabilities (LLM-generated)
+    - name: "Novel Vulnerabilities"
+      condition: "novel"
+      red_mode: single
+      blue_mode: single
+      red_vuln_source: novel
+      verification_mode: standard
+      model: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+      
+    # Condition 3: Mixed (within-game comparison)
+    - name: "Mixed Vulnerabilities"
+      condition: "mixed"
+      red_mode: single
+      blue_mode: single
+      red_vuln_source: mixed
+      verification_mode: standard
+      model: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+
+# Expected analysis:
+# 1. Compare recall between database vs novel conditions
+#    - Null hypothesis: recall_database = recall_novel
+#    - If true: genuine reasoning demonstrated
+#    - If false (database > novel): pattern matching dependency
+#
+# 2. For mixed condition, analyze per-vulnerability detection:
+#    - Detection rate for is_novel=true vs is_novel=false
+#    - Controls for scenario/difficulty variance
+#
+# 3. Report manifest_accuracy for novel vulns (hallucination check)
+#    - Tool validation confirms novel vulns actually exist in code

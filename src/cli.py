@@ -836,6 +836,18 @@ def score(red_dir: str, blue_dir: str, output_dir: str):
     help="Target vuln type for 'targeted' red strategy",
 )
 @click.option(
+    "--red-vuln-source",
+    type=click.Choice(["database", "novel", "mixed"]),
+    default="database",
+    help="Vulnerability source: database (Trivy rules), novel (LLM-generated), mixed (50/50)",
+)
+@click.option(
+    "--blue-team-profile",
+    type=click.Choice(["llm_only", "tool_augmented", "ensemble"]),
+    default=None,
+    help="Red Team threat model of Blue Team (for adaptive stealth)",
+)
+@click.option(
     "--blue-strategy",
     type=click.Choice(["comprehensive", "targeted", "iterative", "threat_model", "compliance"]),
     default="comprehensive",
@@ -888,6 +900,8 @@ def game(
     consensus_models: str,
     red_strategy: str,
     red_target_type: str,
+    red_vuln_source: str,
+    blue_team_profile: str,
     blue_strategy: str,
     blue_target_type: str,
     compliance_framework: str,
@@ -931,6 +945,11 @@ def game(
     if red_strategy == "targeted" and red_target_type:
         red_strategy_display = f"targeted:{red_target_type}"
     
+    # Show vuln source if not default
+    vuln_source_display = ""
+    if red_vuln_source != "database":
+        vuln_source_display = f", source={red_vuln_source}"
+    
     blue_display = f"{blue_team_mode}" + (f" ({consensus_method})" if blue_team_mode == "ensemble" else "")
     blue_strategy_display = blue_strategy
     if blue_strategy == "targeted" and blue_target_type:
@@ -955,7 +974,7 @@ def game(
             "[bold magenta]🎮 ADVERSARIAL GAME[/]\n"
             f"Scenario: {scenario}\n"
             f"Red Team: {red_model.split('.')[-1][:20]} ({red_display})\n"
-            f"  Strategy: {red_strategy_display}\n"
+            f"  Strategy: {red_strategy_display}{vuln_source_display}\n"
             f"Blue Team: {blue_model.split('.')[-1][:20]} ({blue_display})\n"
             f"  Strategy: {blue_strategy_display}\n"
             f"  Static Tools: {tools_str}\n"
@@ -983,6 +1002,8 @@ def game(
                 consensus_models=consensus_models.split(",") if consensus_models else None,
                 red_strategy=red_strategy,
                 red_target_type=red_target_type,
+                red_vuln_source=red_vuln_source,
+                blue_team_profile=blue_team_profile,
                 blue_strategy=blue_strategy,
                 blue_target_type=blue_target_type,
                 compliance_framework=compliance_framework,
@@ -1013,6 +1034,8 @@ async def _run_game(
     consensus_models: list = None,
     red_strategy: str = "balanced",
     red_target_type: str = None,
+    red_vuln_source: str = "database",
+    blue_team_profile: str = None,
     blue_strategy: str = "comprehensive",
     blue_target_type: str = None,
     compliance_framework: str = None,
@@ -1066,6 +1089,8 @@ async def _run_game(
         red_team_mode=red_team_mode,
         red_strategy=red_strategy,
         red_target_type=red_target_type,
+        red_vuln_source=red_vuln_source,
+        blue_team_profile=blue_team_profile,
         blue_team_mode=blue_team_mode,
         ensemble_specialists=["security", "compliance", "architecture"] if blue_team_mode == "ensemble" else None,
         consensus_method=consensus_method,
@@ -1714,6 +1739,7 @@ def play():
                 blue_iterations=blue_iterations,
                 use_trivy=use_trivy,
                 use_checkov=use_checkov,
+                use_llm_judge=use_llm_judge,
             )
         )
         
@@ -1765,6 +1791,7 @@ async def _run_interactive_game(
     blue_iterations: int = 1,
     use_trivy: bool = False,
     use_checkov: bool = False,
+    use_llm_judge: bool = True,
 ):
     """Run the game with nice progress display."""
     from src.game.engine import GameEngine, GameConfig
