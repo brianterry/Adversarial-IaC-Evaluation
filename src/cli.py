@@ -1771,7 +1771,26 @@ def play():
             play()  # Recursive call for another game
         elif next_action == "open":
             import subprocess
-            subprocess.run(["open", f"output/games/{result.game_id}"])
+            import platform
+            folder_path = f"output/games/{result.game_id}"
+            
+            try:
+                if platform.system() == "Darwin":  # macOS
+                    subprocess.run(["open", folder_path])
+                elif platform.system() == "Linux":
+                    # Try xdg-open, fall back to just printing the path
+                    try:
+                        subprocess.run(["xdg-open", folder_path], check=True)
+                    except (FileNotFoundError, subprocess.CalledProcessError):
+                        console.print(f"\n[dim]Results folder:[/] [cyan]{folder_path}[/]")
+                        console.print("[dim]Use 'ls' or 'cat' to view files[/]")
+                elif platform.system() == "Windows":
+                    subprocess.run(["explorer", folder_path])
+                else:
+                    console.print(f"\n[dim]Results folder:[/] [cyan]{folder_path}[/]")
+            except Exception as e:
+                console.print(f"\n[dim]Results folder:[/] [cyan]{folder_path}[/]")
+                console.print(f"[dim](Could not open automatically: {e})[/]")
         elif next_action == "details":
             _display_detailed_analysis(result)
             
@@ -1886,10 +1905,12 @@ def _display_explained_results(result):
     console.print("[bold red]🔴 RED TEAM (Attacker)[/]")
     console.print(f"   Red Team hid [bold]{len(red_vulns)} vulnerabilities[/] in the code:\n")
     
-    for i, vuln in enumerate(red_vulns, 1):
+    for vuln in red_vulns:
+        # Use actual vuln_id to match what's shown in match results
+        vuln_id = vuln.vuln_id if hasattr(vuln, 'vuln_id') else str(vuln.get('vuln_id', 'V?'))
         title = vuln.title if hasattr(vuln, 'title') else str(vuln.get('title', 'Unknown'))
         resource = vuln.resource_name if hasattr(vuln, 'resource_name') else str(vuln.get('resource_name', 'Unknown'))
-        console.print(f"   • V{i}: [yellow]{title[:50]}{'...' if len(title) > 50 else ''}[/]")
+        console.print(f"   • {vuln_id}: [yellow]{title[:50]}{'...' if len(title) > 50 else ''}[/]")
         console.print(f"         [dim]Resource: {resource}[/]")
     
     console.print()

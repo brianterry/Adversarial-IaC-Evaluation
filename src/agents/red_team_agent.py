@@ -793,12 +793,31 @@ BLUE TEAM PROFILE: Ensemble of specialist agents
     def _parse_manifest_json(self, json_str: str) -> List[VulnerabilityManifest]:
         """Parse manifest from JSON string."""
         manifest = []
+        seen_vuln_ids = set()
+        vuln_counter = 1
+        
         try:
             data = json.loads(json_str)
             for v in data.get("injected_vulnerabilities", []):
+                # Get the vuln_id from JSON or generate one
+                raw_vuln_id = v.get("vuln_id", "")
+                
+                # Ensure unique vuln_ids - LLM sometimes generates duplicates
+                if not raw_vuln_id or raw_vuln_id in seen_vuln_ids:
+                    # Generate a unique ID
+                    while f"V{vuln_counter}" in seen_vuln_ids:
+                        vuln_counter += 1
+                    vuln_id = f"V{vuln_counter}"
+                    self.logger.debug(f"Assigned unique vuln_id {vuln_id} (was: {raw_vuln_id or 'empty'})")
+                else:
+                    vuln_id = raw_vuln_id
+                
+                seen_vuln_ids.add(vuln_id)
+                vuln_counter += 1
+                
                 manifest.append(
                     VulnerabilityManifest(
-                        vuln_id=v.get("vuln_id", ""),
+                        vuln_id=vuln_id,
                         rule_id=v.get("rule_id", ""),
                         title=v.get("title", v.get("why_vulnerable", "")),
                         type=v.get("type", "unknown"),
