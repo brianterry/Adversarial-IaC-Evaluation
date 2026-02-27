@@ -1,5 +1,5 @@
 {
-  "experiment_id": "exp-20260227_044257",
+  "experiment_id": "exp-20260227_051952",
   "config": {
     "name": "E3: Novel vs Database Vulnerabilities",
     "description": "Critical experiment comparing Red Team vulnerability sources:\n  - database: Select from 142 known Trivy rules (potential memorization)\n  - novel: LLM generates from security principles (genuine reasoning)\n  - mixed: 50/50 split for within-game comparison\n\nHypothesis: If detection rates are similar across sources, the Blue Team\ndemonstrates genuine security reasoning rather than pattern matching.\n\nThis addresses the reviewer concern about rule-class familiarity.\n",
@@ -4767,5 +4767,5 @@
       "use_checkov": true
     }
   ],
-  "started": "2026-02-27T04:42:57.220877"
+  "started": "2026-02-27T05:19:52.950115"
 }
