@@ -378,9 +378,20 @@ class GameEngine:
         manifest_validation = None
         if config.use_trivy or config.use_checkov:
             self.logger.info("Validating Red Team manifest with static tools...")
+            # Convert VulnerabilityManifest dataclass objects to dicts for validator
+            manifest_dicts = []
+            for v in red_output.manifest:
+                if hasattr(v, '__dataclass_fields__'):
+                    from dataclasses import asdict
+                    manifest_dicts.append(asdict(v))
+                elif isinstance(v, dict):
+                    manifest_dicts.append(v)
+                else:
+                    manifest_dicts.append({"vuln_id": str(v)})
+            
             manifest_validation = self._validate_manifest(
                 red_output.code,
-                red_output.manifest,
+                manifest_dicts,
                 config.use_trivy,
                 config.use_checkov,
                 config.language,
