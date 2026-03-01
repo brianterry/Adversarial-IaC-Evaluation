@@ -110,15 +110,15 @@ batch_experiments:
   model_combinations:
     # ── Frontier tier: symmetric ──────────────────────────────────────────
     - name: "sonnet_3_5_symmetric"
-      red: "anthropic.claude-3-5-sonnet-20241022-v2:0"
-      blue: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+      red: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+      blue: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
       tier: frontier
       note: "Primary Frontier comparator"
 
     # ── Frontier tier: Nova Premier Blue-only (NEW) ───────────────────────
     # Red Team fixed to Sonnet — isolates Blue Team capability variable
     - name: "nova_premier_blue_only"
-      red: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+      red: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
       blue: "us.amazon.nova-premier-v1:0"
       tier: frontier
       note: "NEW — Nova Premier Blue Team vs Sonnet Red. Tests whether Amazon Frontier tier outperforms Anthropic Frontier at IaC detection."
@@ -137,8 +137,8 @@ batch_experiments:
 
     # ── Efficient tier ────────────────────────────────────────────────────
     - name: "haiku_3_5_symmetric"
-      red: "anthropic.claude-3-5-haiku-20241022-v1:0"
-      blue: "anthropic.claude-3-5-haiku-20241022-v1:0"
+      red: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+      blue: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
       tier: efficient
       note: "Now formally documented — ran in original E1 but unlabeled"
 

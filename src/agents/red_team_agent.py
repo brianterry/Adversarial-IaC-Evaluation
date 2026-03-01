@@ -933,7 +933,7 @@ BLUE TEAM PROFILE: Ensemble of specialist agents
 
 # Convenience function to create Red Team Agent with Bedrock
 def create_red_team_agent(
-    model_id: str = "anthropic.claude-3-5-haiku-20241022-v1:0",
+    model_id: str = "us.anthropic.claude-3-5-haiku-20241022-v1:0",
     region: str = "us-east-1",
     difficulty: str = "medium",
     cloud_provider: str = "aws",

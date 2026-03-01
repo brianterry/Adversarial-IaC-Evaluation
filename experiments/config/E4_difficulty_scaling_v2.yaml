@@ -26,7 +26,7 @@ region: "us-east-1"
 
 models:
   # Reuse from original E4 (do not re-run these)
-  - id: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  - id: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
     name: "Claude 3.5 Sonnet v2"
     tier: frontier
     reuse: true
@@ -36,7 +36,7 @@ models:
     tier: strong
     reuse: true
 
-  - id: "anthropic.claude-3-5-haiku-20241022-v1:0"
+  - id: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
     name: "Claude 3.5 Haiku"
     tier: efficient
     reuse: true

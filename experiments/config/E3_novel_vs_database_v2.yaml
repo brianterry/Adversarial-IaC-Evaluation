@@ -33,7 +33,7 @@ model_catalog_version: "bedrock-2024-10"
 region: "us-east-1"
 
 models:
-  - id: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  - id: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
     name: "Claude 3.5 Sonnet v2"
     tier: frontier
 
@@ -99,7 +99,7 @@ realtime_experiments:
       blue_mode: single
       red_vuln_source: database
       verification_mode: standard
-      model: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+      model: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
 
     - name: "Novel Vulnerabilities"
       condition: "novel"
@@ -107,7 +107,7 @@ realtime_experiments:
       blue_mode: single
       red_vuln_source: novel
       verification_mode: standard
-      model: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+      model: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
       # VALIDATION FIX: runner must confirm each novel vulnerability
       # exists in generated Terraform before adding to manifest.
       # Check manifest_validation_mode: strict is set in runner config.
@@ -118,7 +118,7 @@ realtime_experiments:
       blue_mode: single
       red_vuln_source: mixed
       verification_mode: standard
-      model: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+      model: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
 
 # ── Validation fix verification ───────────────────────────────────────────────
 # Before running full 180 games, run E0 smoke test with red_vuln_source: novel
