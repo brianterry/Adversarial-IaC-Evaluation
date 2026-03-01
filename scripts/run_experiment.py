@@ -278,6 +278,13 @@ class ExperimentRunner:
                     "hallucination_rate": mv['metrics'].get('hallucination_rate', None),
                 }
             
+            # Also capture ground truth quality from scoring (computed in engine)
+            manifest_metrics["adjusted_recall"] = getattr(scoring, 'adjusted_recall', None)
+            manifest_metrics["phantom_concordance"] = getattr(scoring, 'phantom_concordance', None)
+            # Use scoring's manifest_accuracy if not already set from validation dict
+            if manifest_metrics.get("manifest_accuracy") is None:
+                manifest_metrics["manifest_accuracy"] = getattr(scoring, 'manifest_accuracy', None)
+            
             game_result = {
                 "game_id": game_id,
                 "status": "completed",
@@ -535,7 +542,8 @@ class ExperimentRunner:
             'verification_mode', 'scenario', 'vulns_injected', 'findings', 
             'precision', 'adjusted_precision', 'tool_validated_fps', 'true_fps',
             'recall', 'f1_score', 'evasion_rate',
-            'manifest_accuracy', 'manifest_confirmed', 'manifest_claimed'
+            'manifest_accuracy', 'adjusted_recall', 'phantom_concordance',
+            'manifest_confirmed', 'manifest_claimed'
         ]
         
         lines = [','.join(headers)]
@@ -563,8 +571,10 @@ class ExperimentRunner:
                 f"{scoring['recall']:.4f}",
                 f"{scoring['f1_score']:.4f}",
                 f"{scoring['evasion_rate']:.4f}",
-                # Manifest validation
+                # Manifest validation & ground truth quality
                 f"{mv_acc:.4f}" if (mv_acc := r.get('manifest_validation', {}).get('manifest_accuracy')) is not None else "",
+                f"{adj_r:.4f}" if (adj_r := r.get('manifest_validation', {}).get('adjusted_recall')) is not None else "",
+                f"{pc:.4f}" if (pc := r.get('manifest_validation', {}).get('phantom_concordance')) is not None else "",
                 str(r.get('manifest_validation', {}).get('total_confirmed', '')),
                 str(r.get('manifest_validation', {}).get('total_claimed', '')),
             ]

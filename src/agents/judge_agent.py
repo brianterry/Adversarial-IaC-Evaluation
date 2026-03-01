@@ -103,6 +103,16 @@ class ScoringResult:
     adjusted_precision: float = 0.0  # TP / (TP + true_false_positives)
     tool_validated_fps: List[str] = field(default_factory=list)  # FPs that tools also found
     true_false_positives: List[str] = field(default_factory=list)  # FPs tools didnt find
+    
+    # Ground truth quality metrics (when manifest validation is available)
+    # These are computed post-scoring using manifest_validation data
+    adjusted_recall: Optional[float] = None  # Recall on tool-confirmed vulns only
+    phantom_concordance: Optional[float] = None  # Fraction of detections matching phantom vulns
+    manifest_accuracy: Optional[float] = None  # % of Red Team claims confirmed by tools
+    confirmed_vulns_detected: int = 0  # Tool-confirmed vulns that Blue found
+    confirmed_vulns_total: int = 0  # Total tool-confirmed vulns
+    phantom_vulns_detected: int = 0  # Phantom vulns Blue "found" (shared hallucination)
+    phantom_vulns_total: int = 0  # Total phantom vulns
 
 
 class JudgeAgent:
@@ -893,5 +903,17 @@ def score_results_to_dict(result: ScoringResult) -> Dict[str, Any]:
     
     if result.inter_rater_reliability:
         output["inter_rater_reliability"] = result.inter_rater_reliability.to_dict()
+    
+    # Ground truth quality metrics (when manifest validation was available)
+    if result.manifest_accuracy is not None:
+        output["ground_truth_quality"] = {
+            "manifest_accuracy": result.manifest_accuracy,
+            "adjusted_recall": result.adjusted_recall,
+            "phantom_concordance": result.phantom_concordance,
+            "confirmed_vulns_detected": result.confirmed_vulns_detected,
+            "confirmed_vulns_total": result.confirmed_vulns_total,
+            "phantom_vulns_detected": result.phantom_vulns_detected,
+            "phantom_vulns_total": result.phantom_vulns_total,
+        }
     
     return output

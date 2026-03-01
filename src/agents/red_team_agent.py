@@ -231,6 +231,11 @@ class RedTeamAgent:
         self.logger.info("Step 2: Generating stealthy IaC code")
         code, manifest = await self._generate_vulnerable_iac(scenario, selected_vulns)
         
+        # Step 2.5: Propagate source labels from selected vulns to manifest
+        # The LLM may not preserve is_novel/rule_source in its generated manifest,
+        # so we propagate them from the original selection by matching vuln_id or title.
+        self._propagate_source_labels(selected_vulns, manifest)
+        
         # Step 3: Validate stealth (syntax check)
         self.logger.info("Step 3: Validating stealth")
         stealth_score = await self._verify_stealth(code)
@@ -254,6 +259,80 @@ class RedTeamAgent:
         )
         
         return output
+    
+    def _propagate_source_labels(
+        self,
+        selected_vulns: List[Dict[str, Any]],
+        manifest: List['VulnerabilityManifest'],
+    ) -> None:
+        """
+        Propagate is_novel and rule_source from selected vulns to parsed manifest.
+        
+        The LLM generates code and a manifest, but may not preserve the source
+        labels from the vulnerability selection step. This method matches manifest
+        entries back to selected vulns and copies the labels.
+        
+        Matching priority:
+        1. vuln_id match (V1 → V1)
+        2. Title/description keyword overlap
+        3. Fallback: use the source mode default
+        """
+        if not selected_vulns or not manifest:
+            return
+        
+        # Build lookup from selected vulns
+        selected_by_id = {}
+        for sv in selected_vulns:
+            vid = sv.get("vuln_id", "")
+            if vid:
+                selected_by_id[vid] = sv
+        
+        # Determine fallback from vuln_source mode
+        if self.vuln_source == VulnSource.NOVEL:
+            fallback_novel = True
+            fallback_source = "novel"
+        elif self.vuln_source == VulnSource.DATABASE:
+            fallback_novel = False
+            fallback_source = "database"
+        else:
+            fallback_novel = None  # Mixed — need per-entry matching
+            fallback_source = None
+        
+        propagated = 0
+        for entry in manifest:
+            # Try direct vuln_id match
+            matched_sv = selected_by_id.get(entry.vuln_id)
+            
+            # Try fuzzy match by title if no direct match
+            if not matched_sv and selected_vulns:
+                entry_title = (entry.title or "").lower()
+                for sv in selected_vulns:
+                    sv_title = (sv.get("title", "") or "").lower()
+                    if entry_title and sv_title and (
+                        entry_title in sv_title or sv_title in entry_title
+                    ):
+                        matched_sv = sv
+                        break
+            
+            if matched_sv:
+                entry.is_novel = matched_sv.get("is_novel", fallback_novel or False)
+                entry.rule_source = matched_sv.get("rule_source", fallback_source or "database")
+                if matched_sv.get("rule_id") and not entry.rule_id:
+                    entry.rule_id = matched_sv["rule_id"]
+                propagated += 1
+            elif fallback_novel is not None:
+                # Non-mixed mode: apply mode-level default
+                entry.is_novel = fallback_novel
+                entry.rule_source = fallback_source
+                propagated += 1
+        
+        if propagated > 0:
+            novel_count = sum(1 for e in manifest if e.is_novel)
+            db_count = len(manifest) - novel_count
+            self.logger.info(
+                f"Source labels propagated: {db_count} database, {novel_count} novel "
+                f"(out of {len(manifest)} manifest entries)"
+            )
 
     async def _select_adversarial_vulnerabilities(
         self, scenario: Dict[str, Any], max_retries: int = 3
