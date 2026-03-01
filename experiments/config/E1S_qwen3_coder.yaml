@@ -38,7 +38,7 @@ model_catalog_version: "bedrock-2024-10"
 region: "us-east-1"
 
 red_model:
-  id: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  id: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
   name: "Claude 3.5 Sonnet v2"
   tier: frontier
   note: "Fixed Red Team — same as E1-S for cross-supplementary comparability"
@@ -126,7 +126,7 @@ settings:
 batch_experiments:
   enabled: true
   model_combinations:
-    - red: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    - red: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
       blue: "qwen.qwen3-coder-30b-a3b-v1:0"
 
 realtime_experiments:

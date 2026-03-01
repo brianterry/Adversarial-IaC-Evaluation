@@ -355,7 +355,7 @@ class BlueTeamEnsemble:
 
 
 def create_blue_team_ensemble(
-    model_id: str = "anthropic.claude-3-5-haiku-20241022-v1:0",
+    model_id: str = "us.anthropic.claude-3-5-haiku-20241022-v1:0",
     region: str = "us-east-1",
     language: str = "terraform",
     specialists: Optional[List[str]] = None,

@@ -276,7 +276,7 @@ class RedTeamPipeline:
 
 
 def create_red_team_pipeline(
-    model_id: str = "anthropic.claude-3-5-haiku-20241022-v1:0",
+    model_id: str = "us.anthropic.claude-3-5-haiku-20241022-v1:0",
     region: str = "us-east-1",
     cloud_provider: str = "aws",
     language: str = "terraform",

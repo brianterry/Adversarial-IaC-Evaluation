@@ -839,7 +839,7 @@ class BlueTeamAgent:
 
 # Convenience function to create Blue Team Agent with Bedrock
 def create_blue_team_agent(
-    model_id: str = "anthropic.claude-3-5-haiku-20241022-v1:0",
+    model_id: str = "us.anthropic.claude-3-5-haiku-20241022-v1:0",
     region: str = "us-east-1",
     mode: str = "llm_only",
     language: str = "terraform",
