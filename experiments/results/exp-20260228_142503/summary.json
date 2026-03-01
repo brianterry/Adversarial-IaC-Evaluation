@@ -1,0 +1,76 @@
+{
+  "experiment_id": "exp-20260228_142503",
+  "total_games": 120,
+  "completed_games": 116,
+  "failed_games": 4,
+  "metrics": {
+    "avg_precision": 0.7208538587848933,
+    "avg_recall": 0.9373563218390805,
+    "avg_f1_score": 0.8016451460416978,
+    "avg_evasion_rate": 0.06264367816091954,
+    "total_vulnerabilities": 440,
+    "total_findings": 589
+  },
+  "by_difficulty": {
+    "medium": {
+      "count": 60,
+      "precision": 39.183333333333344,
+      "recall": 56.99999999999999,
+      "f1": 45.98809523809522,
+      "evasion": 3.0,
+      "avg_precision": 0.6530555555555557,
+      "avg_recall": 0.9499999999999998,
+      "avg_f1": 0.7664682539682537,
+      "avg_evasion": 0.05
+    },
+    "hard": {
+      "count": 56,
+      "precision": 44.43571428571429,
+      "recall": 51.733333333333334,
+      "f1": 47.002741702741694,
+      "evasion": 4.266666666666667,
+      "avg_precision": 0.7934948979591837,
+      "avg_recall": 0.9238095238095239,
+      "avg_f1": 0.8393346732632445,
+      "avg_evasion": 0.07619047619047618
+    }
+  },
+  "by_condition": {
+    "standard": {
+      "count": 58,
+      "precision": 41.1904761904762,
+      "recall": 56.733333333333334,
+      "f1": 47.02359307359305,
+      "evasion": 1.2666666666666666,
+      "avg_precision": 0.7101806239737275,
+      "avg_recall": 0.9781609195402299,
+      "avg_f1": 0.8107516047171215,
+      "avg_evasion": 0.021839080459770115
+    },
+    "debate": {
+      "count": 58,
+      "precision": 42.42857142857143,
+      "recall": 52.0,
+      "f1": 45.96724386724386,
+      "evasion": 6.000000000000001,
+      "avg_precision": 0.7315270935960592,
+      "avg_recall": 0.896551724137931,
+      "avg_f1": 0.7925386873662734,
+      "avg_evasion": 0.10344827586206898
+    }
+  },
+  "by_vuln_source": {
+    "database": {
+      "count": 116,
+      "precision": 83.61904761904759,
+      "recall": 108.73333333333332,
+      "f1": 92.99083694083689,
+      "evasion": 7.2666666666666675,
+      "avg_precision": 0.720853858784893,
+      "avg_recall": 0.9373563218390804,
+      "avg_f1": 0.8016451460416973,
+      "avg_evasion": 0.06264367816091955
+    }
+  },
+  "completed_at": "2026-02-28T17:08:44.272209"
+}
