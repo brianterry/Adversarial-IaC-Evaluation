@@ -592,18 +592,26 @@ class JudgeAgent:
         """Calculate match score between a vulnerability and a finding."""
         score = 0.0
         
-        red_resource = red_vuln.get("resource_name", "").lower()
-        blue_resource = blue_finding.get("resource_name", "").lower()
+        # Safe lowercase: handles str, list, None gracefully
+        def _lower(val) -> str:
+            if isinstance(val, str):
+                return val.lower()
+            if isinstance(val, list):
+                return " ".join(str(v) for v in val).lower()
+            return str(val).lower() if val else ""
         
-        red_type = red_vuln.get("type", "").lower()
-        blue_type = blue_finding.get("vulnerability_type", "").lower()
+        red_resource = _lower(red_vuln.get("resource_name", ""))
+        blue_resource = _lower(blue_finding.get("resource_name", ""))
         
-        red_attribute = red_vuln.get("vulnerable_attribute", "").lower()
-        blue_evidence = blue_finding.get("evidence", "").lower()
-        blue_title = blue_finding.get("title", "").lower()
-        blue_description = blue_finding.get("description", "").lower()
+        red_type = _lower(red_vuln.get("type", ""))
+        blue_type = _lower(blue_finding.get("vulnerability_type", ""))
         
-        red_title = red_vuln.get("title", "").lower()
+        red_attribute = _lower(red_vuln.get("vulnerable_attribute", ""))
+        blue_evidence = _lower(blue_finding.get("evidence", ""))
+        blue_title = _lower(blue_finding.get("title", ""))
+        blue_description = _lower(blue_finding.get("description", ""))
+        
+        red_title = _lower(red_vuln.get("title", ""))
         
         if red_resource and blue_resource:
             if red_resource == blue_resource:
