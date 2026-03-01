@@ -1,0 +1,147 @@
+# E1-S: DeepSeek-R1 Supplementary Condition
+# Region: us-east-1
+# Purpose: Test whether reasoning-specialized architecture improves Blue Team
+#          recall at hard difficulty relative to frontier-tier Sonnet.
+#          Parallel structure to E1-S-Q (Qwen3-Coder).
+#
+# Total games: 90 (1 model × 1 difficulty × 30 scenarios × 3 reps)
+# Estimated runtime: 2-3 hours
+# Estimated cost: ~$10-15
+#
+# BEFORE RUNNING:
+#   Verify us.deepseek.r1-v1:0 is activated in us-east-1:
+#   Console → Bedrock → Model access → Third-party models → DeepSeek-R1
+#
+# OUTPUT FORMAT NOTE:
+#   DeepSeek-R1 produces <think>...</think> reasoning blocks via Converse API.
+#   The response_sanitizer.py strips these automatically.
+#   Verify with a single game before running full batch.
+
+name: "E1-S: DeepSeek-R1 Supplementary"
+description: |
+  Reasoning-specialized supplementary condition parallel to E1-S-Q (Qwen3-Coder).
+  Tests whether explicit chain-of-thought reasoning improves IaC vulnerability
+  detection at hard difficulty beyond what general frontier models achieve.
+
+  Hypothesis: DeepSeek-R1's reasoning specialization may improve detection of
+  complex multi-step vulnerabilities (chained IAM escalation, cross-resource
+  misconfigurations) but may not outperform on simple pattern-matching tasks
+  (missing encryption flags, disabled logging) where reasoning overhead adds
+  no value.
+
+  Compare results against:
+    - Claude 3.5 Sonnet hard-difficulty baseline (from E1)
+    - Qwen3-Coder hard-difficulty results (from E1-S-Q)
+  Report all three in a single subsidiary Table in §4.1.
+
+model_catalog_version: "bedrock-2024-10"
+region: "us-east-1"
+
+red_model:
+  id: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+  name: "Claude 3.5 Sonnet v2"
+  tier: frontier
+  note: "Fixed Red Team — same as E1-S-Q for cross-supplementary comparability"
+
+blue_model:
+  id: "us.deepseek.r1-v1:0"
+  name: "DeepSeek-R1"
+  tier: reasoning
+  region: us-east-1
+
+difficulties:
+  - hard
+
+scenarios:
+  # Storage (2)
+  - "Create an S3 bucket for storing sensitive financial reports with audit logging"
+  - "Create an S3 bucket for healthcare PHI data with HIPAA compliance requirements"
+  # Compute (2)
+  - "Create an EC2 instance running a customer-facing API with public access"
+  - "Create a Lambda function that processes payment webhooks with sensitive data"
+  # Database (2)
+  - "Create an RDS PostgreSQL database for a production financial application"
+  - "Create a DynamoDB table for user sessions with encryption at rest"
+  # Network (2)
+  - "Create a VPC with public and private subnets, NAT gateway, and routing"
+  - "Create security groups for a 3-tier web application with strict ingress rules"
+  # IAM (2)
+  - "Create IAM roles and policies for a CI/CD pipeline with least privilege"
+  - "Create cross-account IAM roles for a data analytics team"
+  # Healthcare/HIPAA (4)
+  - "Create infrastructure for a HIPAA-compliant telehealth application"
+  - "Create a secure data pipeline for electronic health records processing"
+  - "Create an API Gateway for a healthcare provider with PHI data handling"
+  - "Create an RDS instance for clinical trial data with encryption and audit"
+  # Financial/PCI-DSS (4)
+  - "Create a PCI-DSS compliant payment processing infrastructure"
+  - "Create a secure microservices architecture for credit card tokenization"
+  - "Create an EKS cluster for a fintech application with network policies"
+  - "Create a data warehouse for financial reporting with column-level security"
+  # Government/FedRAMP (4)
+  - "Create IAM policies following NIST 800-53 access control guidelines"
+  - "Create a FedRAMP-ready government data processing pipeline"
+  - "Create CloudTrail and GuardDuty configuration for a federal workload"
+  - "Create a VPC with FedRAMP-compliant network segmentation"
+  # IAM Infrastructure (4)
+  - "Create service control policies for an AWS Organization with multiple accounts"
+  - "Create IAM permission boundaries for developer sandbox environments"
+  - "Create ABAC policies using IAM tags for a multi-tenant SaaS application"
+  - "Create automated IAM access reviews with Lambda and Config"
+  # Storage Infrastructure (4)
+  - "Create an S3 data lake with Glue catalog and Athena for analytics"
+  - "Create a multi-region S3 replication setup with versioning and MFA delete"
+  - "Create an S3 intelligent tiering configuration with lifecycle policies"
+  - "Create an EFS filesystem with encryption and mount target security groups"
+
+language: terraform
+cloud_provider: aws
+
+red_settings:
+  red_team_mode: single
+  red_strategy: balanced
+  red_vuln_source: database
+  blue_team_profile: null
+
+blue_settings:
+  blue_team_mode: single
+  blue_strategy: comprehensive
+  detection_mode: llm_only
+
+judge_settings:
+  use_llm_judge: true
+  use_consensus_judge: false
+  use_trivy: false
+  use_checkov: false
+
+verification_mode: standard
+
+settings:
+  repetitions: 3
+  delay_between_games: 5
+  save_intermediate: true
+  output_dir: "experiments/results/exp1s_deepseek_r1"
+  label: "E1-S"
+
+batch_experiments:
+  enabled: true
+  model_combinations:
+    - red: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+      blue: "us.deepseek.r1-v1:0"
+
+realtime_experiments:
+  enabled: false
+
+# ── Expected analysis ─────────────────────────────────────────────────────────
+# Subsidiary Table in §4.1 (all three hard-difficulty supplementary results):
+#
+# | Model            | Tier           | Hard Recall | Hard F1 | Hard Evasion |
+# |------------------|----------------|-------------|---------|--------------|
+# | Sonnet 3.5       | Frontier       | [from E1]   | [E1]    | [E1]         |
+# | DeepSeek-R1      | Reasoning      | —           | —       | —            |
+# | Qwen3-Coder-30B  | Code-Spec      | [from E1-S-Q] | [E1-S-Q] | [E1-S-Q] |
+#
+# Interpretation:
+#   - If DeepSeek-R1 ≈ Sonnet: reasoning specialization provides no detection advantage
+#   - If DeepSeek-R1 > Sonnet: explicit reasoning aids IaC vulnerability detection
+#   - Compare DeepSeek vs Qwen: does reasoning or code specialization help more?

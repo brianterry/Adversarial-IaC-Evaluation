@@ -374,33 +374,58 @@ class GameEngine:
             f"mode={config.red_team_mode}, stealth={red_output.stealth_score}, time={red_time:.1f}s"
         )
         
-        # Phase 1.5: Validate Red Team manifest (ground truth verification)
+        # Phase 1.5: Manifest Validation Gate (ground truth verification)
+        # This is load-bearing: without it, recall is measured against hallucinated ground truth.
+        # Partitions manifest into confirmed (scored) and phantom (excluded from scoring).
         manifest_validation = None
+        gate_result = None
+        phantom_manifest = []
+        
         if config.use_trivy or config.use_checkov:
-            self.logger.info("Validating Red Team manifest with static tools...")
-            # Convert VulnerabilityManifest dataclass objects to dicts for validator
+            self.logger.info("Running manifest validation gate with static tools...")
+            from src.validation.manifest_gate import run_manifest_gate
+            from dataclasses import asdict
+            
+            # Convert VulnerabilityManifest dataclass objects to dicts for gate
             manifest_dicts = []
             for v in red_output.manifest:
                 if hasattr(v, '__dataclass_fields__'):
-                    from dataclasses import asdict
                     manifest_dicts.append(asdict(v))
                 elif isinstance(v, dict):
                     manifest_dicts.append(v)
                 else:
                     manifest_dicts.append({"vuln_id": str(v)})
             
-            manifest_validation = self._validate_manifest(
-                red_output.code,
-                manifest_dicts,
-                config.use_trivy,
-                config.use_checkov,
-                config.language,
+            gate_result = run_manifest_gate(
+                code=red_output.code,
+                manifest=manifest_dicts,
+                use_trivy=config.use_trivy,
+                use_checkov=config.use_checkov,
+                language=config.language,
             )
-            if manifest_validation:
-                self.logger.info(
-                    f"Manifest validation: {manifest_validation['metrics']['manifest_accuracy']:.1%} accuracy "
-                    f"({manifest_validation['metrics']['total_confirmed']}/{manifest_validation['metrics']['total_claimed']} confirmed)"
-                )
+            
+            # Build manifest_validation dict for backward compatibility
+            manifest_validation = gate_result.to_dict()
+            manifest_validation["metrics"] = {
+                "manifest_accuracy": gate_result.manifest_accuracy,
+                "total_claimed": gate_result.total_count,
+                "total_confirmed": gate_result.confirmed_count,
+                "total_unconfirmed": gate_result.phantom_count,
+                "hallucination_rate": 1.0 - gate_result.manifest_accuracy,
+            }
+            
+            # Replace the scoring manifest with confirmed-only entries
+            # Phantom entries are excluded from ground truth
+            scored_manifest_dicts = gate_result.confirmed
+            phantom_manifest = gate_result.phantom
+            
+            self.logger.info(
+                f"Manifest gate: {gate_result.confirmed_count}/{gate_result.total_count} confirmed "
+                f"({gate_result.manifest_accuracy:.0%}), {gate_result.phantom_count} phantom excluded from scoring"
+            )
+        else:
+            # No tools — use full manifest as ground truth (no validation)
+            scored_manifest_dicts = None  # Signal to use original manifest below
         
         # Phase 2: Blue Team Defense
         self.logger.info(f"Phase 2: Blue Team analyzing code (mode={config.blue_team_mode})")
@@ -452,19 +477,31 @@ class GameEngine:
         )
         
         # Convert manifest to dict format for judge
-        manifest_dicts = [
-            {
-                "vuln_id": v.vuln_id,
-                "rule_id": v.rule_id,
-                "title": v.title,
-                "type": v.type,
-                "severity": v.severity,
-                "resource_name": v.resource_name,
-                "resource_type": v.resource_type,
-                "vulnerable_attribute": v.vulnerable_attribute,
-            }
-            for v in red_output.manifest
-        ]
+        # If manifest gate ran, use confirmed-only entries; otherwise use full manifest
+        if scored_manifest_dicts is not None:
+            # Gate ran — use confirmed entries only as ground truth
+            manifest_dicts = scored_manifest_dicts
+            self.logger.info(
+                f"Scoring against {len(manifest_dicts)} confirmed vulns "
+                f"({len(phantom_manifest)} phantom excluded)"
+            )
+        else:
+            # No gate — convert full manifest to dicts
+            manifest_dicts = [
+                {
+                    "vuln_id": v.vuln_id,
+                    "rule_id": v.rule_id,
+                    "title": v.title,
+                    "type": v.type,
+                    "severity": v.severity,
+                    "resource_name": v.resource_name,
+                    "resource_type": v.resource_type,
+                    "vulnerable_attribute": v.vulnerable_attribute,
+                    "is_novel": v.is_novel,
+                    "rule_source": v.rule_source,
+                }
+                for v in red_output.manifest
+            ]
         
         findings_dicts = [
             {
@@ -573,6 +610,44 @@ class GameEngine:
             irr = scoring.inter_rater_reliability
             self.logger.info(f"Inter-rater reliability: κ={irr.mean_kappa:.3f} (range: {irr.kappa_range[0]:.3f}-{irr.kappa_range[1]:.3f})")
         
+        # Compute ground truth quality metrics if manifest validation gate ran
+        if gate_result is not None:
+            # Use gate_result directly — it has the authoritative confirmed/phantom partition
+            confirmed_ids = set(manifest_validation.get("confirmed_vuln_ids", []))
+            phantom_ids = set(manifest_validation.get("phantom_vuln_ids", []))
+            
+            # Get detected vuln IDs from scoring matches
+            detected_ids = set()
+            for match in scoring.matches:
+                if match.match_type in ("exact", "partial", "corroborated"):
+                    detected_ids.add(match.red_vuln_id)
+            
+            confirmed_detected = len(confirmed_ids & detected_ids)
+            confirmed_total = gate_result.confirmed_count
+            phantom_total = gate_result.phantom_count
+            total_claimed = gate_result.total_count
+            
+            # Phantom detections = Blue "found" something that doesn't exist
+            # These are detections against the FULL original manifest, not just scored
+            # We need to check Blue findings against phantom vuln IDs too
+            phantom_detected = 0  # Will be computed from full game data in post-analysis
+            
+            scoring.confirmed_vulns_detected = confirmed_detected
+            scoring.confirmed_vulns_total = confirmed_total
+            scoring.phantom_vulns_detected = phantom_detected
+            scoring.phantom_vulns_total = phantom_total
+            scoring.manifest_accuracy = gate_result.manifest_accuracy
+            scoring.adjusted_recall = confirmed_detected / confirmed_total if confirmed_total > 0 else None
+            
+            total_detections = confirmed_detected + phantom_detected
+            scoring.phantom_concordance = phantom_detected / total_detections if total_detections > 0 else 0.0
+            
+            self.logger.info(
+                f"Ground truth quality: manifest_acc={scoring.manifest_accuracy:.1%}, "
+                f"confirmed={confirmed_total}/{total_claimed}, "
+                + (f"adj_recall={scoring.adjusted_recall:.1%}" if scoring.adjusted_recall is not None else "adj_recall=N/A (0 confirmed)")
+            )
+        
         # Stop capturing logs and get content
         log_content = self._stop_game_logging()
         
@@ -674,10 +749,25 @@ class GameEngine:
                 "vulnerable_attribute": v.vulnerable_attribute,
                 "vulnerable_value": v.vulnerable_value,
                 "stealth_technique": v.stealth_technique,
+                "is_novel": v.is_novel,
+                "rule_source": v.rule_source,
             }
             for v in result.red_output.manifest
         ]
         (game_dir / "red_manifest.json").write_text(json.dumps(manifest_data, indent=2))
+        
+        # Save gated manifests (scored vs phantom) if validation ran
+        if result.manifest_validation:
+            confirmed_ids = set(result.manifest_validation.get("confirmed_vuln_ids", []))
+            phantom_ids = set(result.manifest_validation.get("phantom_vuln_ids", []))
+            
+            # Scored manifest — only tool-confirmed entries (used as ground truth)
+            scored = [v for v in manifest_data if v.get("vuln_id") in confirmed_ids]
+            (game_dir / "scored_manifest.json").write_text(json.dumps(scored, indent=2))
+            
+            # Phantom manifest — entries not confirmed by tools (excluded from scoring)
+            phantom = [v for v in manifest_data if v.get("vuln_id") in phantom_ids]
+            (game_dir / "phantom_manifest.json").write_text(json.dumps(phantom, indent=2))
         
         # Save findings
         findings_data = [
