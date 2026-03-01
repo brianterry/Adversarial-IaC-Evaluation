@@ -403,7 +403,7 @@ class DebateVerificationAgent:
 
 
 def create_debate_verification_agent(
-    model_id: str = "us.anthropic.claude-3-5-haiku-20241022-v1:0",
+    model_id: str = "anthropic.claude-3-5-haiku-20241022-v1:0",
     region: str = "us-east-1",
     language: str = "terraform",
     run_parallel: bool = True,

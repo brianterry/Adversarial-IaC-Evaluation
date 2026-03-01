@@ -44,22 +44,39 @@ class ExperimentRunner:
         config_path: str,
         output_dir: str = "experiments/results",
         upload_to_s3: bool = False,
-        region: str = "us-west-2",
-        delay_between_games: float = 2.0,
+        region: str = None,
+        delay_between_games: float = None,
     ):
         self.config_path = Path(config_path)
-        self.output_dir = Path(output_dir)
         self.upload_to_s3 = upload_to_s3
-        self.region = region
-        self.delay_between_games = delay_between_games
         
         # Load config
         with open(self.config_path) as f:
             self.config = yaml.safe_load(f)
         
-        # Generate experiment ID
-        self.experiment_id = f"exp-{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
-        self.experiment_dir = self.output_dir / self.experiment_id
+        # YAML config overrides for settings (CLI args take precedence if set)
+        yaml_settings = self.config.get('settings', {})
+        yaml_output_dir = yaml_settings.get('output_dir')
+        yaml_delay = yaml_settings.get('delay_between_games')
+        yaml_region = self.config.get('region')
+        
+        # Resolve region: CLI > YAML > env > default
+        default_region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-east-1"
+        self.region = region or yaml_region or default_region
+        
+        # Resolve delay: CLI > YAML > default
+        self.delay_between_games = delay_between_games if delay_between_games is not None else (yaml_delay or 2.0)
+        
+        # Resolve output_dir: YAML output_dir creates exact path, else timestamped
+        if yaml_output_dir:
+            self.output_dir = Path(yaml_output_dir)
+            self.experiment_id = Path(yaml_output_dir).name
+            self.experiment_dir = self.output_dir
+        else:
+            self.output_dir = Path(output_dir)
+            self.experiment_id = f"exp-{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            self.experiment_dir = self.output_dir / self.experiment_id
+        
         self.experiment_dir.mkdir(parents=True, exist_ok=True)
         
         # S3 client (lazy init)
@@ -352,6 +369,14 @@ class ExperimentRunner:
         }
         (self.experiment_dir / "progress.json").write_text(json.dumps(progress, indent=2))
     
+    @staticmethod
+    def _std(values):
+        """Calculate standard deviation."""
+        if len(values) < 2:
+            return 0.0
+        m = sum(values) / len(values)
+        return (sum((x - m) ** 2 for x in values) / (len(values) - 1)) ** 0.5
+
     def _generate_summary(self) -> Dict:
         """Generate experiment summary."""
         if not self.results:
@@ -359,11 +384,20 @@ class ExperimentRunner:
         
         # Calculate aggregate metrics
         n = len(self.results)
+        p_vals = [r['scoring']['precision'] for r in self.results]
+        r_vals = [r['scoring']['recall'] for r in self.results]
+        f_vals = [r['scoring']['f1_score'] for r in self.results]
+        e_vals = [r['scoring']['evasion_rate'] for r in self.results]
+        
         metrics = {
-            "avg_precision": sum(r['scoring']['precision'] for r in self.results) / n,
-            "avg_recall": sum(r['scoring']['recall'] for r in self.results) / n,
-            "avg_f1_score": sum(r['scoring']['f1_score'] for r in self.results) / n,
-            "avg_evasion_rate": sum(r['scoring']['evasion_rate'] for r in self.results) / n,
+            "avg_precision": sum(p_vals) / n,
+            "std_precision": self._std(p_vals),
+            "avg_recall": sum(r_vals) / n,
+            "std_recall": self._std(r_vals),
+            "avg_f1_score": sum(f_vals) / n,
+            "std_f1_score": self._std(f_vals),
+            "avg_evasion_rate": sum(e_vals) / n,
+            "std_evasion_rate": self._std(e_vals),
             "total_vulnerabilities": sum(r['vulnerabilities_injected'] for r in self.results),
             "total_findings": sum(r['findings_detected'] for r in self.results),
         }
@@ -450,10 +484,10 @@ class ExperimentRunner:
         logger.info(f"Experiment ID: {self.experiment_id}")
         logger.info(f"Total Games: {summary['total_games']} ({summary['completed_games']} completed, {summary['failed_games']} failed)")
         logger.info(f"\nAggregate Metrics:")
-        logger.info(f"  Avg Precision:    {metrics['avg_precision']:.1%}")
-        logger.info(f"  Avg Recall:       {metrics['avg_recall']:.1%}")
-        logger.info(f"  Avg F1 Score:     {metrics['avg_f1_score']:.1%}")
-        logger.info(f"  Avg Evasion Rate: {metrics['avg_evasion_rate']:.1%}")
+        logger.info(f"  Avg Precision:    {metrics['avg_precision']:.1%} ± {metrics['std_precision']:.1%}")
+        logger.info(f"  Avg Recall:       {metrics['avg_recall']:.1%} ± {metrics['std_recall']:.1%}")
+        logger.info(f"  Avg F1 Score:     {metrics['avg_f1_score']:.1%} ± {metrics['std_f1_score']:.1%}")
+        logger.info(f"  Avg Evasion Rate: {metrics['avg_evasion_rate']:.1%} ± {metrics['std_evasion_rate']:.1%}")
         logger.info(f"\nBy Difficulty:")
         for diff, data in by_difficulty.items():
             logger.info(f"  {diff}: F1={data['avg_f1']:.1%}, Evasion={data['avg_evasion']:.1%} (n={data['count']})")

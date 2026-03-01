@@ -12,17 +12,17 @@ from typing import Dict, List, Optional, Tuple
 MODEL_REGISTRY: Dict[str, Dict[str, str]] = {
     # Tier 1: Frontier Models (best quality, highest cost)
     "frontier": {
-        "claude-3.5-sonnet": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
-        "claude-3-opus": "us.anthropic.claude-3-opus-20240229-v1:0",
-        "nova-premier": "amazon.nova-premier-v1:0",
+        "claude-3.5-sonnet": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+        "claude-3-opus": "anthropic.claude-3-opus-20240229-v1:0",
+        "nova-premier": "us.amazon.nova-premier-v1:0",
         "llama-3.3-70b": "us.meta.llama3-3-70b-instruct-v1:0",
         "mistral-large-3": "mistral.mistral-large-3-675b-instruct",
     },
     
     # Tier 2: Strong Models (good balance of quality and cost)
     "strong": {
-        "claude-3.5-haiku": "us.anthropic.claude-3-5-haiku-20241022-v1:0",
-        "claude-3-sonnet": "us.anthropic.claude-3-sonnet-20240229-v1:0",
+        "claude-3.5-haiku": "anthropic.claude-3-5-haiku-20241022-v1:0",
+        "claude-3-sonnet": "anthropic.claude-3-sonnet-20240229-v1:0",
         "nova-pro": "amazon.nova-pro-v1:0",
         "llama-3.1-70b": "us.meta.llama3-1-70b-instruct-v1:0",
         "mistral-large": "mistral.mistral-large-2407-v1:0",
@@ -31,7 +31,7 @@ MODEL_REGISTRY: Dict[str, Dict[str, str]] = {
     
     # Tier 3: Efficient Models (fast and cheap, good for development)
     "efficient": {
-        "claude-3-haiku": "us.anthropic.claude-3-haiku-20240307-v1:0",
+        "claude-3-haiku": "anthropic.claude-3-haiku-20240307-v1:0",
         "nova-lite": "amazon.nova-lite-v1:0",
         "nova-micro": "amazon.nova-micro-v1:0",
         "llama-3.1-8b": "us.meta.llama3-1-8b-instruct-v1:0",
@@ -41,7 +41,8 @@ MODEL_REGISTRY: Dict[str, Dict[str, str]] = {
     
     # Tier 4: Specialized/Experimental Models
     "specialized": {
-        "deepseek-r1": "deepseek.deepseek-r1-v1:0",
+        "deepseek-r1": "us.deepseek.r1-v1:0",
+        "qwen3-coder": "qwen.qwen3-coder-30b-a3b-v1:0",
         "jamba-1.5-large": "ai21.jamba-1-5-large-v1:0",
         "jamba-1.5-mini": "ai21.jamba-1-5-mini-v1:0",
         "command-r": "cohere.command-r-v1:0",
@@ -74,8 +75,8 @@ TIER_INFO = {
 
 # Default models for quick selection
 DEFAULT_MODELS = {
-    "recommended": ("claude-3.5-sonnet", "us.anthropic.claude-3-5-sonnet-20241022-v2:0"),
-    "fast": ("claude-3.5-haiku", "us.anthropic.claude-3-5-haiku-20241022-v1:0"),
+    "recommended": ("claude-3.5-sonnet", "anthropic.claude-3-5-sonnet-20241022-v2:0"),
+    "fast": ("claude-3.5-haiku", "anthropic.claude-3-5-haiku-20241022-v1:0"),
     "cheap": ("nova-lite", "amazon.nova-lite-v1:0"),
 }
 

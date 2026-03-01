@@ -1,0 +1,154 @@
+# E1: Model Capability Stratification — v2 (Corrected Model Catalog)
+# Region: us-east-1
+# Changes from original:
+#   - Llama 3.1 70B → Llama 3.3 70B (corrected version)
+#   - Nova Premier added as Frontier Blue-only comparator (new condition)
+#   - Claude 3.5 Haiku formally added as Efficient tier (was undocumented)
+#   - All model IDs verified against us-east-1 Bedrock Model Access
+#
+# Total games: 450
+#   Sonnet symmetric:        90  (30 scenarios × 3 diff × 3 reps)
+#   Nova Premier Blue-only:  90  (30 scenarios × 3 diff × 3 reps) ← NEW
+#   Nova Pro symmetric:      90  (30 scenarios × 3 diff × 3 reps)
+#   Llama 3.3 symmetric:     90  (30 scenarios × 3 diff × 3 reps) ← CORRECTED
+#   Haiku symmetric:         90  (30 scenarios × 3 diff × 3 reps)
+#
+# Estimated runtime: 8-10 hours
+# Estimated cost: ~$35-50
+
+name: "E1: Model Capability Stratification v2"
+description: |
+  Core benchmark comparing model capability tiers at IaC security detection.
+  Same model serves as both Red and Blue Team (symmetric) except Nova Premier,
+  which runs Blue-only with Sonnet Red Team to isolate Blue Team capability.
+
+  Model tier definitions:
+    Frontier:  Claude 3.5 Sonnet, Nova Premier
+    Strong:    Nova Pro, Llama 3.3 70B
+    Efficient: Claude 3.5 Haiku
+
+model_catalog_version: "bedrock-2024-10"
+region: "us-east-1"
+
+language: terraform
+cloud_provider: aws
+
+difficulties:
+  - easy
+  - medium
+  - hard
+
+scenarios:
+  # Storage (2)
+  - "Create an S3 bucket for storing application logs with retention policies"
+  - "Create an S3 bucket for healthcare PHI data with HIPAA compliance"
+  # Compute (2)
+  - "Create an EC2 instance with a web server for public access"
+  - "Create a Lambda function that processes user uploads from S3"
+  # Database (2)
+  - "Create an RDS PostgreSQL database for a production web application"
+  - "Create a DynamoDB table for user sessions with encryption"
+  # Network (2)
+  - "Create a VPC with public and private subnets and NAT gateway"
+  - "Create security groups for a 3-tier web application"
+  # IAM (2)
+  - "Create IAM roles and policies for a CI/CD pipeline"
+  - "Create cross-account IAM roles for a data analytics team"
+  # Healthcare/HIPAA (4)
+  - "Create infrastructure for a HIPAA-compliant telehealth application"
+  - "Create a secure data pipeline for electronic health records"
+  - "Create an API Gateway for a healthcare provider with PHI handling"
+  - "Create an RDS instance for clinical trial data with audit logging"
+  # Financial/PCI-DSS (4)
+  - "Create a PCI-DSS compliant payment processing infrastructure"
+  - "Create a secure microservices architecture for credit card tokenization"
+  - "Create an EKS cluster for a fintech application with network policies"
+  - "Create a data warehouse for financial reporting with column-level security"
+  # Government/FedRAMP (4)
+  - "Create IAM policies following NIST 800-53 access control guidelines"
+  - "Create a FedRAMP-ready government data processing pipeline"
+  - "Create CloudTrail and GuardDuty configuration for a federal workload"
+  - "Create a VPC with FedRAMP-compliant network segmentation"
+  # IAM Infrastructure (4)
+  - "Create service control policies for an AWS Organization"
+  - "Create IAM permission boundaries for developer sandbox environments"
+  - "Create ABAC policies using IAM tags for a multi-tenant SaaS application"
+  - "Create automated IAM access reviews with Lambda and Config"
+  # Storage Infrastructure (4)
+  - "Create an S3 data lake with Glue catalog and Athena for analytics"
+  - "Create a multi-region S3 replication setup with versioning and MFA delete"
+  - "Create an S3 intelligent tiering configuration with lifecycle policies"
+  - "Create an EFS filesystem with encryption and mount target security groups"
+
+red_settings:
+  red_team_mode: single
+  red_strategy: balanced
+  red_vuln_source: database
+  blue_team_profile: null
+
+blue_settings:
+  blue_team_mode: single
+  blue_strategy: comprehensive
+  detection_mode: llm_only
+
+judge_settings:
+  use_llm_judge: true
+  use_consensus_judge: false
+  use_trivy: false
+  use_checkov: false
+
+verification_mode: standard
+
+settings:
+  repetitions: 3
+  delay_between_games: 2
+  save_intermediate: true
+  output_dir: "experiments/results/exp1_stratification_v2"
+
+batch_experiments:
+  enabled: true
+  model_combinations:
+    # ── Frontier tier: symmetric ──────────────────────────────────────────
+    - name: "sonnet_3_5_symmetric"
+      red: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+      blue: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+      tier: frontier
+      note: "Primary Frontier comparator"
+
+    # ── Frontier tier: Nova Premier Blue-only (NEW) ───────────────────────
+    # Red Team fixed to Sonnet — isolates Blue Team capability variable
+    - name: "nova_premier_blue_only"
+      red: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+      blue: "us.amazon.nova-premier-v1:0"
+      tier: frontier
+      note: "NEW — Nova Premier Blue Team vs Sonnet Red. Tests whether Amazon Frontier tier outperforms Anthropic Frontier at IaC detection."
+
+    # ── Strong tier ───────────────────────────────────────────────────────
+    - name: "nova_pro_symmetric"
+      red: "amazon.nova-pro-v1:0"
+      blue: "amazon.nova-pro-v1:0"
+      tier: strong
+
+    - name: "llama_3_3_70b_symmetric"
+      red: "us.meta.llama3-3-70b-instruct-v1:0"
+      blue: "us.meta.llama3-3-70b-instruct-v1:0"
+      tier: strong
+      note: "CORRECTED — was llama3-1-70b in original run"
+
+    # ── Efficient tier ────────────────────────────────────────────────────
+    - name: "haiku_3_5_symmetric"
+      red: "anthropic.claude-3-5-haiku-20241022-v1:0"
+      blue: "anthropic.claude-3-5-haiku-20241022-v1:0"
+      tier: efficient
+      note: "Now formally documented — ran in original E1 but unlabeled"
+
+realtime_experiments:
+  enabled: false
+
+# ── Analysis notes ────────────────────────────────────────────────────────────
+# Primary comparison: Blue Team recall and F1 by tier across difficulty levels
+# Key question: Does Nova Premier (Frontier Amazon) outperform Sonnet (Frontier Anthropic)?
+#   If yes → Amazon model family advantage at AWS-specific IaC tasks
+#   If no  → Capability parity at Frontier tier; Nova Pro result is genuinely surprising
+# Precision bottleneck: report precision separately — overdetection is the primary failure mode
+# Report nova_premier_blue_only results in subsidiary table, clearly labeled

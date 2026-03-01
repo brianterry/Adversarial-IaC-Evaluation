@@ -1,0 +1,114 @@
+# E4: Difficulty Scaling — v2 (Llama 3.3 Correction)
+# Region: us-east-1
+# Changes from original:
+#   - Llama 3.1 70B → Llama 3.3 70B (90 new games)
+#   - Sonnet, Nova Pro, Haiku games reusable from original E4 run
+#   - Haiku now formally documented in model catalog
+#
+# Total games: 270 (reuse 180, new 90)
+# New games only: Llama 3.3 70B (3 difficulties × 10 scenarios × 3 reps = 90)
+# Estimated runtime: 2-3 hours (Llama 3.3 games only)
+# Estimated cost: ~$8-12
+
+name: "E4: Difficulty Scaling v2"
+description: |
+  Validates that difficulty levels produce consistent recall gradients across models.
+  Llama 3.1 corrected to Llama 3.3. Sonnet, Nova Pro, and Haiku results are
+  reused from original E4 — verify YAML settings match before claiming reuse.
+
+  The difficulty inversion finding (hard F1 > medium F1) was universal across
+  all models in the original run. Confirming it holds for Llama 3.3 strengthens
+  the claim that it is a structural property of the benchmark rather than a
+  model-specific artifact.
+
+model_catalog_version: "bedrock-2024-10"
+region: "us-east-1"
+
+models:
+  # Reuse from original E4 (do not re-run these)
+  - id: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    name: "Claude 3.5 Sonnet v2"
+    tier: frontier
+    reuse: true
+
+  - id: "amazon.nova-pro-v1:0"
+    name: "Nova Pro"
+    tier: strong
+    reuse: true
+
+  - id: "anthropic.claude-3-5-haiku-20241022-v1:0"
+    name: "Claude 3.5 Haiku"
+    tier: efficient
+    reuse: true
+
+  # NEW — replaces Llama 3.1 (run only this model)
+  - id: "us.meta.llama3-3-70b-instruct-v1:0"
+    name: "Llama 3.3 70B"
+    tier: strong
+    reuse: false
+    note: "CORRECTED — was llama3-1-70b-instruct-v1:0 in original E4"
+
+difficulties:
+  - easy
+  - medium
+  - hard
+
+scenarios:
+  - "Create an S3 bucket for application logs"
+  - "Create an EC2 instance for a web application"
+  - "Create a Lambda function for data processing"
+  - "Create an RDS PostgreSQL database"
+  - "Create a VPC with public and private subnets"
+  - "Create IAM roles for a development team"
+  - "Create an SQS queue for order processing"
+  - "Create a DynamoDB table for session storage"
+  - "Create an API Gateway REST API"
+  - "Create an ECS Fargate service"
+
+language: terraform
+cloud_provider: aws
+
+red_settings:
+  red_team_mode: single
+  red_strategy: balanced
+  red_vuln_source: database
+  blue_team_profile: null
+
+blue_settings:
+  blue_team_mode: single
+  blue_strategy: comprehensive
+  detection_mode: llm_only
+
+judge_settings:
+  use_llm_judge: true
+  use_consensus_judge: false
+  use_trivy: false
+  use_checkov: false
+
+verification_mode: standard
+
+settings:
+  repetitions: 3
+  delay_between_games: 2
+  save_intermediate: true
+  output_dir: "experiments/results/exp4_difficulty_v2"
+
+batch_experiments:
+  enabled: true
+  # Run Llama 3.3 only — Sonnet, Nova Pro, Haiku reused from original
+  model_combinations:
+    - name: "llama_3_3_70b_symmetric"
+      red: "us.meta.llama3-3-70b-instruct-v1:0"
+      blue: "us.meta.llama3-3-70b-instruct-v1:0"
+      tier: strong
+
+realtime_experiments:
+  enabled: false
+
+# ── Analysis ──────────────────────────────────────────────────────────────────
+# Merge Llama 3.3 results with reused Sonnet/Nova Pro/Haiku results for
+# the final E4 results table. Report all four models together.
+# Primary check: does the difficulty inversion (hard F1 > medium F1) hold
+# for Llama 3.3 as it did for Llama 3.1? If yes, inversion is universal.
+# If no, investigate whether Llama 3.3's stronger capability changes the
+# density dynamics at hard difficulty.
