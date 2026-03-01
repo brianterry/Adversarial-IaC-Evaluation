@@ -203,7 +203,7 @@ def scenarios(category: str, domain: str):
 @click.option(
     "--model",
     "-m",
-    default="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+    default="anthropic.claude-3-5-haiku-20241022-v1:0",
     help="Bedrock model ID",
 )
 @click.option(
@@ -412,7 +412,7 @@ async def _run_red_team(
 @click.option(
     "--model",
     "-m",
-    default="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+    default="anthropic.claude-3-5-haiku-20241022-v1:0",
     help="Bedrock model ID for analysis",
 )
 @click.option(
@@ -761,12 +761,12 @@ def score(red_dir: str, blue_dir: str, output_dir: str):
 )
 @click.option(
     "--red-model",
-    default="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+    default="anthropic.claude-3-5-haiku-20241022-v1:0",
     help="Model for Red Team",
 )
 @click.option(
     "--blue-model",
-    default="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+    default="anthropic.claude-3-5-haiku-20241022-v1:0",
     help="Model for Blue Team",
 )
 @click.option(
@@ -1388,11 +1388,11 @@ def play():
         # Quick picks at the top
         choices.append(questionary.Choice(
             "⭐ claude-3.5-sonnet (Recommended - best quality)",
-            "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+            "anthropic.claude-3-5-sonnet-20241022-v2:0"
         ))
         choices.append(questionary.Choice(
             "⚡ claude-3.5-haiku (Fast - good balance)",
-            "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+            "anthropic.claude-3-5-haiku-20241022-v1:0"
         ))
         choices.append(questionary.Choice(
             "💰 nova-lite (Cheap - for testing)",
@@ -2543,7 +2543,7 @@ def show_results(experiment_dir: str, detailed: bool):
 @click.option(
     "--model",
     "-m",
-    default="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+    default="anthropic.claude-3-5-haiku-20241022-v1:0",
     help="Model ID for LLM analysis",
 )
 @click.option("--region", default="us-east-1", help="AWS region")

@@ -44,22 +44,39 @@ class ExperimentRunner:
         config_path: str,
         output_dir: str = "experiments/results",
         upload_to_s3: bool = False,
-        region: str = "us-west-2",
-        delay_between_games: float = 2.0,
+        region: str = None,
+        delay_between_games: float = None,
     ):
         self.config_path = Path(config_path)
-        self.output_dir = Path(output_dir)
         self.upload_to_s3 = upload_to_s3
-        self.region = region
-        self.delay_between_games = delay_between_games
         
         # Load config
         with open(self.config_path) as f:
             self.config = yaml.safe_load(f)
         
-        # Generate experiment ID
-        self.experiment_id = f"exp-{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
-        self.experiment_dir = self.output_dir / self.experiment_id
+        # YAML config overrides for settings (CLI args take precedence if set)
+        yaml_settings = self.config.get('settings', {})
+        yaml_output_dir = yaml_settings.get('output_dir')
+        yaml_delay = yaml_settings.get('delay_between_games')
+        yaml_region = self.config.get('region')
+        
+        # Resolve region: CLI > YAML > env > default
+        default_region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-east-1"
+        self.region = region or yaml_region or default_region
+        
+        # Resolve delay: CLI > YAML > default
+        self.delay_between_games = delay_between_games if delay_between_games is not None else (yaml_delay or 2.0)
+        
+        # Resolve output_dir: YAML output_dir creates exact path, else timestamped
+        if yaml_output_dir:
+            self.output_dir = Path(yaml_output_dir)
+            self.experiment_id = Path(yaml_output_dir).name
+            self.experiment_dir = self.output_dir
+        else:
+            self.output_dir = Path(output_dir)
+            self.experiment_id = f"exp-{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            self.experiment_dir = self.output_dir / self.experiment_id
+        
         self.experiment_dir.mkdir(parents=True, exist_ok=True)
         
         # S3 client (lazy init)

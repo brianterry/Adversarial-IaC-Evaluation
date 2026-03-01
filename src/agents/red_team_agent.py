@@ -20,6 +20,8 @@ from typing import Any, Dict, List, Optional
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 
+from src.utils.response_sanitizer import sanitize_llm_response
+
 from ..utils.vulnerability_db import VulnerabilityDatabase
 from ..prompts import AdversarialPrompts, ScenarioTemplates, RedTeamStrategyPrompts, NovelVulnerabilityPrompts
 
@@ -620,6 +622,10 @@ BLUE TEAM PROFILE: Ensemble of specialist agents
             self.logger.info(f"LLM response: {len(content)} chars")
             self.logger.debug(f"Response preview: {content[:500] if content else 'EMPTY'}")
             
+            # Sanitize response (strips <think> blocks, markdown fences, etc.)
+            model_id = getattr(self.llm, 'model_id', '') or getattr(self.llm, 'model', '') or ''
+            content = sanitize_llm_response(content, model_id=str(model_id))
+            
             return content
         except Exception as e:
             self.logger.error(f"LLM invocation failed: {e}")
@@ -927,7 +933,7 @@ BLUE TEAM PROFILE: Ensemble of specialist agents
 
 # Convenience function to create Red Team Agent with Bedrock
 def create_red_team_agent(
-    model_id: str = "us.anthropic.claude-3-5-haiku-20241022-v1:0",
+    model_id: str = "anthropic.claude-3-5-haiku-20241022-v1:0",
     region: str = "us-east-1",
     difficulty: str = "medium",
     cloud_provider: str = "aws",
