@@ -267,6 +267,17 @@ class ExperimentRunner:
             # Extract scoring from result
             scoring = result.scoring
             
+            # Extract manifest validation if available
+            mv = getattr(result, 'manifest_validation', None)
+            manifest_metrics = {}
+            if mv and isinstance(mv, dict) and 'metrics' in mv:
+                manifest_metrics = {
+                    "manifest_accuracy": mv['metrics'].get('manifest_accuracy', None),
+                    "total_claimed": mv['metrics'].get('total_claimed', 0),
+                    "total_confirmed": mv['metrics'].get('total_confirmed', 0),
+                    "hallucination_rate": mv['metrics'].get('hallucination_rate', None),
+                }
+            
             game_result = {
                 "game_id": game_id,
                 "status": "completed",
@@ -280,6 +291,7 @@ class ExperimentRunner:
                     "tool_validated_fps": len(getattr(scoring, 'tool_validated_fps', [])),
                     "true_false_positives": len(getattr(scoring, 'true_false_positives', [])),
                 },
+                "manifest_validation": manifest_metrics,
                 "vulnerabilities_injected": len(result.red_output.manifest) if result.red_output else 0,
                 "findings_detected": len(result.blue_output.findings) if result.blue_output else 0,
                 "duration_seconds": duration,
@@ -293,6 +305,8 @@ class ExperimentRunner:
             if adj_p != scoring.precision:
                 log_msg += f" (adj:{adj_p:.0%}, {tool_fps} tool-validated)"
             log_msg += f" R={scoring.recall:.0%} F1={scoring.f1_score:.0%} Evasion={scoring.evasion_rate:.0%}"
+            if manifest_metrics.get('manifest_accuracy') is not None:
+                log_msg += f" ManifestAcc={manifest_metrics['manifest_accuracy']:.0%}"
             logger.info(log_msg)
             
             return game_result
@@ -488,6 +502,13 @@ class ExperimentRunner:
         logger.info(f"  Avg Recall:       {metrics['avg_recall']:.1%} ± {metrics['std_recall']:.1%}")
         logger.info(f"  Avg F1 Score:     {metrics['avg_f1_score']:.1%} ± {metrics['std_f1_score']:.1%}")
         logger.info(f"  Avg Evasion Rate: {metrics['avg_evasion_rate']:.1%} ± {metrics['std_evasion_rate']:.1%}")
+        
+        # Report manifest validation if available
+        mv_results = [r.get('manifest_validation', {}).get('manifest_accuracy') 
+                      for r in self.results if r.get('manifest_validation', {}).get('manifest_accuracy') is not None]
+        if mv_results:
+            avg_mv = sum(mv_results) / len(mv_results)
+            logger.info(f"  Manifest Accuracy: {avg_mv:.1%} ({len(mv_results)}/{len(self.results)} games validated)")
         logger.info(f"\nBy Difficulty:")
         for diff, data in by_difficulty.items():
             logger.info(f"  {diff}: F1={data['avg_f1']:.1%}, Evasion={data['avg_evasion']:.1%} (n={data['count']})")
@@ -513,7 +534,8 @@ class ExperimentRunner:
             'red_mode', 'blue_mode', 'red_vuln_source', 'red_strategy',
             'verification_mode', 'scenario', 'vulns_injected', 'findings', 
             'precision', 'adjusted_precision', 'tool_validated_fps', 'true_fps',
-            'recall', 'f1_score', 'evasion_rate'
+            'recall', 'f1_score', 'evasion_rate',
+            'manifest_accuracy', 'manifest_confirmed', 'manifest_claimed'
         ]
         
         lines = [','.join(headers)]
@@ -541,6 +563,10 @@ class ExperimentRunner:
                 f"{scoring['recall']:.4f}",
                 f"{scoring['f1_score']:.4f}",
                 f"{scoring['evasion_rate']:.4f}",
+                # Manifest validation
+                f"{mv_acc:.4f}" if (mv_acc := r.get('manifest_validation', {}).get('manifest_accuracy')) is not None else "",
+                str(r.get('manifest_validation', {}).get('total_confirmed', '')),
+                str(r.get('manifest_validation', {}).get('total_claimed', '')),
             ]
             lines.append(','.join(line))
         
