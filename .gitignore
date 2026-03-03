@@ -67,7 +67,7 @@ htmlcov/
 *.tfstate.*
 .terraform/
 exper.pem
-MANUAL.md
+# MANUAL.md  # Removed from ignore — tracked as documentation
 
 # MkDocs documentation
 site/

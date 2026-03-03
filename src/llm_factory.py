@@ -52,9 +52,13 @@ def create_llm(
     provider: Optional[str] = None,
     region: str = "us-east-1",
     temperature: float = 0.0,
+    fallback_models: Optional[list] = None,
 ) -> Tuple[BaseChatModel, str]:
     """
     Create an LLM instance from the appropriate provider.
+    
+    Includes automatic fallback: if the primary model fails (access errors,
+    legacy gating, inference profile issues), tries fallback models in order.
     
     Args:
         model_id: Model identifier
@@ -62,6 +66,7 @@ def create_llm(
                   If not specified, auto-detected from model_id
         region: AWS region for Bedrock models
         temperature: Temperature for generation
+        fallback_models: Optional list of fallback model IDs to try on failure
         
     Returns:
         Tuple of (LLM instance, short display name)
@@ -72,12 +77,38 @@ def create_llm(
     
     provider = provider.lower()
     
-    if provider == "openai":
-        return _create_openai_llm(model_id, temperature)
-    elif provider == "google":
-        return _create_google_llm(model_id, temperature)
-    else:  # bedrock
-        return _create_bedrock_llm(model_id, region, temperature)
+    try:
+        if provider == "openai":
+            return _create_openai_llm(model_id, temperature)
+        elif provider == "google":
+            return _create_google_llm(model_id, temperature)
+        else:  # bedrock
+            return _create_bedrock_llm(model_id, region, temperature)
+    except Exception as primary_error:
+        if not fallback_models:
+            raise
+        
+        logger.warning(f"Primary model {model_id} failed: {primary_error}")
+        
+        for fallback_id in fallback_models:
+            try:
+                logger.info(f"Trying fallback model: {fallback_id}")
+                fallback_provider = detect_provider(fallback_id)
+                if fallback_provider == "openai":
+                    return _create_openai_llm(fallback_id, temperature)
+                elif fallback_provider == "google":
+                    return _create_google_llm(fallback_id, temperature)
+                else:
+                    return _create_bedrock_llm(fallback_id, region, temperature)
+            except Exception as fallback_error:
+                logger.warning(f"Fallback {fallback_id} also failed: {fallback_error}")
+                continue
+        
+        # All fallbacks exhausted
+        raise RuntimeError(
+            f"Primary model {model_id} and all fallbacks {fallback_models} failed. "
+            f"Primary error: {primary_error}"
+        )
 
 
 def _create_openai_llm(model_id: str, temperature: float) -> Tuple[BaseChatModel, str]:

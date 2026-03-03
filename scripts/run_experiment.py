@@ -107,6 +107,8 @@ class ExperimentRunner:
     
     def generate_game_configs(self) -> List[Dict]:
         """Generate all game configurations from experiment config."""
+        import random
+        
         games = []
         game_num = 1
         
@@ -116,6 +118,12 @@ class ExperimentRunner:
         repetitions = self.config.get('settings', {}).get('repetitions', 1)
         language = self.config.get('language', 'terraform')
         cloud_provider = self.config.get('cloud_provider', 'aws')
+        
+        # Deterministic seeding for reproducibility
+        base_seed = self.config.get('settings', {}).get('random_seed', None)
+        if base_seed is not None:
+            random.seed(base_seed)
+            logger.info(f"Using random seed: {base_seed}")
         
         # Get global settings from config sections
         red_settings = self.config.get('red_settings', {})
@@ -151,6 +159,7 @@ class ExperimentRunner:
                                 "language": language,
                                 "cloud_provider": cloud_provider,
                                 "repetition": rep + 1,
+                                "seed": (base_seed * 10000 + game_num) if base_seed is not None else None,
                                 "experiment_type": "batch",
                                 # New Red Team parameters
                                 "red_strategy": red_settings.get('red_strategy', 'balanced'),
@@ -190,6 +199,7 @@ class ExperimentRunner:
                                 "language": language,
                                 "cloud_provider": cloud_provider,
                                 "repetition": rep + 1,
+                                "seed": (base_seed * 10000 + game_num) if base_seed is not None else None,
                                 "experiment_type": "realtime",
                                 "mode_name": mode.get('name', 'unknown'),
                                 "condition": mode.get('condition', 'unknown'),
@@ -350,6 +360,9 @@ class ExperimentRunner:
             }, indent=2)
         )
         
+        # Gate-check config: halt if manifest accuracy drops below threshold
+        gate_threshold = self.config.get('settings', {}).get('manifest_accuracy_threshold', None)
+        
         # Run games sequentially
         for i, game_config in enumerate(games):
             logger.info(f"\n[{i+1}/{len(games)}] Game {game_config['game_id']}")
@@ -361,6 +374,10 @@ class ExperimentRunner:
             else:
                 self.failed_games.append(result)
             
+            # Running gate-check: report manifest accuracy and halt if below threshold
+            if self.results and i > 0 and (i + 1) % 10 == 0:
+                self._report_running_stats(i + 1, len(games), gate_threshold)
+            
             # Save progress after each game
             self._save_progress()
             
@@ -368,6 +385,10 @@ class ExperimentRunner:
             if i < len(games) - 1 and self.delay_between_games > 0:
                 logger.info(f"  Waiting {self.delay_between_games}s before next game...")
                 await asyncio.sleep(self.delay_between_games)
+        
+        # Final running stats
+        if self.results:
+            self._report_running_stats(len(games), len(games), gate_threshold)
         
         # Generate summary
         summary = self._generate_summary()
@@ -389,6 +410,59 @@ class ExperimentRunner:
             "last_updated": datetime.utcnow().isoformat(),
         }
         (self.experiment_dir / "progress.json").write_text(json.dumps(progress, indent=2))
+    
+    def _report_running_stats(self, completed: int, total: int, gate_threshold: float = None):
+        """Report running statistics every N games. Halt if manifest accuracy below threshold."""
+        n = len(self.results)
+        if n == 0:
+            return
+        
+        avg_f1 = sum(r['scoring']['f1_score'] for r in self.results) / n
+        avg_recall = sum(r['scoring']['recall'] for r in self.results) / n
+        avg_evasion = sum(r['scoring']['evasion_rate'] for r in self.results) / n
+        failed = len(self.failed_games)
+        
+        # Running manifest accuracy
+        mv_vals = [r.get('manifest_validation', {}).get('manifest_accuracy') 
+                   for r in self.results if r.get('manifest_validation', {}).get('manifest_accuracy') is not None]
+        
+        # ETA calculation
+        elapsed = [r.get('duration_seconds', 0) for r in self.results if r.get('duration_seconds')]
+        avg_duration = sum(elapsed) / len(elapsed) if elapsed else 60
+        remaining = total - completed
+        eta_seconds = remaining * avg_duration
+        eta_min = eta_seconds / 60
+        if eta_min > 60:
+            eta_str = f"{eta_min/60:.1f}h"
+        else:
+            eta_str = f"{eta_min:.0f}m"
+        
+        pct = completed / total * 100 if total > 0 else 0
+        bar_filled = int(pct / 5)
+        bar = "█" * bar_filled + "░" * (20 - bar_filled)
+        
+        stats_line = (
+            f"  [{bar}] {pct:.0f}% ({completed}/{total}) "
+            f"F1={avg_f1:.1%} R={avg_recall:.1%} Eva={avg_evasion:.1%} "
+            f"({n} ok, {failed} fail) ETA: {eta_str}"
+        )
+        
+        if mv_vals:
+            avg_mv = sum(mv_vals) / len(mv_vals)
+            stats_line += f" ManifestAcc={avg_mv:.1%}"
+            
+            # Gate check: halt if below threshold
+            if gate_threshold is not None and avg_mv < gate_threshold and len(mv_vals) >= 10:
+                logger.error(
+                    f"⛔ GATE CHECK FAILED: Manifest accuracy {avg_mv:.1%} "
+                    f"is below threshold {gate_threshold:.1%} after {len(mv_vals)} validated games. "
+                    f"Halting experiment — review Red Team generation quality."
+                )
+                raise RuntimeError(
+                    f"Manifest accuracy gate check failed: {avg_mv:.1%} < {gate_threshold:.1%}"
+                )
+        
+        logger.info(stats_line)
     
     @staticmethod
     def _std(values):

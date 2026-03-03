@@ -2531,6 +2531,122 @@ def show_results(experiment_dir: str, detailed: bool):
         console.print(f"  Total Findings:   {hybrid_agg.get('total_hybrid_findings', 'N/A')}")
 
 
+@cli.command("replay")
+@click.argument("game_dir", type=click.Path(exists=True))
+def replay(game_dir: str):
+    """
+    Replay and display results from a completed game.
+    
+    Re-renders the game output without re-running it.
+    Useful for reviewing past games, debugging, and demos.
+    
+    Usage:
+        adversarial-iac replay output/games/G-20260301_162712
+    """
+    game_path = Path(game_dir)
+    
+    # Load metadata
+    metadata_file = game_path / "metadata.json"
+    if not metadata_file.exists():
+        console.print(f"[red]No metadata.json found in {game_path}[/]")
+        raise click.Abort()
+    
+    metadata = json.loads(metadata_file.read_text())
+    
+    # Load scoring
+    scoring_file = game_path / "scoring.json"
+    scoring = json.loads(scoring_file.read_text()) if scoring_file.exists() else {}
+    
+    # Load manifest and findings
+    manifest = json.loads((game_path / "red_manifest.json").read_text()) if (game_path / "red_manifest.json").exists() else []
+    findings = json.loads((game_path / "blue_findings.json").read_text()) if (game_path / "blue_findings.json").exists() else []
+    
+    # Display header
+    config = metadata.get("config", {})
+    summary = metadata.get("summary", {})
+    timing = metadata.get("timing", {})
+    
+    console.print(Panel.fit(
+        f"[bold]Game ID:[/] {metadata.get('game_id', 'unknown')}\n"
+        f"[bold]Scenario:[/] {metadata.get('scenario', {}).get('description', 'N/A')[:60]}\n"
+        f"[bold]Difficulty:[/] {config.get('difficulty', 'N/A')}\n"
+        f"[bold]Red Model:[/] {config.get('red_model', 'N/A').split('.')[-1][:30]}\n"
+        f"[bold]Blue Model:[/] {config.get('blue_model', 'N/A').split('.')[-1][:30]}\n"
+        f"[bold]Time:[/] {timing.get('total_time_seconds', 0):.1f}s",
+        title="🔄 Game Replay",
+        border_style="cyan",
+    ))
+    
+    # Red Team
+    console.print(f"\n[bold red]🔴 RED TEAM[/] — {len(manifest)} vulnerabilities injected")
+    for v in manifest:
+        novel_tag = " [purple](novel)[/]" if v.get("is_novel") else ""
+        console.print(f"  • {v.get('vuln_id', '?')}: {v.get('title', 'N/A')[:60]}{novel_tag}")
+        console.print(f"    [dim]Resource: {v.get('resource_name', 'N/A')}[/]")
+    
+    # Scored vs Phantom
+    scored_file = game_path / "scored_manifest.json"
+    phantom_file = game_path / "phantom_manifest.json"
+    if scored_file.exists() and phantom_file.exists():
+        scored = json.loads(scored_file.read_text())
+        phantom = json.loads(phantom_file.read_text())
+        console.print(f"\n  [green]✓ Confirmed (scored):[/] {len(scored)}")
+        console.print(f"  [red]✗ Phantom (excluded):[/] {len(phantom)}")
+    
+    # Blue Team
+    console.print(f"\n[bold blue]🔵 BLUE TEAM[/] — {len(findings)} findings reported")
+    for f in findings:
+        console.print(f"  • {f.get('finding_id', '?')}: {f.get('title', 'N/A')[:60]}")
+        console.print(f"    [dim]Resource: {f.get('resource_name', 'N/A')}[/]")
+    
+    # Scoring
+    metrics = scoring.get("metrics", summary)
+    console.print(f"\n[bold yellow]⚖️ SCORING[/]")
+    console.print(f"  Precision:  {metrics.get('precision', 0):.1%}")
+    if metrics.get('adjusted_precision'):
+        console.print(f"  Adj Prec:   {metrics['adjusted_precision']:.1%}")
+    console.print(f"  Recall:     {metrics.get('recall', 0):.1%}")
+    console.print(f"  F1 Score:   {metrics.get('f1_score', 0):.1%}")
+    console.print(f"  Evasion:    {metrics.get('evasion_rate', 0):.1%}")
+    
+    # Ground truth quality
+    gt = scoring.get("ground_truth_quality") or metadata.get("ground_truth_validation")
+    if gt:
+        console.print(f"\n[bold]📋 Ground Truth Quality[/]")
+        console.print(f"  Manifest Accuracy:   {gt.get('manifest_accuracy', 'N/A')}")
+        console.print(f"  Adjusted Recall:     {gt.get('adjusted_recall', 'N/A')}")
+        console.print(f"  Phantom Concordance: {gt.get('phantom_concordance', 'N/A')}")
+    
+    # Matches
+    matches = scoring.get("matches", [])
+    if matches:
+        console.print(f"\n[bold]Match Details[/]")
+        table = Table()
+        table.add_column("Red Vuln", style="red")
+        table.add_column("Blue Finding", style="blue")
+        table.add_column("Result")
+        table.add_column("Confidence", justify="right")
+        
+        for m in matches:
+            result_icon = {
+                "exact": "[green]✓ Exact[/]",
+                "partial": "[yellow]~ Partial[/]",
+                "corroborated": "[green]✓ Corroborated[/]",
+                "missed": "[red]✗ Evaded[/]",
+            }.get(m.get("match_type", ""), "?")
+            
+            table.add_row(
+                m.get("red_vuln_id", "?"),
+                m.get("blue_finding_id") or "—",
+                result_icon,
+                f"{m.get('confidence', 0):.0%}",
+            )
+        
+        console.print(table)
+    
+    console.print(f"\n[dim]Game data: {game_path}[/]")
+
+
 @cli.command("hybrid-experiment")
 @click.option(
     "--experiment",

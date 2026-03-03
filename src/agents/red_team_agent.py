@@ -442,8 +442,9 @@ class RedTeamAgent:
         The LLM does NOT see the Trivy database - it must reason from
         first principles about what security misconfigurations are possible.
         
-        This tests genuine security reasoning vs pattern matching against
-        known rule classes.
+        Includes a specificity requirement: each vulnerability must specify
+        the exact Terraform resource type, attribute name, and insecure value.
+        This reduces hallucination by forcing concrete implementation plans.
         """
         count = count_override or self.adjusted_vuln_count
         scenario_json = json.dumps(scenario, indent=2)
@@ -452,6 +453,26 @@ class RedTeamAgent:
         threat_model_hint = ""
         if self.blue_team_profile:
             threat_model_hint = self._build_threat_model_hint()
+        
+        # Specificity requirement: forces concrete Terraform attribute plans
+        specificity_requirement = """
+CRITICAL REQUIREMENT — Each vulnerability MUST specify:
+1. The exact Terraform resource type (e.g., aws_s3_bucket, aws_iam_policy)
+2. The exact attribute that will be misconfigured (e.g., server_side_encryption_configuration, policy)
+3. What the insecure value or omission looks like in HCL code
+4. Why a static analysis tool like Trivy or Checkov would flag this as a finding
+
+If you cannot specify the exact Terraform attribute that creates the vulnerability,
+do NOT include it. Only include vulnerabilities that will be syntactically present
+and detectable in the generated .tf file. Vague or conceptual vulnerabilities
+(e.g., "weak security posture") are NOT valid — they must map to a specific
+missing or misconfigured Terraform attribute.
+
+For each vulnerability in your response, include:
+- "terraform_resource": the resource type (e.g., "aws_s3_bucket")
+- "terraform_attribute": the specific attribute (e.g., "server_side_encryption_configuration")
+- "insecure_implementation": what the code will look like (e.g., "attribute omitted entirely")
+"""
         
         prompt = NovelVulnerabilityPrompts.NOVEL_VULNERABILITY_GENERATION.format(
             scenario_json=scenario_json,
@@ -462,6 +483,9 @@ class RedTeamAgent:
             threat_model_hint=threat_model_hint,
         )
         
+        # Inject specificity requirement
+        prompt += specificity_requirement
+        
         for attempt in range(max_retries):
             response = await self._invoke_llm(prompt)
             selected = self._parse_vulnerability_selection(response)
@@ -471,7 +495,11 @@ class RedTeamAgent:
                 for v in selected:
                     v["is_novel"] = True
                     v["rule_source"] = "novel"
-                    v["rule_id"] = f"NOVEL-{v.get('vuln_id', 'X')}"  # No Trivy rule ID
+                    v["rule_id"] = f"NOVEL-{v.get('vuln_id', 'X')}"
+                    # Preserve specificity fields if provided
+                    v.setdefault("terraform_resource", "")
+                    v.setdefault("terraform_attribute", "")
+                    v.setdefault("insecure_implementation", "")
                 
                 if attempt > 0:
                     self.logger.info(f"Novel vulnerability generation succeeded on retry {attempt}")

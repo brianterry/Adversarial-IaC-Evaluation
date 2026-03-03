@@ -137,7 +137,7 @@ class BlueTeamAgent:
         self.logger = logging.getLogger("BlueTeamAgent")
         
         # Validate strategy
-        valid_strategies = ["comprehensive", "targeted", "iterative", "threat_model", "compliance"]
+        valid_strategies = ["comprehensive", "targeted", "iterative", "threat_model", "compliance", "precise"]
         if strategy not in valid_strategies:
             raise ValueError(f"Invalid strategy '{strategy}'. Valid: {valid_strategies}")
         
@@ -192,6 +192,9 @@ class BlueTeamAgent:
             elif self.strategy == "compliance":
                 llm_findings, compliance_report = await self._analyze_compliance(code)
                 strategy_metadata["compliance_report"] = compliance_report
+            elif self.strategy == "precise":
+                llm_findings, precision_stats = await self._analyze_precise(code)
+                strategy_metadata["precision_stats"] = precision_stats
             else:
                 # Default comprehensive strategy
                 llm_findings = await self._analyze_with_llm(code)
@@ -441,6 +444,112 @@ class BlueTeamAgent:
         }
         return framework_map.get(self.compliance_framework, "")
 
+    async def _analyze_precise(self, code: Dict[str, str]) -> tuple[List[Finding], Dict[str, Any]]:
+        """
+        Two-pass precision-focused analysis.
+        
+        Pass 1: Comprehensive detection (find everything)
+        Pass 2: Verification — for each finding, the LLM must cite the exact
+                 line of code that creates the vulnerability. Findings without
+                 concrete code evidence are removed.
+        
+        This reduces false positives by filtering out hallucinated findings.
+        """
+        # Pass 1: Standard comprehensive analysis
+        pass1_findings = await self._analyze_with_llm(code)
+        self.logger.info(f"Precise pass 1: {len(pass1_findings)} candidates")
+        
+        if not pass1_findings:
+            return [], {"pass1_count": 0, "pass2_count": 0, "removed": 0}
+        
+        # Combine code for verification prompt
+        combined_code = ""
+        for filename, content in code.items():
+            combined_code += f"\n# === {filename} ===\n{content}\n"
+        
+        # Pass 2: Verify each finding against actual code
+        findings_json = json.dumps([
+            {
+                "finding_id": f.finding_id,
+                "title": f.title,
+                "resource_name": f.resource_name,
+                "description": f.description,
+            }
+            for f in pass1_findings
+        ], indent=2)
+        
+        verification_prompt = f"""You are a security verification expert. You previously identified the following
+potential vulnerabilities in Terraform code. Now verify each one by finding the EXACT
+code evidence.
+
+For each finding below, respond with:
+- "verified": true/false
+- "code_evidence": the exact line or block from the code that proves this vulnerability exists
+- "reason": why this is or is not a real vulnerability
+
+If you CANNOT point to a specific line of code that creates the vulnerability,
+mark it as verified: false.
+
+FINDINGS TO VERIFY:
+{findings_json}
+
+TERRAFORM CODE:
+{combined_code}
+
+Respond with JSON:
+{{
+  "verifications": [
+    {{
+      "finding_id": "F1",
+      "verified": true,
+      "code_evidence": "resource \\"aws_s3_bucket\\" \\"data\\" {{ ... }}",
+      "reason": "No server_side_encryption_configuration block present"
+    }}
+  ]
+}}"""
+        
+        response = await self._invoke_llm(verification_prompt)
+        
+        # Parse verification results
+        verified_ids = set()
+        precision_stats = {
+            "pass1_count": len(pass1_findings),
+            "pass2_count": 0,
+            "removed": 0,
+            "verification_details": [],
+        }
+        
+        try:
+            json_content = self._extract_json(response)
+            if json_content:
+                parsed = json.loads(json_content)
+                verifications = parsed.get("verifications", [])
+                for v in verifications:
+                    detail = {
+                        "finding_id": v.get("finding_id", "?"),
+                        "verified": v.get("verified", False),
+                        "reason": v.get("reason", ""),
+                    }
+                    precision_stats["verification_details"].append(detail)
+                    if v.get("verified", False):
+                        verified_ids.add(v.get("finding_id", ""))
+        except (json.JSONDecodeError, Exception) as e:
+            self.logger.warning(f"Precise pass 2 parsing failed: {e}. Keeping all findings.")
+            verified_ids = {f.finding_id for f in pass1_findings}
+        
+        # Filter to verified findings only
+        verified_findings = [f for f in pass1_findings if f.finding_id in verified_ids]
+        
+        precision_stats["pass2_count"] = len(verified_findings)
+        precision_stats["removed"] = len(pass1_findings) - len(verified_findings)
+        
+        self.logger.info(
+            f"Precise pass 2: {len(verified_findings)}/{len(pass1_findings)} verified "
+            f"({precision_stats['removed']} removed as unverifiable)"
+        )
+        
+        return verified_findings, precision_stats
+
     def _extract_json(self, text: str) -> str:
         """Extract JSON from LLM response text."""
         # Try to find JSON in code blocks
@@ -575,7 +684,6 @@ class BlueTeamAgent:
                     if isinstance(block, str):
                         text_parts.append(block)
                     elif isinstance(block, dict):
-                        # Skip reasoning/thinking blocks explicitly
                         block_type = block.get('type', '')
                         if block_type in ('thinking', 'reasoning', 'reasoningContent'):
                             continue

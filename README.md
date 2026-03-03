@@ -18,7 +18,15 @@ An adversarial benchmark with three AI agents:
 
 Each evaluation round produces metrics (precision, recall, F1, evasion rate) that enable rigorous comparison across models and configurations.
 
-**New in v2.0:** Ground truth validation using static tools, multi-model consensus judge with Cohen's κ inter-rater reliability, tool-triangulated corroboration, and comparative experiment runner for publication-ready results.
+**New in v2.1:**
+- **Manifest Validation Gate** — Trivy/Checkov verify Red Team claims before scoring. Phantom vulnerabilities (hallucinated by Red Team) are excluded from ground truth, giving scientifically defensible recall metrics.
+- **Source Label Instrumentation** — Every vulnerability tracks `is_novel`/`rule_source` for database vs novel analysis.
+- **Precision-Focused Blue Team** (`--blue-strategy precise`) — Two-pass analysis that verifies findings against actual code evidence.
+- **Experiment Runner Improvements** — Progress bar with ETA, running manifest accuracy gate-check, auto-halt on quality drops, deterministic seeding, cost estimation.
+- **Game Replay** (`adversarial-iac replay`) — Re-display completed game results.
+- **Model Fallback** — Auto-retry with fallback models on access errors.
+- **Response Sanitizer** — Handles DeepSeek-R1 `<think>` blocks and Qwen3-Coder markdown fences.
+- **LaTeX Export** — `python3 scripts/analyze_experiments.py --latex-file tables.tex` generates paper-ready tables.
 
 ## 🔬 Why This Matters
 

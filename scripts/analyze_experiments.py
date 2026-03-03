@@ -702,8 +702,10 @@ def main():
     parser.add_argument("--type", choices=["e1", "e2", "e3", "e4", "e5", "auto"], 
                         default="auto", help="Experiment type (auto-detected if not specified)")
     parser.add_argument("--latex", action="store_true", help="Export LaTeX tables")
+    parser.add_argument("--latex-file", help="Save LaTeX tables to a .tex file")
     parser.add_argument("--vuln-types", action="store_true", help="Per-vulnerability type analysis")
     parser.add_argument("--output", "-o", help="Save report to file")
+    parser.add_argument("--all", action="store_true", help="Analyze all experiments in the directory")
     
     args = parser.parse_args()
     
@@ -750,17 +752,30 @@ def main():
         report_e4_difficulty(results)
     
     # LaTeX export
-    if args.latex:
+    if args.latex or args.latex_file:
+        latex_output = []
         print_header("LATEX TABLES")
         
         if exp_type == "e3":
-            print(export_latex_table(results, 'condition', f"E3: Novel vs Database ({exp_name})"))
+            table = export_latex_table(results, 'condition', f"E3: Novel vs Database ({exp_name})")
         elif exp_type == "e1":
-            print(export_latex_table(results, 'red_model', f"E1: Model Comparison ({exp_name})"))
+            table = export_latex_table(results, 'red_model', f"E1: Model Comparison ({exp_name})")
         elif exp_type == "e4":
-            print(export_latex_table(results, 'difficulty', f"E4: Difficulty Scaling ({exp_name})"))
+            table = export_latex_table(results, 'difficulty', f"E4: Difficulty Scaling ({exp_name})")
         elif exp_type == "e2":
-            print(export_latex_table(results, 'condition', f"E2: Multi-Agent Ablation ({exp_name})"))
+            table = export_latex_table(results, 'condition', f"E2: Multi-Agent Ablation ({exp_name})")
+        else:
+            table = export_latex_table(results, 'difficulty', f"{exp_name}")
+        
+        print(table)
+        
+        if args.latex_file:
+            Path(args.latex_file).write_text(table)
+            # Use original stdout for this message
+            if args.output:
+                original_stdout.write(f"LaTeX saved to: {args.latex_file}\n")
+            else:
+                print(f"\nLaTeX saved to: {args.latex_file}")
     
     # Per-vulnerability type analysis
     if args.vuln_types:
