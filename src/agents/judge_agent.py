@@ -788,7 +788,18 @@ class JudgeAgent:
         
         try:
             response = llm.invoke([HumanMessage(content=prompt)])
-            response_text = response.content if hasattr(response, 'content') else str(response)
+            raw_content = response.content if hasattr(response, 'content') else str(response)
+            # Handle list content (DeepSeek-R1 returns [text_block, reasoning_block])
+            if isinstance(raw_content, list):
+                text_parts = []
+                for block in raw_content:
+                    if isinstance(block, str):
+                        text_parts.append(block)
+                    elif isinstance(block, dict) and 'text' in block:
+                        text_parts.append(block['text'])
+                response_text = "\n".join(text_parts) if text_parts else str(raw_content)
+            else:
+                response_text = raw_content
             
             result = self._parse_llm_response(response_text)
             

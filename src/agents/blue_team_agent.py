@@ -560,11 +560,23 @@ class BlueTeamAgent:
             response = await self.llm.ainvoke([HumanMessage(content=prompt)])
             
             if hasattr(response, 'content'):
-                content = response.content
+                raw_content = response.content
             elif isinstance(response, str):
-                content = response
+                raw_content = response
             else:
-                content = str(response)
+                raw_content = str(response)
+            
+            # Handle list content (DeepSeek-R1, reasoning models return list of blocks)
+            if isinstance(raw_content, list):
+                text_parts = []
+                for block in raw_content:
+                    if isinstance(block, str):
+                        text_parts.append(block)
+                    elif isinstance(block, dict) and 'text' in block:
+                        text_parts.append(block['text'])
+                content = "\n".join(text_parts) if text_parts else str(raw_content)
+            else:
+                content = raw_content
             
             self.logger.info(f"LLM response: {len(content)} chars")
             
