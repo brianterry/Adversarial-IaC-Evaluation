@@ -699,13 +699,20 @@ BLUE TEAM PROFILE: Ensemble of specialist agents
                 raw_content = str(response)
             
             # Handle list content (DeepSeek-R1, reasoning models return list of blocks)
+            # Explicitly discard thinking/reasoning blocks — only keep text output.
             if isinstance(raw_content, list):
                 text_parts = []
                 for block in raw_content:
                     if isinstance(block, str):
                         text_parts.append(block)
-                    elif isinstance(block, dict) and 'text' in block:
-                        text_parts.append(block['text'])
+                    elif isinstance(block, dict):
+                        block_type = block.get('type', '')
+                        if block_type in ('thinking', 'reasoning', 'reasoningContent'):
+                            continue
+                        if 'reasoningContent' in block:
+                            continue
+                        if 'text' in block:
+                            text_parts.append(block['text'])
                 content = "\n".join(text_parts) if text_parts else str(raw_content)
             else:
                 content = raw_content

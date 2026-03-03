@@ -790,13 +790,21 @@ class JudgeAgent:
             response = llm.invoke([HumanMessage(content=prompt)])
             raw_content = response.content if hasattr(response, 'content') else str(response)
             # Handle list content (DeepSeek-R1 returns [text_block, reasoning_block])
+            # Explicitly discard thinking/reasoning blocks — if they leak into
+            # judge input, scores are evaluated against reasoning traces, not findings.
             if isinstance(raw_content, list):
                 text_parts = []
                 for block in raw_content:
                     if isinstance(block, str):
                         text_parts.append(block)
-                    elif isinstance(block, dict) and 'text' in block:
-                        text_parts.append(block['text'])
+                    elif isinstance(block, dict):
+                        block_type = block.get('type', '')
+                        if block_type in ('thinking', 'reasoning', 'reasoningContent'):
+                            continue
+                        if 'reasoningContent' in block:
+                            continue
+                        if 'text' in block:
+                            text_parts.append(block['text'])
                 response_text = "\n".join(text_parts) if text_parts else str(raw_content)
             else:
                 response_text = raw_content
