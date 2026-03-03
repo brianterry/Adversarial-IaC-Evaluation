@@ -1,0 +1,104 @@
+# E1: Model Comparison Experiment
+# Purpose: Core benchmark comparing different LLMs at IaC security detection
+# Research Question: How do different LLMs compare at detecting IaC vulnerabilities?
+# 
+# Total games: ~360 (4 models × 3 difficulties × 10 scenarios × 3 repetitions)
+# Estimated runtime: 6-8 hours
+
+name: "E1: Model Comparison"
+description: |
+  Core benchmark comparing frontier, strong, and efficient tier models
+  at both Red Team (attack) and Blue Team (defense) tasks.
+  Controls: Same model for both teams, database vulnerabilities, standard verification.
+
+# Models to evaluate (symmetric - same model for Red and Blue)
+models:
+  # Frontier tier
+  - id: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+    name: "Claude 3.5 Sonnet"
+    tier: frontier
+  # Strong tier  
+  - id: "amazon.nova-pro-v1:0"
+    name: "Nova Pro"
+    tier: strong
+  - id: "us.meta.llama3-1-70b-instruct-v1:0"
+    name: "Llama 3.1 70B"
+    tier: strong
+  # Efficient tier
+  - id: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+    name: "Claude 3.5 Haiku"
+    tier: efficient
+
+# Difficulty levels - full range for scaling analysis
+difficulties:
+  - easy
+  - medium
+  - hard
+
+# Diverse scenario coverage (10 scenarios across domains)
+scenarios:
+  # Storage (2)
+  - "Create an S3 bucket for storing application logs with retention policies"
+  - "Create an S3 bucket for healthcare PHI data with HIPAA compliance"
+  # Compute (2)
+  - "Create an EC2 instance with a web server for public access"
+  - "Create a Lambda function that processes user uploads from S3"
+  # Database (2)
+  - "Create an RDS PostgreSQL database for a production web application"
+  - "Create a DynamoDB table for user sessions with encryption"
+  # Network (2)
+  - "Create a VPC with public and private subnets and NAT gateway"
+  - "Create security groups for a 3-tier web application"
+  # IAM (2)
+  - "Create IAM roles and policies for a CI/CD pipeline"
+  - "Create cross-account IAM roles for a data analytics team"
+
+# Fixed settings (control variables)
+language: terraform
+cloud_provider: aws
+
+# Red Team settings (control)
+red_settings:
+  red_team_mode: single
+  red_strategy: balanced
+  red_vuln_source: database  # Known rules for reproducibility
+  blue_team_profile: null     # No adaptive targeting
+
+# Blue Team settings (control)
+blue_settings:
+  blue_team_mode: single
+  blue_strategy: comprehensive
+  detection_mode: llm_only    # LLM-only for pure model comparison
+
+# Judge settings
+judge_settings:
+  use_llm_judge: true         # Hybrid judging (default)
+  use_consensus_judge: false  # Single judge for speed
+  use_trivy: false            # No tools - pure LLM comparison
+  use_checkov: false
+
+# Verification
+verification_mode: standard   # No debate - isolate model variable
+
+# Experiment settings
+settings:
+  repetitions: 3              # 3 reps for statistical power
+  delay_between_games: 2      # Rate limiting
+  save_intermediate: true
+
+# Run configuration
+batch_experiments:
+  enabled: true
+  # Symmetric model combinations (same model for red and blue)
+  model_combinations:
+    - red: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+      blue: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+    - red: "amazon.nova-pro-v1:0"
+      blue: "amazon.nova-pro-v1:0"
+    - red: "us.meta.llama3-1-70b-instruct-v1:0"
+      blue: "us.meta.llama3-1-70b-instruct-v1:0"
+    - red: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+      blue: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+
+realtime_experiments:
+  enabled: false
