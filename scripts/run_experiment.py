@@ -6,8 +6,8 @@ This script runs experiments locally but stores results in S3.
 Much simpler than full Lambda deployment, with the same results!
 
 Usage:
-    python scripts/run_experiment.py --config experiments/config/quick_test.yaml
-    python scripts/run_experiment.py --config experiments/config/full_experiment.yaml --upload-to-s3
+    python scripts/run_experiment.py --config experiments/config/E3_novel_vs_database_v2.yaml --region us-east-1
+    python scripts/run_experiment.py --config experiments/config/E1_model_comparison_v2.yaml --region us-east-1
 """
 
 import argparse
@@ -295,6 +295,13 @@ class ExperimentRunner:
             if manifest_metrics.get("manifest_accuracy") is None:
                 manifest_metrics["manifest_accuracy"] = getattr(scoring, 'manifest_accuracy', None)
             
+            # Estimate cost
+            from src.utils.cost_tracker import estimate_game_cost
+            cost = estimate_game_cost(
+                red_model=game_config['red_model'],
+                blue_model=game_config['blue_model'],
+            )
+            
             game_result = {
                 "game_id": game_id,
                 "status": "completed",
@@ -309,6 +316,7 @@ class ExperimentRunner:
                     "true_false_positives": len(getattr(scoring, 'true_false_positives', [])),
                 },
                 "manifest_validation": manifest_metrics,
+                "cost_estimate_usd": cost.get("total_usd", 0),
                 "vulnerabilities_injected": len(result.red_output.manifest) if result.red_output else 0,
                 "findings_detected": len(result.blue_output.findings) if result.blue_output else 0,
                 "duration_seconds": duration,
@@ -603,6 +611,12 @@ class ExperimentRunner:
             logger.info(f"\nBy Vulnerability Source:")
             for src, data in by_vuln_source.items():
                 logger.info(f"  {src}: F1={data['avg_f1']:.1%}, Recall={data['avg_recall']:.1%} (n={data['count']})")
+        
+        # Cost summary
+        costs = [r.get('cost_estimate_usd', 0) for r in self.results]
+        if any(c > 0 for c in costs):
+            total_cost = sum(costs)
+            logger.info(f"\nEstimated Cost: ${total_cost:.2f} ({len(costs)} games, avg ${total_cost/len(costs):.3f}/game)")
         
         logger.info(f"\nResults saved to: {self.experiment_dir}")
         
