@@ -93,5 +93,5 @@ batch_experiments:
       blue_backend_type: direct_api
       blue_thinking_mode: false
       blue_backend_extra:
-        base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        base_url: "https://dashscope-us.aliyuncs.com/compatible-mode/v1"
         api_key_env: "DASHSCOPE_API_KEY"
