@@ -111,6 +111,7 @@ blue_settings:
 judge_settings:
   use_llm_judge: true
   use_consensus_judge: false
+  judge_model: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
   use_trivy: false
   use_checkov: false
 

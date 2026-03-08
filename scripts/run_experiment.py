@@ -171,6 +171,7 @@ class ExperimentRunner:
                                 # New Judge parameters
                                 "use_llm_judge": judge_settings.get('use_llm_judge', True),
                                 "use_consensus_judge": judge_settings.get('use_consensus_judge', False),
+                                "judge_model": judge_settings.get('judge_model', None),
                                 "use_trivy": judge_settings.get('use_trivy', False),
                                 "use_checkov": judge_settings.get('use_checkov', False),
                                 # Backend fields from combo entry
@@ -220,6 +221,7 @@ class ExperimentRunner:
                                 # Mode-specific Judge parameters
                                 "use_llm_judge": mode.get('use_llm_judge', judge_settings.get('use_llm_judge', True)),
                                 "use_consensus_judge": mode.get('use_consensus_judge', judge_settings.get('use_consensus_judge', False)),
+                                "judge_model": mode.get('judge_model', judge_settings.get('judge_model', None)),
                                 "use_trivy": mode.get('use_trivy', judge_settings.get('use_trivy', False)),
                                 "use_checkov": mode.get('use_checkov', judge_settings.get('use_checkov', False)),
                                 # Backend fields from mode dict
@@ -264,6 +266,7 @@ class ExperimentRunner:
                 # Judge parameters
                 use_llm_judge=game_config.get('use_llm_judge', True),
                 use_consensus_judge=game_config.get('use_consensus_judge', False),
+                judge_model=game_config.get('judge_model', None),
                 use_trivy=game_config.get('use_trivy', False),
                 use_checkov=game_config.get('use_checkov', False),
                 blue_backend_type=game_config.get("blue_backend_type", "bedrock"),

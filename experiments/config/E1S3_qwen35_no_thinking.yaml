@@ -1,53 +1,43 @@
-# E1-S-Q: Qwen3-Coder Supplementary Condition
-# Region: us-east-1
-# Purpose: Test whether code-specialized architecture improves Blue Team
-#          recall at hard difficulty relative to frontier-tier Sonnet.
-#          Parallel structure to E1-S (DeepSeek-R1).
+# E1-S3: Qwen3.5-plus — Thinking Mode OFF (Within-Model Control)
+# Region: us-east-1 (DirectAPI via DashScope US endpoint)
+# Purpose: Within-model CoT control — reasoning OFF condition.
+# Identical to E1-S2 in every way except blue_thinking_mode: false.
+# The only variable between E1-S2 and E1-S3 is thinking mode.
 #
 # Total games: 90 (1 model × 1 difficulty × 30 scenarios × 3 reps)
-# Estimated runtime: 2-3 hours
-# Estimated cost: ~$10-15
+# Estimated runtime: 2-3 hours (no reasoning overhead)
+# Estimated cost: ~$8-12 USD
 #
-# BEFORE RUNNING:
-#   Verify qwen.qwen3-coder-30b-a3b-v1:0 is activated in us-east-1:
-#   Console → Bedrock → Model access → Third-party models → Qwen3-Coder-30B
-#
-# OUTPUT FORMAT NOTE:
-#   Qwen3-Coder may produce markdown-wrapped JSON (```json ... ```).
-#   Test with a single game and confirm the judge parser handles this.
-#   If not, add a strip_markdown_fences: true flag in runner config.
+# BEFORE RUNNING: Same prerequisites as E1-S2. Run E1-S2 first —
+# if thinking ON shows no precision improvement over E1-S3, this
+# result informs the paper's framing of §5.1.
 
-name: "E1-S-Q: Qwen3-Coder Supplementary"
+name: "E1-S3: Qwen3.5-plus Thinking Mode OFF (Control)"
 description: |
-  Code-specialized supplementary condition parallel to E1-S (DeepSeek-R1).
-  Tests whether code-specialized pretraining improves IaC vulnerability
-  detection at hard difficulty beyond what general frontier models achieve.
+  Within-model CoT control — reasoning OFF condition.
+  Identical to E1-S2 except thinking disabled. The same model weights,
+  same scenarios, same Red Team. Only chain-of-thought is toggled off.
 
-  Hypothesis: Qwen3-Coder's code-focused pretraining may improve detection
-  of syntactic and structural misconfigurations (misconfigured resource
-  attributes, missing encryption flags, incorrect policy syntax) but may
-  underperform on semantic reasoning tasks (cross-resource IAM implications,
-  compliance-level policy analysis) where general reasoning matters more.
+  Expected result: precision falls inside the 78-92% non-reasoning
+  hard-difficulty band observed for all other models in Table 3.
+  If this holds, the E1-S2 vs E1-S3 gap directly demonstrates
+  CoT as the precision bottleneck mechanism.
 
-  Compare results against:
-    - Claude 3.5 Sonnet hard-difficulty baseline (from E1)
-    - DeepSeek-R1 hard-difficulty results (from E1-S)
-  Report all three in a single subsidiary Table in §4.1.
-
-model_catalog_version: "bedrock-2024-10"
+model_catalog_version: "dashscope-2026-02"
 region: "us-east-1"
 
 red_model:
   id: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
   name: "Claude 3.5 Sonnet v2"
   tier: frontier
-  note: "Fixed Red Team — same as E1-S for cross-supplementary comparability"
+  note: "Fixed Red Team — identical to E1-S2"
 
 blue_model:
-  id: "qwen.qwen3-coder-30b-a3b-v1:0"
-  name: "Qwen3-Coder-30B"
-  tier: code-specialized
-  region: us-east-1
+  id: "qwen3.5-plus"
+  name: "Qwen3.5-plus (no thinking)"
+  tier: non-reasoning  # Same weights as E1-S2 but thinking disabled
+  backend: direct_api
+  note: "DashScope hosted — thinking mode OFF"
 
 difficulties:
   - hard
@@ -101,7 +91,8 @@ red_settings:
   red_team_mode: single
   red_strategy: balanced
   red_vuln_source: database
-  blue_team_profile: null
+
+blue_team_profile: null
 
 blue_settings:
   blue_team_mode: single
@@ -114,35 +105,33 @@ judge_settings:
   judge_model: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
   use_trivy: false
   use_checkov: false
-
-verification_mode: standard
+  verification_mode: standard
 
 settings:
   repetitions: 3
-  delay_between_games: 5
+  delay_between_games: 10  # DashScope rate-limit buffer
   save_intermediate: true
-  output_dir: "experiments/results/exp1s_qwen3_coder"
-  label: "E1-S-Q"
+  output_dir: "experiments/results/exp1s3_qwen35_no_thinking"
+  label: "E1-S3"
 
 batch_experiments:
   enabled: true
   model_combinations:
-    - red: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
-      blue: "qwen.qwen3-coder-30b-a3b-v1:0"
+    - name: "qwen35_plus_thinking_off"
+      red: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+      blue: "qwen3.5-plus"
+      blue_backend_type: direct_api
+      blue_thinking_mode: false
+      blue_backend_extra:
+        base_url: "https://dashscope-us.aliyuncs.com/compatible-mode/v1"
+        api_key_env: "DASHSCOPE_API_KEY"
 
 realtime_experiments:
   enabled: false
 
-# ── Expected analysis ─────────────────────────────────────────────────────────
-# Subsidiary Table in §4.1 (all three hard-difficulty supplementary results):
-#
-# | Model            | Tier           | Hard Recall | Hard F1 | Hard Evasion |
-# |------------------|----------------|-------------|---------|--------------|
-# | Sonnet 3.5       | Frontier       | [from E1]   | [E1]    | [E1]         |
-# | DeepSeek-R1      | Reasoning      | [from E1-S] | [E1-S]  | [E1-S]       |
-# | Qwen3-Coder-30B  | Code-Spec      | —           | —       | —            |
-#
-# Interpretation:
-#   - If Qwen3-Coder ≈ Sonnet: code specialization provides no detection advantage
-#   - If Qwen3-Coder > Sonnet: syntactic code understanding aids IaC detection
-#   - Compare Qwen vs DeepSeek: does syntactic or reasoning specialization help more?
+# ── Expected analysis ────────────────────────────────────────────────────────
+# This is the control arm. Expected precision: 78–88% (non-reasoning band).
+# Compare directly with E1-S2 (thinking ON):
+#   - If E1-S3 precision < E1-S2 precision by ≥5 pp: CoT mechanism confirmed
+#   - If E1-S3 precision ≈ E1-S2 precision: thinking mode provides no benefit
+#     for this model — investigate whether DashScope thinking is truly enabled

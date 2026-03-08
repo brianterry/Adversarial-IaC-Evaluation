@@ -89,6 +89,9 @@ class GameConfig:
     use_llm_judge: bool = True  # Use LLM fallback for ambiguous matches (hybrid mode, recommended)
     use_consensus_judge: bool = False  # Use multi-model consensus for inter-rater reliability
     consensus_models: Optional[List[str]] = None  # Model IDs for consensus judging (requires 2+)
+    judge_model: Optional[str] = None  # Dedicated judge model (defaults to Haiku via Bedrock for neutrality)
+    judge_backend_type: str = "bedrock"  # Judge always routes through Bedrock by default
+    judge_backend_extra: dict = field(default_factory=dict)
 
     # Backend config — optional fields, all default to existing behavior
     blue_backend_type: str = "bedrock"
@@ -190,11 +193,14 @@ class GameEngine:
         
         # Single LLM hybrid mode
         elif config.use_llm_judge:
+            judge_model_id = config.judge_model or "us.anthropic.claude-3-5-haiku-20241022-v1:0"
             judge_llm, _ = create_llm(
-                model_id=config.blue_model,
+                model_id=judge_model_id,
                 region=config.region,
+                backend_type=config.judge_backend_type,
+                backend_extra=config.judge_backend_extra or {},
             )
-            self.logger.info(f"Using LLM judge with {config.blue_model} for ambiguous matches")
+            self.logger.info(f"Using LLM judge with {judge_model_id} for ambiguous matches")
             return JudgeAgent(llm=judge_llm, use_llm_matching=True)
         
         # Rule-based only

@@ -1,18 +1,65 @@
-# E1-S2: Qwen3.5-397B-A17B — Thinking mode ON
-# Tests whether reasoning architecture escape generalizes beyond DeepSeek-R1.
-# Blue-only supplementary, hard difficulty, 90 games.
-# Same Red Team configuration and scenario set as E1-S (DeepSeek-R1).
-# Scenarios copied from E1S_deepseek_r1.yaml for direct comparability.
-# E1-S2 and E1-S3 use identical scenarios, Red Team, and difficulty —
-# the only variable is blue_thinking_mode (true vs false).
+# E1-S2: Qwen3.5-plus — Thinking Mode ON
+# Region: us-east-1 (DirectAPI via DashScope US endpoint)
+# Purpose: Within-model CoT control — reasoning ON condition.
+# Paired with E1-S3 (identical config, thinking OFF) for clean within-model
+# comparison that isolates chain-of-thought as the mechanism, not model identity.
 #
-# BEFORE RUNNING: Replace <CONFIRMED_MODEL_ID> with model ID from DashScope verification.
-# Candidate: qwen3.5-plus (DashScope hosted) or Qwen/Qwen3.5-397B-A17B (self-hosted).
+# FIXES from previous version:
+#   - Model ID filled: qwen3.5-plus (confirmed DashScope model ID, Feb 2026)
+#   - base_url corrected to US region endpoint (dashscope-us)
+#   - use_trivy/use_checkov set to false — matches E1-S and E1-S-Q exactly
+#   - delay_between_games increased to 5 — reasoning model latency
+#   - output_dir follows canonical pattern
+#   - Added all canonical metadata fields
+#
+# Total games: 90 (1 model × 1 difficulty × 30 scenarios × 3 reps)
+# Estimated runtime: 3-5 hours (reasoning adds latency per game)
+# Estimated cost: ~$15-25 USD (DashScope Plus tier pricing)
+#
+# BEFORE RUNNING:
+#   1. Set DASHSCOPE_API_KEY environment variable
+#   2. Verify model ID: python -c "from openai import OpenAI; import os;
+#      c=OpenAI(base_url='https://dashscope-us.aliyuncs.com/compatible-mode/v1',
+#      api_key=os.environ['DASHSCOPE_API_KEY']);
+#      [print(m.id) for m in c.models.list().data]"
+#   3. Verify thinking mode with a single test call before queuing 90 games:
+#      expect <think>...</think> blocks in output when enable_thinking=True
+#
+# OUTPUT FORMAT NOTE:
+#   Qwen3.5-plus with thinking ON returns <think>...</think> reasoning blocks.
+#   The backend adapter's _extract_thinking() strips these automatically.
+#   Verify with a single game before running full batch.
 
-name: "E1-S2: Qwen3.5-397B Thinking Mode"
+name: "E1-S2: Qwen3.5-plus Thinking Mode ON"
+description: |
+  Within-model CoT control — reasoning ON condition.
+  Paired identically with E1-S3 (thinking OFF); the only variable is
+  blue_thinking_mode. Tests whether chain-of-thought reasoning is the
+  mechanism behind the precision bottleneck escape, not model identity.
+
+  If thinking ON escapes the 78-92% hard-difficulty precision band of
+  non-reasoning models, and thinking OFF falls inside it, the CoT
+  mechanism is isolated within a single set of weights.
+
+  Report alongside E1-S3, E1-S (DeepSeek-R1), and E1-S-Q (Qwen3-Coder)
+  in Table 3 (§4.1). This pair is the cleanest methodological contribution
+  in the supplementary set.
+
+model_catalog_version: "dashscope-2026-02"
 region: "us-east-1"
-language: terraform
-cloud_provider: aws
+
+red_model:
+  id: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+  name: "Claude 3.5 Sonnet v2"
+  tier: frontier
+  note: "Fixed Red Team — identical to E1-S, E1-S-Q, E1-S3 for comparability"
+
+blue_model:
+  id: "qwen3.5-plus"
+  name: "Qwen3.5-plus"
+  tier: reasoning
+  backend: direct_api
+  note: "DashScope hosted — thinking mode ON"
 
 difficulties:
   - hard
@@ -59,10 +106,15 @@ scenarios:
   - "Create an S3 intelligent tiering configuration with lifecycle policies"
   - "Create an EFS filesystem with encryption and mount target security groups"
 
+language: terraform
+cloud_provider: aws
+
 red_settings:
   red_team_mode: single
   red_strategy: balanced
   red_vuln_source: database
+
+blue_team_profile: null
 
 blue_settings:
   blue_team_mode: single
@@ -72,24 +124,42 @@ blue_settings:
 judge_settings:
   use_llm_judge: true
   use_consensus_judge: false
-  use_trivy: true
-  use_checkov: true
+  judge_model: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+  use_trivy: false    # LLM-only — matches E1-S and E1-S-Q exactly for comparability
+  use_checkov: false  # LLM-only — matches E1-S and E1-S-Q exactly for comparability
+  verification_mode: standard
 
 settings:
   repetitions: 3
-  output_dir: "experiments/results/E1S2"
-  delay_between_games: 2
+  delay_between_games: 10  # DashScope rate-limit buffer
   save_intermediate: true
+  output_dir: "experiments/results/exp1s2_qwen35_thinking"
   label: "E1-S2"
 
 batch_experiments:
   enabled: true
   model_combinations:
-    - name: "qwen35_thinking"
+    - name: "qwen35_plus_thinking_on"
       red: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
-      blue: "<CONFIRMED_MODEL_ID>"
+      blue: "qwen3.5-plus"
       blue_backend_type: direct_api
       blue_thinking_mode: true
       blue_backend_extra:
-        base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        base_url: "https://dashscope-us.aliyuncs.com/compatible-mode/v1"
         api_key_env: "DASHSCOPE_API_KEY"
+
+realtime_experiments:
+  enabled: false
+
+# ── Expected analysis ────────────────────────────────────────────────────────
+# Compare with E1-S3 (thinking OFF, identical config):
+#
+# PRIMARY TEST: Is precision(E1-S2) > precision(E1-S3)?
+#   Threshold: ≥5 pp gap, p < 0.05 — chain-of-thought mechanism isolated
+#   If gap < 3 pp or p > 0.05: reframe §5.1 — bottleneck may not be CoT-driven
+#
+# SECONDARY: Does E1-S2 precision fall above the hard-difficulty band (78–92%)?
+#   E1-S3 expected: 78–88% (non-reasoning band at hard)
+#   E1-S2 expected: >88% if CoT provides verification benefit
+#
+# Add both conditions to Table 3 (§4.1) alongside existing supplementary results.
