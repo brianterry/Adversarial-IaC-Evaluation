@@ -30,7 +30,21 @@ adversarial-iac game -s "Create S3 bucket" --blue-team-mode ensemble --consensus
 
 ### Consensus Methods
 
-For ensemble: `debate`, `vote`, `union`, `intersection`.
+| Method | Description |
+|--------|-------------|
+| `vote` | Majority wins |
+| `union` | Combine all findings (higher recall, lower precision) |
+| `intersection` | Only findings all agents agree on (higher precision, lower recall) |
+| `debate` | Agents argue until consensus |
+
+!!! note "Two different \"debate\" options"
+    `--consensus-method debate` controls how Blue Team ensemble agents agree on findings.
+    `--verification-mode debate` controls how the Judge verifies findings (Prosecutor vs Defender).
+    They are independent and can be used together.
+
+### When to Use Multi-Agent
+
+Use pipeline + ensemble when you want to stress-test models with stealthier attacks and collaborative detection. Single agents are faster and sufficient for quick experiments.
 
 ## Verification Mode
 

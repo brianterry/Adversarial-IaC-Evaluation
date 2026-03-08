@@ -4,13 +4,13 @@ Red and Blue teams can use different strategies.
 
 ## Red Team Strategies
 
-| Strategy | Description |
-|----------|-------------|
-| balanced | Standard mix of vulnerabilities and stealth (default) |
-| targeted | Focus on specific type (use `--red-target-type`) |
-| stealth | Fewer vulns, maximum evasion |
-| blitz | Maximum vulnerabilities, less stealth |
-| chained | Vulns that exploit each other in sequence |
+| Strategy | Description | When to use |
+|----------|-------------|-------------|
+| balanced | Standard mix of vulnerabilities and stealth (default) | General evaluation |
+| targeted | Focus on specific type (use `--red-target-type`) | Testing specific vuln types |
+| stealth | Fewer vulns, maximum evasion | Stress-testing Blue |
+| blitz | Maximum vulnerabilities, less stealth | High recall tests |
+| chained | Vulns that exploit each other in sequence | Advanced scenarios |
 
 ### Examples
 
@@ -66,3 +66,6 @@ For `targeted` strategy: `encryption`, `iam`, `network`, `logging`, `access_cont
 ```bash
 adversarial-iac game -s "Create S3 bucket" --red-vuln-source novel
 ```
+
+!!! note "`novel` source"
+    With `--red-vuln-source novel`, Red Team invents vulnerabilities from security principles. Concordance with Trivy/Checkov is not expected; the benchmark measures LLM reasoning, not rule-matching.

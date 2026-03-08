@@ -32,8 +32,11 @@ adversarial-iac game -s "Create VPC with subnets" -d hard
 
 ## When to Use
 
-| Use easy when... | Use medium when... | Use hard when... |
-|-----------------|--------------------|------------------|
-| Learning the framework | Running experiments | Benchmarking |
-| Quick debugging | Standard evaluation | Publication data |
-| Testing new models | Most scenarios | Stress testing Blue |
+| Level | Best for | Vulnerabilities | Comparable to paper? | Token cost | Typical Blue precision |
+|-------|----------|-----------------|----------------------|------------|------------------------|
+| Easy | Learning, debugging, quick tests | 2–3 obvious | No | Lowest | High |
+| Medium | Standard evaluation, most scenarios | 3–4 subtle | No | Medium | Medium |
+| Hard | Benchmarking, publication, stress tests | 4–5 stealthy | **Yes** | Highest | Lower |
+
+!!! note "Published results"
+    Results in the paper use **hard** difficulty.

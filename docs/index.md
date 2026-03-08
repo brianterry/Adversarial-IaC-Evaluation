@@ -2,6 +2,13 @@
 
 **Red Team vs Blue Team security evaluation for Infrastructure-as-Code.**
 
+## What This Is For
+
+This benchmark is for **LLM evaluators**, **multi-agent researchers**, and **AWS practitioners** who want to measure how well models reason about security in Infrastructure-as-Code—not just memorize patterns.
+
+!!! quote "Key differentiator"
+    This measures genuine security reasoning, not pattern memorization.
+
 ## How It Works
 
 ```mermaid

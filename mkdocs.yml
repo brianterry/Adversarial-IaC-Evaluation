@@ -107,7 +107,7 @@ nav:
     - blue-team: cli/blue-team.md
     - judge: cli/judge.md
     - experiment: cli/experiment.md
-  - Options & Examples:
+  - Options:
     - Models & Backends: options/backends.md
     - Difficulties: options/difficulties.md
     - Strategies: options/strategies.md

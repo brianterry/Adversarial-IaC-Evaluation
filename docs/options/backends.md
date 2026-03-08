@@ -2,6 +2,9 @@
 
 The framework supports multiple LLM backends for Red and Blue teams.
 
+!!! tip "Which backend should I use?"
+    Use **Bedrock** if you have AWS access. Use **direct_api** for DashScope, OpenAI, or any OpenAI-compatible API. Use **SageMaker** for self-hosted models.
+
 ## Backend Types
 
 | Backend | Use Case |
@@ -20,7 +23,15 @@ adversarial-iac game -s "Create S3 bucket" --blue-model claude-3.5-haiku
 
 ## Direct API (OpenAI-Compatible)
 
-For DashScope, OpenAI, or any OpenAI-compatible endpoint. Use `--blue-backend-extra` with JSON:
+For DashScope, OpenAI, or any OpenAI-compatible endpoint.
+
+**Step 1 — Set the API key** (before running):
+
+```bash
+export DASHSCOPE_API_KEY=sk-...
+```
+
+**Step 2 — Run with endpoint** via `--blue-backend-extra`:
 
 ```bash
 adversarial-iac game -s "Create S3 bucket" \
@@ -35,13 +46,6 @@ Common `backend_extra` keys:
 |-----|-------------|
 | `base_url` | API base URL (required for direct_api) |
 | `api_key_env` | Environment variable name for API key |
-
-Set the API key before running:
-
-```bash
-export DASHSCOPE_API_KEY=sk-...
-adversarial-iac game ...
-```
 
 ## SageMaker
 
