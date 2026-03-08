@@ -132,6 +132,15 @@ class JudgeAgent:
     CLEAR_MATCH_THRESHOLD = 0.7  # Above this = clear match, no LLM needed
     AMBIGUOUS_LOWER = 0.3  # Below this = clear miss
     AMBIGUOUS_UPPER = 0.7  # Between lower and upper = ambiguous, use LLM
+
+    @staticmethod
+    def _safe_lower(val: Any) -> str:
+        """Convert value to lowercase string; handles lists (e.g. Qwen returns resource_name as list)."""
+        if val is None:
+            return ""
+        if isinstance(val, list):
+            return " ".join(str(v) for v in val).lower()
+        return str(val).lower() if val else ""
     
     def __init__(
         self,
@@ -187,7 +196,7 @@ class JudgeAgent:
         tool_flagged_resources: Set[str] = set()
         if tool_findings:
             for tf in tool_findings:
-                resource = tf.get("resource_name", "").lower()
+                resource = self._safe_lower(tf.get("resource_name", ""))
                 if resource:
                     tool_flagged_resources.add(resource)
                     base_name = resource.split(".")[-1] if "." in resource else resource
@@ -273,8 +282,8 @@ class JudgeAgent:
                     explanation = self._generate_explanation(red_vuln, blue_finding, match_type)
                 
                 # Check tool corroboration
-                red_resource = red_vuln.get("resource_name", "").lower()
-                blue_resource = blue_finding.get("resource_name", "").lower()
+                red_resource = self._safe_lower(red_vuln.get("resource_name", ""))
+                blue_resource = self._safe_lower(blue_finding.get("resource_name", ""))
                 red_base = red_resource.split(".")[-1] if "." in red_resource else red_resource
                 blue_base = blue_resource.split(".")[-1] if "." in blue_resource else blue_resource
                 
@@ -360,7 +369,7 @@ class JudgeAgent:
             # Find the finding to get its resource
             finding = next((f for f in blue_findings if f.get("finding_id") == finding_id), None)
             if finding:
-                finding_resource = finding.get("resource_name", "").lower()
+                finding_resource = self._safe_lower(finding.get("resource_name", ""))
                 finding_base = finding_resource.split(".")[-1] if "." in finding_resource else finding_resource
                 
                 # Check if this finding's resource was also flagged by static tools
@@ -811,7 +820,7 @@ class JudgeAgent:
             
             result = self._parse_llm_response(response_text)
             
-            match_type = result.get("match_type", "none").lower()
+            match_type = self._safe_lower(result.get("match_type", "none"))
             confidence = float(result.get("confidence", 0.5))
             reasoning = result.get("reasoning", "")
             

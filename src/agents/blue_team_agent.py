@@ -723,20 +723,28 @@ Respond with JSON:
             data = json.loads(json_content)
             detected = data.get("detected_vulnerabilities", [])
             
+            def _str(val, default: str) -> str:
+                """Normalize to string; Qwen sometimes returns lists."""
+                if val is None:
+                    return default
+                if isinstance(val, list):
+                    return " ".join(str(x) for x in val) if val else default
+                return str(val) if val else default
+
             for i, v in enumerate(detected):
                 finding = Finding(
-                    finding_id=v.get("finding_id", f"LLM-{i+1}"),
-                    resource_name=v.get("resource_name", "unknown"),
-                    resource_type=v.get("resource_type", "unknown"),
-                    vulnerability_type=v.get("vulnerability_type", "unknown"),
-                    severity=v.get("severity", "medium"),
-                    title=v.get("title", "Untitled finding"),
-                    description=v.get("description", ""),
-                    evidence=v.get("evidence", ""),
+                    finding_id=_str(v.get("finding_id"), f"LLM-{i+1}"),
+                    resource_name=_str(v.get("resource_name"), "unknown"),
+                    resource_type=_str(v.get("resource_type"), "unknown"),
+                    vulnerability_type=_str(v.get("vulnerability_type"), "unknown"),
+                    severity=_str(v.get("severity"), "medium"),
+                    title=_str(v.get("title"), "Untitled finding"),
+                    description=_str(v.get("description"), ""),
+                    evidence=_str(v.get("evidence"), ""),
                     line_number_estimate=v.get("line_number_estimate", 0),
                     confidence=v.get("confidence", 0.5),
-                    reasoning=v.get("reasoning", ""),
-                    remediation=v.get("remediation", ""),
+                    reasoning=_str(v.get("reasoning"), ""),
+                    remediation=_str(v.get("remediation"), ""),
                     source="llm",
                 )
                 findings.append(finding)
