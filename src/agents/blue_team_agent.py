@@ -979,6 +979,9 @@ def create_blue_team_agent(
     compliance_framework: Optional[str] = None,
     iterations: int = 1,
     scenario_description: str = "",
+    backend_type: str = "bedrock",
+    thinking_mode: bool = False,
+    backend_extra: Optional[dict] = None,
 ) -> BlueTeamAgent:
     """
     Create a Blue Team Agent with AWS Bedrock.
@@ -995,21 +998,31 @@ def create_blue_team_agent(
         compliance_framework: For "compliance" strategy - "hipaa", "pci_dss", "soc2", "cis"
         iterations: For "iterative" strategy - number of analysis passes
         scenario_description: For "threat_model" strategy - scenario context
+        backend_type: "bedrock", "direct_api", or "sagemaker"
+        thinking_mode: Enable reasoning/thinking mode for supported models
+        backend_extra: Extra config for non-Bedrock backends (base_url, endpoint_name, etc.)
         
     Returns:
         Configured BlueTeamAgent
     """
-    from langchain_aws import ChatBedrock
-    
-    llm = ChatBedrock(
-        model_id=model_id,
-        region_name=region,
-        model_kwargs={
-            "temperature": 0.3,  # Lower temperature for precise analysis
-            "max_tokens": 8192,
-        },
+    from src.backends import create_backend, BackendConfig
+    from src.backends.adapter import BackendChatModel
+
+    llm = BackendChatModel(
+        create_backend(
+            BackendConfig(
+                model_id=model_id,
+                region=region,
+                temperature=0.3,
+                max_tokens=8192,
+                thinking_mode=thinking_mode,
+                thinking_budget_tokens=8000,
+                extra=backend_extra or {},
+            ),
+            backend_type,
+        )
     )
-    
+
     return BlueTeamAgent(
         llm=llm,
         mode=DetectionMode(mode),

@@ -891,6 +891,40 @@ def score(red_dir: str, blue_dir: str, output_dir: str):
     default=False,
     help="Enable Checkov static analysis for Blue Team",
 )
+@click.option(
+    "--blue-backend-type",
+    type=click.Choice(["bedrock", "direct_api", "sagemaker"]),
+    default="bedrock",
+    help="LLM backend for Blue Team (bedrock, direct_api, sagemaker)",
+)
+@click.option(
+    "--blue-thinking-mode",
+    is_flag=True,
+    default=False,
+    help="Enable thinking/reasoning mode for Blue Team (reasoning models)",
+)
+@click.option(
+    "--blue-backend-extra",
+    default=None,
+    help="JSON dict for backend extras (e.g. {\"base_url\":\"...\",\"api_key_env\":\"DASHSCOPE_API_KEY\"})",
+)
+@click.option(
+    "--red-backend-type",
+    type=click.Choice(["bedrock", "direct_api", "sagemaker"]),
+    default="bedrock",
+    help="LLM backend for Red Team",
+)
+@click.option(
+    "--red-thinking-mode",
+    is_flag=True,
+    default=False,
+    help="Enable thinking/reasoning mode for Red Team",
+)
+@click.option(
+    "--red-backend-extra",
+    default=None,
+    help="JSON dict for Red Team backend extras",
+)
 @click.option("--region", default="us-east-1", help="AWS region")
 def game(
     scenario: str,
@@ -916,6 +950,12 @@ def game(
     blue_iterations: int,
     use_trivy: bool,
     use_checkov: bool,
+    blue_backend_type: str,
+    blue_thinking_mode: bool,
+    blue_backend_extra: str,
+    red_backend_type: str,
+    red_thinking_mode: bool,
+    red_backend_extra: str,
     region: str,
 ):
     """
@@ -977,6 +1017,10 @@ def game(
     
     verify_display = verification_mode
     
+    # Parse backend extras
+    blue_extra = _parse_backend_extra(blue_backend_extra)
+    red_extra = _parse_backend_extra(red_backend_extra)
+    
     console.print(
         Panel.fit(
             "[bold magenta]🎮 ADVERSARIAL GAME[/]\n"
@@ -1018,12 +1062,28 @@ def game(
                 blue_iterations=blue_iterations,
                 use_trivy=use_trivy,
                 use_checkov=use_checkov,
+                blue_backend_type=blue_backend_type,
+                blue_thinking_mode=blue_thinking_mode,
+                blue_backend_extra=blue_extra,
+                red_backend_type=red_backend_type,
+                red_thinking_mode=red_thinking_mode,
+                red_backend_extra=red_extra,
                 region=region,
             )
         )
     except Exception as e:
         console.print(f"[bold red]Error:[/] {e}")
         raise click.Abort()
+
+
+def _parse_backend_extra(extra_str: Optional[str]) -> dict:
+    """Parse --backend-extra JSON string to dict. Returns {} if None or invalid."""
+    if not extra_str or not extra_str.strip():
+        return {}
+    try:
+        return json.loads(extra_str)
+    except json.JSONDecodeError:
+        raise click.BadParameter(f"Invalid JSON for backend-extra: {extra_str}")
 
 
 async def _run_game(
@@ -1050,6 +1110,12 @@ async def _run_game(
     blue_iterations: int = 1,
     use_trivy: bool = False,
     use_checkov: bool = False,
+    blue_backend_type: str = "bedrock",
+    blue_thinking_mode: bool = False,
+    blue_backend_extra: dict = None,
+    red_backend_type: str = "bedrock",
+    red_thinking_mode: bool = False,
+    red_backend_extra: dict = None,
     region: str = "us-east-1",
 ):
     """Async implementation of game command."""
@@ -1110,6 +1176,12 @@ async def _run_game(
         use_llm_judge=use_llm_judge,
         use_consensus_judge=use_consensus_judge,
         consensus_models=resolved_consensus_models,
+        blue_backend_type=blue_backend_type,
+        blue_thinking_mode=blue_thinking_mode,
+        blue_backend_extra=blue_backend_extra or {},
+        red_backend_type=red_backend_type,
+        red_thinking_mode=red_thinking_mode,
+        red_backend_extra=red_backend_extra or {},
     )
     
     # Run game
@@ -1510,6 +1582,12 @@ def play():
     blue_iterations = 1
     use_trivy = False
     use_checkov = False
+    blue_backend_type = "bedrock"
+    blue_thinking_mode = False
+    blue_backend_extra = {}
+    red_backend_type = "bedrock"
+    red_thinking_mode = False
+    red_backend_extra = {}
     
     if use_advanced:
         console.print()
@@ -1665,6 +1743,52 @@ def play():
                 style=custom_style,
             ).ask() or False
             use_llm_judge = not disable_llm_judge
+        
+        # Backend options (for direct_api, sagemaker, thinking mode)
+        console.print()
+        console.print("[bold cyan]🔌 Backend Configuration[/]")
+        blue_backend_type = questionary.select(
+            "Blue Team LLM backend:",
+            choices=[
+                questionary.Choice("Bedrock (AWS)", "bedrock"),
+                questionary.Choice("Direct API (OpenAI-compatible, e.g. DashScope)", "direct_api"),
+                questionary.Choice("SageMaker endpoint", "sagemaker"),
+            ],
+            style=custom_style,
+        ).ask() or "bedrock"
+        blue_thinking_mode = questionary.confirm(
+            "Enable thinking/reasoning mode for Blue Team? (reasoning models)",
+            default=False,
+            style=custom_style,
+        ).ask() or False
+        red_backend_type = questionary.select(
+            "Red Team LLM backend:",
+            choices=[
+                questionary.Choice("Bedrock (AWS)", "bedrock"),
+                questionary.Choice("Direct API (OpenAI-compatible)", "direct_api"),
+                questionary.Choice("SageMaker endpoint", "sagemaker"),
+            ],
+            style=custom_style,
+        ).ask() or "bedrock"
+        red_thinking_mode = questionary.confirm(
+            "Enable thinking/reasoning mode for Red Team?",
+            default=False,
+            style=custom_style,
+        ).ask() or False
+        if blue_backend_type == "direct_api" or red_backend_type == "direct_api":
+            extra_prompt = questionary.text(
+                "Backend extra (JSON, e.g. {\"base_url\":\"https://...\",\"api_key_env\":\"DASHSCOPE_API_KEY\"}) or leave empty:",
+                style=custom_style,
+            ).ask()
+            if extra_prompt and extra_prompt.strip():
+                try:
+                    parsed = json.loads(extra_prompt)
+                    if blue_backend_type == "direct_api":
+                        blue_backend_extra = parsed
+                    if red_backend_type == "direct_api":
+                        red_backend_extra = parsed
+                except json.JSONDecodeError:
+                    console.print("[yellow]Invalid JSON, using defaults.[/]")
     
     console.print()
     
@@ -1748,6 +1872,12 @@ def play():
                 use_trivy=use_trivy,
                 use_checkov=use_checkov,
                 use_llm_judge=use_llm_judge,
+                blue_backend_type=blue_backend_type,
+                blue_thinking_mode=blue_thinking_mode,
+                blue_backend_extra=blue_backend_extra,
+                red_backend_type=red_backend_type,
+                red_thinking_mode=red_thinking_mode,
+                red_backend_extra=red_backend_extra,
             )
         )
         
@@ -1819,6 +1949,12 @@ async def _run_interactive_game(
     use_trivy: bool = False,
     use_checkov: bool = False,
     use_llm_judge: bool = True,
+    blue_backend_type: str = "bedrock",
+    blue_thinking_mode: bool = False,
+    blue_backend_extra: dict = None,
+    red_backend_type: str = "bedrock",
+    red_thinking_mode: bool = False,
+    red_backend_extra: dict = None,
 ):
     """Run the game with nice progress display."""
     from src.game.engine import GameEngine, GameConfig
@@ -1869,6 +2005,12 @@ async def _run_interactive_game(
         blue_iterations=blue_iterations,
         verification_mode=verification_mode,
         use_llm_judge=use_llm_judge,
+        blue_backend_type=blue_backend_type,
+        blue_thinking_mode=blue_thinking_mode,
+        blue_backend_extra=blue_backend_extra or {},
+        red_backend_type=red_backend_type,
+        red_thinking_mode=red_thinking_mode,
+        red_backend_extra=red_backend_extra or {},
     )
     
     # Run game with progress

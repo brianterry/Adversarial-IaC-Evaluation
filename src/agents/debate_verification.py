@@ -407,30 +407,44 @@ def create_debate_verification_agent(
     region: str = "us-east-1",
     language: str = "terraform",
     run_parallel: bool = True,
+    backend_type: str = "bedrock",
+    thinking_mode: bool = False,
+    backend_extra: Optional[dict] = None,
 ) -> DebateVerificationAgent:
     """
     Create a Debate Verification Agent with AWS Bedrock.
+    Uses Blue Team backend config (evaluates Blue Team findings).
     
     Args:
         model_id: Bedrock model ID
         region: AWS region
         language: terraform or cloudformation
         run_parallel: Run debates concurrently
+        backend_type: "bedrock", "direct_api", or "sagemaker"
+        thinking_mode: Enable reasoning/thinking mode for supported models
+        backend_extra: Extra config for non-Bedrock backends
         
     Returns:
         Configured DebateVerificationAgent
     """
-    from langchain_aws import ChatBedrock
-    
-    llm = ChatBedrock(
-        model_id=model_id,
-        region_name=region,
-        model_kwargs={
-            "temperature": 0.3,
-            "max_tokens": 4096,
-        },
+    from src.backends import create_backend, BackendConfig
+    from src.backends.adapter import BackendChatModel
+
+    llm = BackendChatModel(
+        create_backend(
+            BackendConfig(
+                model_id=model_id,
+                region=region,
+                temperature=0.3,
+                max_tokens=4096,
+                thinking_mode=thinking_mode,
+                thinking_budget_tokens=8000,
+                extra=backend_extra or {},
+            ),
+            backend_type,
+        )
     )
-    
+
     return DebateVerificationAgent(
         llm=llm,
         language=language,

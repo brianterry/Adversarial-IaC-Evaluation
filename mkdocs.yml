@@ -1,5 +1,5 @@
 site_name: Adversarial IaC Benchmark
-site_description: An Adversarial Evaluation Framework for LLM Security in Infrastructure-as-Code
+site_description: Red Team vs Blue Team security evaluation for Infrastructure-as-Code
 site_url: https://brianterry.github.io/Adversarial-IaC-Evaluation
 repo_url: https://github.com/brianterry/Adversarial-IaC-Evaluation
 repo_name: brianterry/Adversarial-IaC-Evaluation
@@ -7,22 +7,22 @@ repo_name: brianterry/Adversarial-IaC-Evaluation
 theme:
   name: material
   palette:
-    # Light mode
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: indigo
-      accent: red
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-    # Dark mode
+    # Dark mode (default)
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
-      accent: red
+      primary: deep purple
+      accent: cyan
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
   font:
     text: Inter
     code: JetBrains Mono
@@ -38,11 +38,10 @@ theme:
     - search.share
     - content.code.copy
     - content.code.annotate
-    - toc.integrate  # Integrates TOC into left sidebar instead of right
+    - toc.integrate
   icon:
     repo: fontawesome/brands/github
   logo: assets/logo.svg
-  favicon: assets/favicon.ico
 
 plugins:
   - search
@@ -89,48 +88,38 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/brianterry/Adversarial-IaC-Evaluation
-  analytics:
-    provider: google
-    property: G-XXXXXXXXXX  # Add your GA4 property if desired
 
 extra_css:
   - stylesheets/extra.css
 
 nav:
-  - 🎮 Home: index.md
-  - Getting Started:
-    - Installation: getting-started/installation.md
-    - Quick Start: getting-started/quickstart.md
-    - Configuration: getting-started/configuration.md
-  - The Game:
-    - How It Works: framework/architecture.md
-    - 🔴 Red Team: framework/red-team.md
-    - 🔵 Blue Team: framework/blue-team.md
-    - ⚖️ Judge & Scoring: framework/judge.md
-    - 📊 Metrics: framework/metrics.md
-  - Modes & Strategies:
-    - Evaluation Modes: multi-agent/overview.md
-    - Red Team Pipeline: multi-agent/red-pipeline.md
-    - Blue Team Ensemble: multi-agent/blue-ensemble.md
-    - Adversarial Debate: multi-agent/debate.md
-  - Scenarios & Models:
-    - 114 Built-in Scenarios: extending/scenarios.md
-    - 20+ AI Models: extending/models.md
-  - For Researchers:
-    - Running Experiments: experiments/single-game.md
-    - Batch Experiments: experiments/batch.md
-    - Cloud Deployment: experiments/cloud.md
-    - Analyzing Results: experiments/analysis.md
+  - Home: index.md
+  - Quick Start: getting-started/quickstart.md
+  - Understanding:
+    - How It Works: understanding/architecture.md
+    - Key Concepts: understanding/concepts.md
+  - CLI Reference:
+    - play: cli/play.md
+    - game: cli/game.md
+    - models: cli/models.md
+    - scenarios: cli/scenarios.md
+    - red-team: cli/red-team.md
+    - blue-team: cli/blue-team.md
+    - judge: cli/judge.md
+    - experiment: cli/experiment.md
+  - Options & Examples:
+    - Models & Backends: options/backends.md
+    - Difficulties: options/difficulties.md
+    - Strategies: options/strategies.md
+    - Game Modes: options/modes.md
+  - Experiments:
+    - Single Game: experiments/single-game.md
+    - Batch (YAML): experiments/batch.md
   - Extending:
-    - New Vulnerabilities: extending/vulnerabilities.md
-  - API Reference:
-    - Game Engine: api/engine.md
-    - Agents: api/agents.md
-    - Prompts: api/prompts.md
+    - Scenarios: extending/scenarios.md
+    - Models: extending/models.md
+    - Vulnerabilities: extending/vulnerabilities.md
   - Research:
-    - Ground Truth Validation: research/validation.md
     - Citation: research/citation.md
-    - Publications: research/publications.md
-    - Contributing: research/contributing.md
 
 copyright: Copyright &copy; 2024-2026 Brian Terry

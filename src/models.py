@@ -43,6 +43,7 @@ MODEL_REGISTRY: Dict[str, Dict[str, str]] = {
     "specialized": {
         "deepseek-r1": "us.deepseek.r1-v1:0",
         "qwen3-coder": "qwen.qwen3-coder-30b-a3b-v1:0",
+        # "qwen3.5-397b": "<CONFIRMED_MODEL_ID>",  # Add after DashScope verification
         "jamba-1.5-large": "ai21.jamba-1-5-large-v1:0",
         "jamba-1.5-mini": "ai21.jamba-1-5-mini-v1:0",
         "command-r": "cohere.command-r-v1:0",

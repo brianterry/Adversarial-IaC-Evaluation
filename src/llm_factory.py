@@ -53,6 +53,8 @@ def create_llm(
     region: str = "us-east-1",
     temperature: float = 0.0,
     fallback_models: Optional[list] = None,
+    backend_type: str = "bedrock",
+    backend_extra: Optional[dict] = None,
 ) -> Tuple[BaseChatModel, str]:
     """
     Create an LLM instance from the appropriate provider.
@@ -67,10 +69,25 @@ def create_llm(
         region: AWS region for Bedrock models
         temperature: Temperature for generation
         fallback_models: Optional list of fallback model IDs to try on failure
+        backend_type: "bedrock", "direct_api", or "sagemaker" — defaults preserve existing behavior
+        backend_extra: Extra config for non-Bedrock backends (base_url, endpoint_name, etc.)
         
     Returns:
         Tuple of (LLM instance, short display name)
     """
+    # Non-Bedrock backends routed through abstraction layer
+    if backend_type and backend_type != "bedrock":
+        from src.backends import create_backend, BackendConfig
+        from src.backends.adapter import BackendChatModel
+        config = BackendConfig(
+            model_id=model_id,
+            region=region,
+            temperature=temperature,
+            extra=backend_extra or {},
+        )
+        llm = BackendChatModel(create_backend(config, backend_type))
+        return llm, model_id
+
     # Auto-detect provider if not specified
     if provider is None:
         provider = detect_provider(model_id)

@@ -282,6 +282,9 @@ def create_red_team_pipeline(
     language: str = "terraform",
     difficulty: str = "medium",
     vuln_count: int = 5,
+    backend_type: str = "bedrock",
+    thinking_mode: bool = False,
+    backend_extra: Optional[dict] = None,
 ) -> RedTeamPipeline:
     """
     Create a Red Team Pipeline with AWS Bedrock.
@@ -293,21 +296,31 @@ def create_red_team_pipeline(
         language: terraform or cloudformation
         difficulty: easy, medium, or hard
         vuln_count: Number of vulnerabilities to inject
+        backend_type: "bedrock", "direct_api", or "sagemaker"
+        thinking_mode: Enable reasoning/thinking mode for supported models
+        backend_extra: Extra config for non-Bedrock backends
         
     Returns:
         Configured RedTeamPipeline
     """
-    from langchain_aws import ChatBedrock
-    
-    llm = ChatBedrock(
-        model_id=model_id,
-        region_name=region,
-        model_kwargs={
-            "temperature": 0.7,  # Higher for creative attack generation
-            "max_tokens": 8192,
-        },
+    from src.backends import create_backend, BackendConfig
+    from src.backends.adapter import BackendChatModel
+
+    llm = BackendChatModel(
+        create_backend(
+            BackendConfig(
+                model_id=model_id,
+                region=region,
+                temperature=0.7,
+                max_tokens=8192,
+                thinking_mode=thinking_mode,
+                thinking_budget_tokens=8000,
+                extra=backend_extra or {},
+            ),
+            backend_type,
+        )
     )
-    
+
     return RedTeamPipeline(
         llm=llm,
         cloud_provider=cloud_provider,

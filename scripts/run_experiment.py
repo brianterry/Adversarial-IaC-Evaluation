@@ -173,6 +173,13 @@ class ExperimentRunner:
                                 "use_consensus_judge": judge_settings.get('use_consensus_judge', False),
                                 "use_trivy": judge_settings.get('use_trivy', False),
                                 "use_checkov": judge_settings.get('use_checkov', False),
+                                # Backend fields from combo entry
+                                "blue_backend_type": combo.get("blue_backend_type", "bedrock"),
+                                "blue_thinking_mode": combo.get("blue_thinking_mode", False),
+                                "blue_backend_extra": combo.get("blue_backend_extra", {}),
+                                "red_backend_type": combo.get("red_backend_type", "bedrock"),
+                                "red_thinking_mode": combo.get("red_thinking_mode", False),
+                                "red_backend_extra": combo.get("red_backend_extra", {}),
                             })
                             game_num += 1
         
@@ -215,6 +222,13 @@ class ExperimentRunner:
                                 "use_consensus_judge": mode.get('use_consensus_judge', judge_settings.get('use_consensus_judge', False)),
                                 "use_trivy": mode.get('use_trivy', judge_settings.get('use_trivy', False)),
                                 "use_checkov": mode.get('use_checkov', judge_settings.get('use_checkov', False)),
+                                # Backend fields from mode dict
+                                "blue_backend_type": mode.get("blue_backend_type", "bedrock"),
+                                "blue_thinking_mode": mode.get("blue_thinking_mode", False),
+                                "blue_backend_extra": mode.get("blue_backend_extra", {}),
+                                "red_backend_type": mode.get("red_backend_type", "bedrock"),
+                                "red_thinking_mode": mode.get("red_thinking_mode", False),
+                                "red_backend_extra": mode.get("red_backend_extra", {}),
                             })
                             game_num += 1
         
@@ -252,6 +266,12 @@ class ExperimentRunner:
                 use_consensus_judge=game_config.get('use_consensus_judge', False),
                 use_trivy=game_config.get('use_trivy', False),
                 use_checkov=game_config.get('use_checkov', False),
+                blue_backend_type=game_config.get("blue_backend_type", "bedrock"),
+                blue_thinking_mode=game_config.get("blue_thinking_mode", False),
+                blue_backend_extra=game_config.get("blue_backend_extra", {}),
+                red_backend_type=game_config.get("red_backend_type", "bedrock"),
+                red_thinking_mode=game_config.get("red_thinking_mode", False),
+                red_backend_extra=game_config.get("red_backend_extra", {}),
             )
             
             # Create scenario

@@ -90,6 +90,14 @@ class GameConfig:
     use_consensus_judge: bool = False  # Use multi-model consensus for inter-rater reliability
     consensus_models: Optional[List[str]] = None  # Model IDs for consensus judging (requires 2+)
 
+    # Backend config — optional fields, all default to existing behavior
+    blue_backend_type: str = "bedrock"
+    blue_thinking_mode: bool = False
+    blue_backend_extra: dict = field(default_factory=dict)
+    red_backend_type: str = "bedrock"
+    red_thinking_mode: bool = False
+    red_backend_extra: dict = field(default_factory=dict)
+
 
 @dataclass
 class GameResult:
@@ -340,6 +348,9 @@ class GameEngine:
                 cloud_provider=config.cloud_provider,
                 language=config.language,
                 difficulty=config.difficulty,
+                backend_type=config.red_backend_type,
+                thinking_mode=config.red_thinking_mode,
+                backend_extra=config.red_backend_extra,
             )
             
             pipeline_output = await red_agent.execute(scenario.to_dict())
@@ -363,6 +374,9 @@ class GameEngine:
                 target_type=config.red_target_type,
                 vuln_source=config.red_vuln_source,
                 blue_team_profile=config.blue_team_profile,
+                backend_type=config.red_backend_type,
+                thinking_mode=config.red_thinking_mode,
+                backend_extra=config.red_backend_extra,
             )
             
             red_output = await red_agent.execute(scenario.to_dict())
@@ -443,6 +457,9 @@ class GameEngine:
                 language=config.language,
                 specialists=config.ensemble_specialists,
                 consensus_method=config.consensus_method,
+                backend_type=config.blue_backend_type,
+                thinking_mode=config.blue_thinking_mode,
+                backend_extra=config.blue_backend_extra,
             )
             
             ensemble_output = await blue_agent.execute(red_output.code)
@@ -465,6 +482,9 @@ class GameEngine:
                 compliance_framework=config.compliance_framework,
                 iterations=config.blue_iterations,
                 scenario_description=scenario.description,
+                backend_type=config.blue_backend_type,
+                thinking_mode=config.blue_thinking_mode,
+                backend_extra=config.blue_backend_extra,
             )
             
             blue_output = await blue_agent.execute(red_output.code)
@@ -530,6 +550,9 @@ class GameEngine:
                 model_id=config.blue_model,  # Use Blue Team model for verification
                 region=config.region,
                 language=config.language,
+                backend_type=config.blue_backend_type,
+                thinking_mode=config.blue_thinking_mode,
+                backend_extra=config.blue_backend_extra,
             )
             
             debate_output = await debate_agent.verify(

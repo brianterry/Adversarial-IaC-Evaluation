@@ -1068,6 +1068,9 @@ def create_red_team_agent(
     target_type: Optional[str] = None,
     vuln_source: str = "database",
     blue_team_profile: Optional[str] = None,
+    backend_type: str = "bedrock",
+    thinking_mode: bool = False,
+    backend_extra: Optional[dict] = None,
 ) -> RedTeamAgent:
     """
     Create a Red Team Agent with AWS Bedrock.
@@ -1082,21 +1085,31 @@ def create_red_team_agent(
         target_type: For "targeted" strategy - "encryption", "iam", "network", "logging", "access_control"
         vuln_source: Vulnerability source - "database" (Trivy rules), "novel" (LLM-generated), "mixed"
         blue_team_profile: Threat model - "llm_only", "tool_augmented", "ensemble", or None
+        backend_type: "bedrock", "direct_api", or "sagemaker"
+        thinking_mode: Enable reasoning/thinking mode for supported models
+        backend_extra: Extra config for non-Bedrock backends (base_url, endpoint_name, etc.)
         
     Returns:
         Configured RedTeamAgent
     """
-    from langchain_aws import ChatBedrock
-    
-    llm = ChatBedrock(
-        model_id=model_id,
-        region_name=region,
-        model_kwargs={
-            "temperature": 0.7,  # More creative for adversarial
-            "max_tokens": 8192,  # Enough for detailed JSON responses
-        },
+    from src.backends import create_backend, BackendConfig
+    from src.backends.adapter import BackendChatModel
+
+    llm = BackendChatModel(
+        create_backend(
+            BackendConfig(
+                model_id=model_id,
+                region=region,
+                temperature=0.7,
+                max_tokens=8192,
+                thinking_mode=thinking_mode,
+                thinking_budget_tokens=8000,
+                extra=backend_extra or {},
+            ),
+            backend_type,
+        )
     )
-    
+
     return RedTeamAgent(
         llm=llm,
         difficulty=Difficulty(difficulty),

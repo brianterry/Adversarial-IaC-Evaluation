@@ -1,8 +1,22 @@
-# New Vulnerability Types
+# Vulnerabilities
+
+Red Team selects from 142 Trivy-based vulnerability patterns or generates novel ones.
+
+## Vulnerability Source
+
+| Source | Description |
+|--------|-------------|
+| database | Trivy rules (default) |
+| novel | LLM generates from principles |
+| mixed | 50% database, 50% novel |
+
+```bash
+adversarial-iac game -s "Create S3 bucket" --red-vuln-source novel
+```
 
 ## Adding Rules
 
-Add new vulnerability rules to `src/data/trivy_rules_db.json`:
+Add to `src/data/trivy_rules_db.json`:
 
 ```json
 {
@@ -13,12 +27,8 @@ Add new vulnerability rules to `src/data/trivy_rules_db.json`:
 }
 ```
 
-## Updating the Database
-
-To update the database with the latest Trivy rules:
+## Updating Trivy Database
 
 ```bash
 python scripts/update_trivy_rules.py
 ```
-
-The database contains 142 real-world vulnerability patterns from [Trivy Checks](https://github.com/aquasecurity/trivy-checks).

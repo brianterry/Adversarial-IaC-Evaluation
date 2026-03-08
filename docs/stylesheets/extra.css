@@ -1,24 +1,32 @@
-/* Custom styles for AdversarialIaC-Bench documentation */
+/* Adversarial IaC Benchmark - Dark-first documentation */
 
 :root {
   --md-primary-fg-color: #7c3aed;
   --md-primary-fg-color--light: #a78bfa;
   --md-primary-fg-color--dark: #5b21b6;
-  --md-accent-fg-color: #f59e0b;
+  --md-accent-fg-color: #22d3ee;
 }
 
-/* Hero section styling */
+/* Dark mode: black base (GitHub dark) */
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: #0d1117;
+  --md-default-bg-color--light: #161b22;
+  --md-default-bg-color--lighter: #21262d;
+  --md-code-bg-color: #161b22;
+}
+
+/* Headings */
 .md-typeset h1 {
   font-weight: 700;
 }
 
-/* Code block styling */
+/* Code blocks */
 .md-typeset code {
   background-color: var(--md-code-bg-color);
   border-radius: 4px;
 }
 
-/* Card grid styling */
+/* Card grid - dark mode friendly */
 .grid.cards > ul > li {
   border-radius: 8px;
   transition: transform 0.2s, box-shadow 0.2s;
@@ -26,16 +34,16 @@
 
 .grid.cards > ul > li:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-/* Mermaid diagram styling */
+/* Mermaid diagrams */
 .mermaid {
   text-align: center;
   margin: 1rem 0;
 }
 
-/* Table styling */
+/* Tables - dark mode readable */
 .md-typeset table:not([class]) {
   border-radius: 8px;
   overflow: hidden;
@@ -46,7 +54,11 @@
   color: white;
 }
 
-/* Admonition icons */
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) td {
+  border-color: var(--md-default-bg-color--lighter);
+}
+
+/* Admonitions */
 .md-typeset .admonition.tip {
   border-color: #10b981;
 }
@@ -55,12 +67,12 @@
   border-color: #f59e0b;
 }
 
-/* Footer styling */
+/* Footer */
 .md-footer {
   margin-top: 2rem;
 }
 
-/* Tab styling */
+/* Tabs */
 .md-typeset .tabbed-labels > label {
   font-weight: 500;
 }

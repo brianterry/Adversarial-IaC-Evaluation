@@ -361,6 +361,9 @@ def create_blue_team_ensemble(
     specialists: Optional[List[str]] = None,
     consensus_method: str = "debate",
     run_parallel: bool = True,
+    backend_type: str = "bedrock",
+    thinking_mode: bool = False,
+    backend_extra: Optional[dict] = None,
 ) -> BlueTeamEnsemble:
     """
     Create a Blue Team Ensemble with AWS Bedrock.
@@ -372,21 +375,31 @@ def create_blue_team_ensemble(
         specialists: Which specialists to use (default: all)
         consensus_method: debate, vote, union, or intersection
         run_parallel: Run specialists concurrently
+        backend_type: "bedrock", "direct_api", or "sagemaker"
+        thinking_mode: Enable reasoning/thinking mode for supported models
+        backend_extra: Extra config for non-Bedrock backends
         
     Returns:
         Configured BlueTeamEnsemble
     """
-    from langchain_aws import ChatBedrock
-    
-    llm = ChatBedrock(
-        model_id=model_id,
-        region_name=region,
-        model_kwargs={
-            "temperature": 0.3,
-            "max_tokens": 8192,
-        },
+    from src.backends import create_backend, BackendConfig
+    from src.backends.adapter import BackendChatModel
+
+    llm = BackendChatModel(
+        create_backend(
+            BackendConfig(
+                model_id=model_id,
+                region=region,
+                temperature=0.3,
+                max_tokens=8192,
+                thinking_mode=thinking_mode,
+                thinking_budget_tokens=8000,
+                extra=backend_extra or {},
+            ),
+            backend_type,
+        )
     )
-    
+
     return BlueTeamEnsemble(
         llm=llm,
         language=language,
