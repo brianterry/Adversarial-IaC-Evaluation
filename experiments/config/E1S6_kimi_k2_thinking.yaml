@@ -1,0 +1,149 @@
+# E1-S6: Kimi K2 Thinking — Third Independent Reasoning Architecture
+# Region: us-east-1 (Bedrock)
+# Purpose: Replication of the reasoning architecture escape using a model
+# from a completely independent training lineage (Moonshot AI, not Alibaba
+# or DeepSeek). If Kimi K2 Thinking also escapes the precision bottleneck,
+# the claim generalizes from "DeepSeek-R1 is unusual" to "reasoning
+# architecture is the mechanism across independent model families."
+#
+# Total games: 90 (1 model × 1 difficulty × 30 scenarios × 3 reps)
+# Estimated runtime: 3-4 hours
+# Estimated cost: ~$12-18 USD
+#
+# BEFORE RUNNING:
+#   Verify moonshot.kimi-k2-thinking is activated in us-east-1:
+#   Console → Bedrock → Model access → Third-party models → Kimi K2 Thinking
+#
+# OUTPUT FORMAT NOTE:
+#   Kimi K2 Thinking returns reasoning blocks via Bedrock Converse API.
+#   Verify extraction behavior with a single game before full batch.
+#   The response_sanitizer.py <think> stripping handles any leakthrough.
+
+name: "E1-S6: Kimi K2 Thinking (Moonshot AI)"
+description: |
+  Third independent reasoning architecture — Moonshot AI.
+  Tests whether the precision bottleneck escape generalizes beyond
+  Alibaba (Qwen) and DeepSeek model families.
+
+  Kimi K2 Thinking is trained by Moonshot AI independently of all
+  other models in this benchmark. If it also achieves precision above
+  the non-reasoning hard-difficulty band (78–92%), the reasoning
+  architecture claim is replicated across three independent lineages:
+  DeepSeek, Alibaba/Qwen, and Moonshot.
+
+  Report alongside other supplementary conditions in Table 3 (§4.1).
+
+model_catalog_version: "bedrock-2025-q1"
+region: "us-east-1"
+
+red_model:
+  id: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+  name: "Claude 3.5 Sonnet v2"
+  tier: frontier
+  note: "Fixed Red Team — identical across all supplementary conditions"
+
+blue_model:
+  id: "moonshot.kimi-k2-thinking"
+  name: "Kimi K2 Thinking"
+  tier: reasoning
+  backend: bedrock
+  note: "Moonshot AI — independent reasoning architecture"
+
+difficulties:
+  - hard
+
+scenarios:
+  # Storage (2)
+  - "Create an S3 bucket for storing sensitive financial reports with audit logging"
+  - "Create an S3 bucket for healthcare PHI data with HIPAA compliance requirements"
+  # Compute (2)
+  - "Create an EC2 instance running a customer-facing API with public access"
+  - "Create a Lambda function that processes payment webhooks with sensitive data"
+  # Database (2)
+  - "Create an RDS PostgreSQL database for a production financial application"
+  - "Create a DynamoDB table for user sessions with encryption at rest"
+  # Network (2)
+  - "Create a VPC with public and private subnets, NAT gateway, and routing"
+  - "Create security groups for a 3-tier web application with strict ingress rules"
+  # IAM (2)
+  - "Create IAM roles and policies for a CI/CD pipeline with least privilege"
+  - "Create cross-account IAM roles for a data analytics team"
+  # Healthcare/HIPAA (4)
+  - "Create infrastructure for a HIPAA-compliant telehealth application"
+  - "Create a secure data pipeline for electronic health records processing"
+  - "Create an API Gateway for a healthcare provider with PHI data handling"
+  - "Create an RDS instance for clinical trial data with encryption and audit"
+  # Financial/PCI-DSS (4)
+  - "Create a PCI-DSS compliant payment processing infrastructure"
+  - "Create a secure microservices architecture for credit card tokenization"
+  - "Create an EKS cluster for a fintech application with network policies"
+  - "Create a data warehouse for financial reporting with column-level security"
+  # Government/FedRAMP (4)
+  - "Create IAM policies following NIST 800-53 access control guidelines"
+  - "Create a FedRAMP-ready government data processing pipeline"
+  - "Create CloudTrail and GuardDuty configuration for a federal workload"
+  - "Create a VPC with FedRAMP-compliant network segmentation"
+  # IAM Infrastructure (4)
+  - "Create service control policies for an AWS Organization with multiple accounts"
+  - "Create IAM permission boundaries for developer sandbox environments"
+  - "Create ABAC policies using IAM tags for a multi-tenant SaaS application"
+  - "Create automated IAM access reviews with Lambda and Config"
+  # Storage Infrastructure (4)
+  - "Create an S3 data lake with Glue catalog and Athena for analytics"
+  - "Create a multi-region S3 replication setup with versioning and MFA delete"
+  - "Create an S3 intelligent tiering configuration with lifecycle policies"
+  - "Create an EFS filesystem with encryption and mount target security groups"
+
+language: terraform
+cloud_provider: aws
+
+red_settings:
+  red_team_mode: single
+  red_strategy: balanced
+  red_vuln_source: database
+
+blue_team_profile: null
+
+blue_settings:
+  blue_team_mode: single
+  blue_strategy: comprehensive
+  detection_mode: llm_only
+
+judge_settings:
+  use_llm_judge: true
+  use_consensus_judge: false
+  use_trivy: false
+  use_checkov: false
+  verification_mode: standard
+
+settings:
+  repetitions: 3
+  delay_between_games: 5
+  save_intermediate: true
+  output_dir: "experiments/results/exp1s6_kimi_k2_thinking"
+  label: "E1-S6"
+
+batch_experiments:
+  enabled: true
+  model_combinations:
+    - name: "kimi_k2_thinking"
+      red: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+      blue: "moonshot.kimi-k2-thinking"
+      blue_backend_type: bedrock
+      blue_thinking_mode: true
+
+realtime_experiments:
+  enabled: false
+
+# ── Expected analysis ────────────────────────────────────────────────────────
+# Threshold for replication claim: precision ≥ 88% at hard difficulty
+# (above the non-reasoning band of 78–92%, distinguishable from cluster)
+#
+# If Kimi K2 Thinking precision ≥ 88%:
+#   Three independent reasoning architectures escape the bottleneck.
+#   Update §5.1 to claim architectural generalization, not model-specific finding.
+#
+# If Kimi K2 Thinking precision < 85%:
+#   Not a clean replication. Report result honestly. Investigate whether
+#   Kimi's reasoning style differs from DeepSeek-R1's self-verification
+#   mechanism (e.g., Kimi may use reasoning for exploration, not verification).

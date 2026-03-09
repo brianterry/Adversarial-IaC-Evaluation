@@ -1,0 +1,147 @@
+# E1-S7: DeepSeek V3.1 — Same-Family Non-Reasoning Control
+# Region: us-east-1 (Bedrock)
+# Purpose: Same-company non-reasoning control for DeepSeek-R1 (E1-S).
+# Both R1 and V3.1 are from DeepSeek. R1 has chain-of-thought reasoning.
+# V3.1 does not. If V3.1 falls inside the non-reasoning precision band
+# while R1 escapes it, CoT is isolated as the mechanism within the
+# same model family — ruling out "DeepSeek just knows more security."
+#
+# Total games: 90 (1 model × 1 difficulty × 30 scenarios × 3 reps)
+# Estimated runtime: 2-3 hours
+# Estimated cost: ~$10-15 USD
+#
+# BEFORE RUNNING:
+#   Verify deepseek.v3-v1:0 is activated in us-east-1:
+#   Console → Bedrock → Model access → Third-party models → DeepSeek V3
+#
+# NOTE: DeepSeek V3.1 does not produce reasoning blocks. No special
+# content extraction needed. Standard response sanitizer applies.
+
+name: "E1-S7: DeepSeek V3.1 (Same-Family Non-Reasoning Control)"
+description: |
+  Same-company non-reasoning control for DeepSeek-R1.
+  Both models are from DeepSeek; V3.1 lacks chain-of-thought reasoning.
+
+  If V3.1 precision falls inside the 78–92% non-reasoning band while
+  R1 achieves 89%+, the within-family comparison eliminates the
+  alternative explanation that DeepSeek models simply have superior
+  security knowledge independent of reasoning architecture.
+
+  This is the tightest possible single-family isolation of the CoT
+  mechanism: same company, same training culture, same Bedrock provider
+  integration — only reasoning capability differs.
+
+  Report alongside E1-S (DeepSeek-R1) in Table 3 (§4.1) with a
+  clear within-family comparison row.
+
+model_catalog_version: "bedrock-2025-q1"
+region: "us-east-1"
+
+red_model:
+  id: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+  name: "Claude 3.5 Sonnet v2"
+  tier: frontier
+  note: "Fixed Red Team — identical across all supplementary conditions"
+
+blue_model:
+  id: "deepseek.v3-v1:0"
+  name: "DeepSeek V3.1"
+  tier: frontier  # Strong general capability, no CoT reasoning
+  backend: bedrock
+  note: "Same company as R1 — no chain-of-thought reasoning"
+
+difficulties:
+  - hard
+
+scenarios:
+  # Storage (2)
+  - "Create an S3 bucket for storing sensitive financial reports with audit logging"
+  - "Create an S3 bucket for healthcare PHI data with HIPAA compliance requirements"
+  # Compute (2)
+  - "Create an EC2 instance running a customer-facing API with public access"
+  - "Create a Lambda function that processes payment webhooks with sensitive data"
+  # Database (2)
+  - "Create an RDS PostgreSQL database for a production financial application"
+  - "Create a DynamoDB table for user sessions with encryption at rest"
+  # Network (2)
+  - "Create a VPC with public and private subnets, NAT gateway, and routing"
+  - "Create security groups for a 3-tier web application with strict ingress rules"
+  # IAM (2)
+  - "Create IAM roles and policies for a CI/CD pipeline with least privilege"
+  - "Create cross-account IAM roles for a data analytics team"
+  # Healthcare/HIPAA (4)
+  - "Create infrastructure for a HIPAA-compliant telehealth application"
+  - "Create a secure data pipeline for electronic health records processing"
+  - "Create an API Gateway for a healthcare provider with PHI data handling"
+  - "Create an RDS instance for clinical trial data with encryption and audit"
+  # Financial/PCI-DSS (4)
+  - "Create a PCI-DSS compliant payment processing infrastructure"
+  - "Create a secure microservices architecture for credit card tokenization"
+  - "Create an EKS cluster for a fintech application with network policies"
+  - "Create a data warehouse for financial reporting with column-level security"
+  # Government/FedRAMP (4)
+  - "Create IAM policies following NIST 800-53 access control guidelines"
+  - "Create a FedRAMP-ready government data processing pipeline"
+  - "Create CloudTrail and GuardDuty configuration for a federal workload"
+  - "Create a VPC with FedRAMP-compliant network segmentation"
+  # IAM Infrastructure (4)
+  - "Create service control policies for an AWS Organization with multiple accounts"
+  - "Create IAM permission boundaries for developer sandbox environments"
+  - "Create ABAC policies using IAM tags for a multi-tenant SaaS application"
+  - "Create automated IAM access reviews with Lambda and Config"
+  # Storage Infrastructure (4)
+  - "Create an S3 data lake with Glue catalog and Athena for analytics"
+  - "Create a multi-region S3 replication setup with versioning and MFA delete"
+  - "Create an S3 intelligent tiering configuration with lifecycle policies"
+  - "Create an EFS filesystem with encryption and mount target security groups"
+
+language: terraform
+cloud_provider: aws
+
+red_settings:
+  red_team_mode: single
+  red_strategy: balanced
+  red_vuln_source: database
+
+blue_team_profile: null
+
+blue_settings:
+  blue_team_mode: single
+  blue_strategy: comprehensive
+  detection_mode: llm_only
+
+judge_settings:
+  use_llm_judge: true
+  use_consensus_judge: false
+  use_trivy: false
+  use_checkov: false
+  verification_mode: standard
+
+settings:
+  repetitions: 3
+  delay_between_games: 3
+  save_intermediate: true
+  output_dir: "experiments/results/exp1s7_deepseek_v3"
+  label: "E1-S7"
+
+batch_experiments:
+  enabled: true
+  model_combinations:
+    - name: "deepseek_v3_no_reasoning"
+      red: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+      blue: "deepseek.v3-v1:0"
+      blue_backend_type: bedrock
+      blue_thinking_mode: false
+
+realtime_experiments:
+  enabled: false
+
+# ── Expected analysis ────────────────────────────────────────────────────────
+# Compare directly with E1-S (DeepSeek-R1, precision 89.0%):
+#   If V3.1 precision < 85%: CoT isolated within DeepSeek family — strongest
+#     possible evidence against the "DeepSeek just knows security" alternative
+#   If V3.1 precision ≥ 87%: R1 advantage may not be CoT alone — investigate
+#     whether R1 vs V3.1 capability differences beyond reasoning explain gap
+#
+# Expected: V3.1 falls into 78–86% band alongside other non-reasoning models.
+# Any V3.1 result above 87% requires discussion in §5.1 limitations.
