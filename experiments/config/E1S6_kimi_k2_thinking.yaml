@@ -11,7 +11,7 @@
 # Estimated cost: ~$12-18 USD
 #
 # BEFORE RUNNING:
-#   Verify moonshot.kimi-k2-thinking is activated in us-east-1:
+#   Verify moonshotai.kimi-k2-thinking is activated in us-east-1:
 #   Console → Bedrock → Model access → Third-party models → Kimi K2 Thinking
 #
 # OUTPUT FORMAT NOTE:
@@ -43,7 +43,7 @@ red_model:
   note: "Fixed Red Team — identical across all supplementary conditions"
 
 blue_model:
-  id: "moonshot.kimi-k2-thinking"
+  id: "moonshotai.kimi-k2-thinking"
   name: "Kimi K2 Thinking"
   tier: reasoning
   backend: bedrock
@@ -111,6 +111,7 @@ blue_settings:
 
 judge_settings:
   use_llm_judge: true
+  judge_model: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
   use_consensus_judge: false
   use_trivy: false
   use_checkov: false
@@ -128,7 +129,7 @@ batch_experiments:
   model_combinations:
     - name: "kimi_k2_thinking"
       red: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
-      blue: "moonshot.kimi-k2-thinking"
+      blue: "moonshotai.kimi-k2-thinking"
       blue_backend_type: bedrock
       blue_thinking_mode: true
 

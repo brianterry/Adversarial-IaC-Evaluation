@@ -227,10 +227,13 @@ def _create_bedrock_llm(model_id: str, region: str, temperature: float) -> Tuple
     # Resolve short name to full Bedrock model ID
     full_model_id = get_model_id(model_id)
     
+    from botocore.config import Config as BotoConfig
+
     llm = ChatBedrockConverse(
         model=full_model_id,
         region_name=region,
         temperature=temperature,
+        config=BotoConfig(read_timeout=600),
     )
     
     # Create short display name
