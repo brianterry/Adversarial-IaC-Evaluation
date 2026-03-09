@@ -717,7 +717,7 @@ def main():
     parser.add_argument("--config", "-c", required=True, help="Experiment config YAML")
     parser.add_argument("--output", "-o", default="experiments/results", help="Output directory")
     parser.add_argument("--upload-to-s3", action="store_true", help="Upload results to S3")
-    parser.add_argument("--region", default="us-west-2", help="AWS region")
+    parser.add_argument("--region", default=None, help="AWS region (overrides YAML config)")
     parser.add_argument("--delay", type=float, default=2.0, help="Delay between games (seconds)")
     
     args = parser.parse_args()
