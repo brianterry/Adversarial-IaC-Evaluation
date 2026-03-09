@@ -360,7 +360,9 @@ class ExperimentRunner:
             return game_result
             
         except Exception as e:
+            import traceback
             logger.error(f"  ✗ {game_id} failed: {e}")
+            logger.error(traceback.format_exc())
             return {
                 "game_id": game_id,
                 "status": "failed",

@@ -4,17 +4,32 @@ Agents currently use ChatBedrock directly — after this refactor they use
 the BackendChatModel adapter, which calls this backend.
 Standardizing on Converse API for better reasoning model support.
 """
+import logging
+
+import boto3
+from botocore.config import Config as BotoConfig
 from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from src.backends.base import BackendConfig, ModelBackend, ModelResponse
+
+logger = logging.getLogger(__name__)
+
+# Reasoning models can take minutes to respond; default boto3 timeout (~60s) is too short.
+_BEDROCK_READ_TIMEOUT = 900  # 15 minutes
 
 
 class BedrockBackend(ModelBackend):
     def __init__(self, config: BackendConfig):
         super().__init__(config)
+        logger.info(f"BedrockBackend creating LLM: model={config.model_id}, region={config.region}")
+        bedrock_client = boto3.client(
+            "bedrock-runtime",
+            region_name=config.region,
+            config=BotoConfig(read_timeout=_BEDROCK_READ_TIMEOUT),
+        )
         self._llm = ChatBedrockConverse(
             model=config.model_id,
-            region_name=config.region,
+            client=bedrock_client,
             temperature=config.temperature,
             max_tokens=config.max_tokens,
         )
