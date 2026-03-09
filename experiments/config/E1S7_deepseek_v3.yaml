@@ -1,8 +1,8 @@
-# E1-S7: DeepSeek V3.1 — Same-Family Non-Reasoning Control
+# E1-S7: DeepSeek V3.2 — Same-Family Non-Reasoning Control
 # Region: us-east-1 (Bedrock)
 # Purpose: Same-company non-reasoning control for DeepSeek-R1 (E1-S).
-# Both R1 and V3.1 are from DeepSeek. R1 has chain-of-thought reasoning.
-# V3.1 does not. If V3.1 falls inside the non-reasoning precision band
+# Both R1 and V3.2 are from DeepSeek. R1 has chain-of-thought reasoning.
+# V3.2 does not. If V3.2 falls inside the non-reasoning precision band
 # while R1 escapes it, CoT is isolated as the mechanism within the
 # same model family — ruling out "DeepSeek just knows more security."
 #
@@ -11,18 +11,18 @@
 # Estimated cost: ~$10-15 USD
 #
 # BEFORE RUNNING:
-#   Verify deepseek.v3-v1:0 is activated in us-east-1:
+#   Verify deepseek.v3.2 is activated in us-east-1:
 #   Console → Bedrock → Model access → Third-party models → DeepSeek V3
 #
-# NOTE: DeepSeek V3.1 does not produce reasoning blocks. No special
+# NOTE: DeepSeek V3.2 does not produce reasoning blocks. No special
 # content extraction needed. Standard response sanitizer applies.
 
-name: "E1-S7: DeepSeek V3.1 (Same-Family Non-Reasoning Control)"
+name: "E1-S7: DeepSeek V3.2 (Same-Family Non-Reasoning Control)"
 description: |
   Same-company non-reasoning control for DeepSeek-R1.
-  Both models are from DeepSeek; V3.1 lacks chain-of-thought reasoning.
+  Both models are from DeepSeek; V3.2 lacks chain-of-thought reasoning.
 
-  If V3.1 precision falls inside the 78–92% non-reasoning band while
+  If V3.2 precision falls inside the 78–92% non-reasoning band while
   R1 achieves 89%+, the within-family comparison eliminates the
   alternative explanation that DeepSeek models simply have superior
   security knowledge independent of reasoning architecture.
@@ -44,8 +44,8 @@ red_model:
   note: "Fixed Red Team — identical across all supplementary conditions"
 
 blue_model:
-  id: "deepseek.v3-v1:0"
-  name: "DeepSeek V3.1"
+  id: "deepseek.v3.2"
+  name: "DeepSeek V3.2"
   tier: frontier  # Strong general capability, no CoT reasoning
   backend: bedrock
   note: "Same company as R1 — no chain-of-thought reasoning"
@@ -113,6 +113,7 @@ blue_settings:
 judge_settings:
   use_llm_judge: true
   use_consensus_judge: false
+  judge_model: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
   use_trivy: false
   use_checkov: false
   verification_mode: standard
@@ -129,7 +130,7 @@ batch_experiments:
   model_combinations:
     - name: "deepseek_v3_no_reasoning"
       red: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
-      blue: "deepseek.v3-v1:0"
+      blue: "deepseek.v3.2"
       blue_backend_type: bedrock
       blue_thinking_mode: false
 
@@ -138,10 +139,10 @@ realtime_experiments:
 
 # ── Expected analysis ────────────────────────────────────────────────────────
 # Compare directly with E1-S (DeepSeek-R1, precision 89.0%):
-#   If V3.1 precision < 85%: CoT isolated within DeepSeek family — strongest
+#   If V3.2 precision < 85%: CoT isolated within DeepSeek family — strongest
 #     possible evidence against the "DeepSeek just knows security" alternative
-#   If V3.1 precision ≥ 87%: R1 advantage may not be CoT alone — investigate
-#     whether R1 vs V3.1 capability differences beyond reasoning explain gap
+#   If V3.2 precision ≥ 87%: R1 advantage may not be CoT alone — investigate
+#     whether R1 vs V3.2 capability differences beyond reasoning explain gap
 #
-# Expected: V3.1 falls into 78–86% band alongside other non-reasoning models.
-# Any V3.1 result above 87% requires discussion in §5.1 limitations.
+# Expected: V3.2 falls into 78–86% band alongside other non-reasoning models.
+# Any V3.2 result above 87% requires discussion in §5.1 limitations.
