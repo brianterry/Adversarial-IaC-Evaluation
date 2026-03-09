@@ -227,17 +227,9 @@ def _create_bedrock_llm(model_id: str, region: str, temperature: float) -> Tuple
     # Resolve short name to full Bedrock model ID
     full_model_id = get_model_id(model_id)
     
-    import boto3
-    from botocore.config import Config as BotoConfig
-
-    bedrock_client = boto3.client(
-        "bedrock-runtime",
-        region_name=region,
-        config=BotoConfig(read_timeout=900),
-    )
     llm = ChatBedrockConverse(
         model=full_model_id,
-        client=bedrock_client,
+        region_name=region,
         temperature=temperature,
     )
     

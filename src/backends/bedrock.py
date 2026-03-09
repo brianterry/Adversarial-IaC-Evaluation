@@ -6,16 +6,11 @@ Standardizing on Converse API for better reasoning model support.
 """
 import logging
 
-import boto3
-from botocore.config import Config as BotoConfig
 from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from src.backends.base import BackendConfig, ModelBackend, ModelResponse
 
 logger = logging.getLogger(__name__)
-
-# Reasoning models can take minutes to respond; default boto3 timeout (~60s) is too short.
-_BEDROCK_READ_TIMEOUT = 900  # 15 minutes
 
 
 class BedrockBackend(ModelBackend):
@@ -25,15 +20,10 @@ class BedrockBackend(ModelBackend):
             f"BedrockBackend creating LLM: model={config.model_id}, "
             f"region={config.region}, thinking={config.thinking_mode}"
         )
-        bedrock_client = boto3.client(
-            "bedrock-runtime",
-            region_name=config.region,
-            config=BotoConfig(read_timeout=_BEDROCK_READ_TIMEOUT),
-        )
 
         kwargs = dict(
             model=config.model_id,
-            client=bedrock_client,
+            region_name=config.region,
             temperature=config.temperature,
             max_tokens=config.max_tokens,
         )
