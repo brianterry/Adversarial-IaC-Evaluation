@@ -1,0 +1,173 @@
+# E1-S6b: OpenAI GPT-OSS-120B — Reasoning Architecture (Bedrock)
+# Replaces E1-S6 (Kimi K2 Thinking) which failed due to output parsing errors.
+# Region: us-east-1
+#
+# Purpose: Third independent reasoning architecture from a completely
+# different company (OpenAI). Tests whether the precision bottleneck
+# escape generalizes beyond DeepSeek (E1-S) and Alibaba/Qwen (E1-S4).
+#
+# Total games: 90 (1 model × 1 difficulty × 30 scenarios × 3 reps)
+# Estimated runtime: 3-5 hours
+# Estimated cost: ~$15-20 USD
+#
+# BEFORE RUNNING — CRITICAL:
+#
+# 1. Verify openai.gpt-oss-120b-1:0 is activated in us-east-1:
+#    Console → Bedrock → Model access → Third-party models → OpenAI GPT-OSS-120B
+#
+# 2. OUTPUT FORMAT NOTE:
+#    GPT-OSS-120B returns reasoning via structured content blocks
+#    (type: 'reasoning_content') through the Bedrock Converse API —
+#    identical to how other thinking models are handled.
+#    The existing _extract_content() in BedrockBackend handles this
+#    correctly. No additional parser changes required.
+#    Verified with single-game test: clean JSON output, reasoning
+#    correctly separated. Ready for full batch.
+#
+# 3. The model does not require a special thinking_mode flag — reasoning
+#    is always active for gpt-oss-120b. Set blue_thinking_mode: false
+#    to avoid passing enable_thinking to the Bedrock Converse API
+#    (which doesn't apply to this model and may cause errors).
+
+name: "E1-S6b: OpenAI GPT-OSS-120B Reasoning (Bedrock)"
+description: |
+  Third independent reasoning architecture — OpenAI open-weight model.
+  Replaces E1-S6 (Kimi K2 Thinking, excluded due to parsing failures).
+
+  GPT-OSS-120B is OpenAI's open-weight reasoning model with full
+  chain-of-thought output. It is architecturally independent from
+  DeepSeek (E1-S) and Alibaba/Qwen (E1-S4). All three represent
+  different companies, different training approaches, and different
+  reasoning implementations.
+
+  If GPT-OSS-120B also escapes the 78–92% hard-difficulty precision
+  band, the reasoning architecture escape is confirmed across three
+  independent model families: DeepSeek, Alibaba, and OpenAI.
+
+  NOTE: Reasoning output uses structured content blocks on Bedrock,
+  handled by _extract_content() in BedrockBackend. Verified locally.
+
+  Report alongside other supplementary conditions in Table 3 (§4.1).
+  Update §3.7 model catalog to include this model.
+
+model_catalog_version: "bedrock-2025-q3"
+region: "us-east-1"
+
+red_model:
+  id: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+  name: "Claude 3.5 Sonnet v2"
+  tier: frontier
+  note: "Fixed Red Team — identical across all supplementary conditions"
+
+blue_model:
+  id: "openai.gpt-oss-120b-1:0"
+  name: "GPT-OSS-120B"
+  tier: reasoning
+  backend: bedrock
+  note: "OpenAI open-weight reasoning model — reasoning via structured content blocks"
+
+difficulties:
+  - hard
+
+scenarios:
+  # Storage (2)
+  - "Create an S3 bucket for storing sensitive financial reports with audit logging"
+  - "Create an S3 bucket for healthcare PHI data with HIPAA compliance requirements"
+  # Compute (2)
+  - "Create an EC2 instance running a customer-facing API with public access"
+  - "Create a Lambda function that processes payment webhooks with sensitive data"
+  # Database (2)
+  - "Create an RDS PostgreSQL database for a production financial application"
+  - "Create a DynamoDB table for user sessions with encryption at rest"
+  # Network (2)
+  - "Create a VPC with public and private subnets, NAT gateway, and routing"
+  - "Create security groups for a 3-tier web application with strict ingress rules"
+  # IAM (2)
+  - "Create IAM roles and policies for a CI/CD pipeline with least privilege"
+  - "Create cross-account IAM roles for a data analytics team"
+  # Healthcare/HIPAA (4)
+  - "Create infrastructure for a HIPAA-compliant telehealth application"
+  - "Create a secure data pipeline for electronic health records processing"
+  - "Create an API Gateway for a healthcare provider with PHI data handling"
+  - "Create an RDS instance for clinical trial data with encryption and audit"
+  # Financial/PCI-DSS (4)
+  - "Create a PCI-DSS compliant payment processing infrastructure"
+  - "Create a secure microservices architecture for credit card tokenization"
+  - "Create an EKS cluster for a fintech application with network policies"
+  - "Create a data warehouse for financial reporting with column-level security"
+  # Government/FedRAMP (4)
+  - "Create IAM policies following NIST 800-53 access control guidelines"
+  - "Create a FedRAMP-ready government data processing pipeline"
+  - "Create CloudTrail and GuardDuty configuration for a federal workload"
+  - "Create a VPC with FedRAMP-compliant network segmentation"
+  # IAM Infrastructure (4)
+  - "Create service control policies for an AWS Organization with multiple accounts"
+  - "Create IAM permission boundaries for developer sandbox environments"
+  - "Create ABAC policies using IAM tags for a multi-tenant SaaS application"
+  - "Create automated IAM access reviews with Lambda and Config"
+  # Storage Infrastructure (4)
+  - "Create an S3 data lake with Glue catalog and Athena for analytics"
+  - "Create a multi-region S3 replication setup with versioning and MFA delete"
+  - "Create an S3 intelligent tiering configuration with lifecycle policies"
+  - "Create an EFS filesystem with encryption and mount target security groups"
+
+language: terraform
+cloud_provider: aws
+
+red_settings:
+  red_team_mode: single
+  red_strategy: balanced
+  red_vuln_source: database
+
+blue_team_profile: null
+
+blue_settings:
+  blue_team_mode: single
+  blue_strategy: comprehensive
+  detection_mode: llm_only
+
+judge_settings:
+  use_llm_judge: true
+  judge_model: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+  use_consensus_judge: false
+  use_trivy: false
+  use_checkov: false
+  verification_mode: standard
+
+settings:
+  repetitions: 3
+  delay_between_games: 5
+  save_intermediate: true
+  output_dir: "experiments/results/exp1s6b_openai_120b"
+  label: "E1-S6b"
+
+batch_experiments:
+  enabled: true
+  model_combinations:
+    - name: "openai_gpt_oss_120b"
+      red: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+      blue: "openai.gpt-oss-120b-1:0"
+      blue_backend_type: bedrock
+      blue_thinking_mode: false  # Reasoning always active — no flag needed
+
+realtime_experiments:
+  enabled: false
+
+# ── Expected analysis ────────────────────────────────────────────────────────
+# Threshold for replication: precision ≥ 88% at hard difficulty
+#
+# If GPT-OSS-120B precision ≥ 88%:
+#   Three independent reasoning architectures (DeepSeek, Alibaba, OpenAI)
+#   all escape the bottleneck. §5.1 can claim architectural generalization
+#   across independent model families and training approaches.
+#
+# If GPT-OSS-120B precision < 85%:
+#   Does not cleanly replicate. Investigate whether GPT-OSS reasoning
+#   style differs from DeepSeek-R1's self-verification approach.
+#   Report result honestly alongside other supplementary conditions.
+#
+# Compare with:
+#   DeepSeek-R1 (E1-S):        89.0% precision — escapes bottleneck
+#   DeepSeek V3.2 (E1-S7):     72.7% precision — stays in band
+#   Qwen3-32B thinking ON (E1-S4): 72.6% precision — stays in band
+#   Qwen3-32B thinking OFF (E1-S5): 74.7% precision — stays in band

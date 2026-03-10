@@ -3,6 +3,7 @@ LLM Response Sanitizer
 
 Handles model-specific output quirks:
 - DeepSeek-R1: Strips <think>...</think> reasoning blocks before parsing
+- OpenAI GPT-OSS: Strips <reasoning>...</reasoning> blocks before parsing
 - Qwen3-Coder: Strips markdown code fences (```json ... ```) wrapping
 - General: Normalizes whitespace, strips BOM, handles empty responses
 
@@ -32,9 +33,9 @@ def sanitize_llm_response(response: str, model_id: str = "") -> str:
     
     original_len = len(response)
     
-    # 1. Strip <think>...</think> blocks (DeepSeek-R1, QwQ, other reasoning models)
-    if _needs_think_stripping(response, model_id):
-        response = strip_think_blocks(response)
+    # 1. Strip <think>/<reasoning> blocks (DeepSeek-R1, GPT-OSS, QwQ, etc.)
+    if _needs_reasoning_stripping(response, model_id):
+        response = strip_reasoning_blocks(response)
     
     # 2. Strip markdown code fences (Qwen3-Coder, some other code models)
     if _needs_fence_stripping(response, model_id):
@@ -52,33 +53,28 @@ def sanitize_llm_response(response: str, model_id: str = "") -> str:
     return response
 
 
-def strip_think_blocks(text: str) -> str:
+def strip_reasoning_blocks(text: str) -> str:
     """
-    Remove <think>...</think> blocks from reasoning model output.
-    
-    DeepSeek-R1 and similar models produce:
-        <think>
-        Let me analyze this step by step...
-        ...internal reasoning...
-        </think>
-        
-        Here is the actual response in JSON format:
-        {...}
-    
-    The <think> block must be removed before JSON parsing.
+    Remove <think>...</think> and <reasoning>...</reasoning> blocks.
+
+    DeepSeek-R1 uses <think>, OpenAI GPT-OSS uses <reasoning>.
+    Both must be removed before JSON parsing.
     """
-    # Pattern: <think> ... </think> (including newlines)
     cleaned = re.sub(
-        r'<think>.*?</think>\s*',
+        r'<think>.*?</think>\s*|<reasoning>.*?</reasoning>\s*',
         '',
         text,
         flags=re.DOTALL | re.IGNORECASE,
     )
-    
+
     if cleaned != text:
-        logger.info(f"Stripped <think> block ({len(text) - len(cleaned)} chars removed)")
-    
+        logger.info(f"Stripped reasoning block ({len(text) - len(cleaned)} chars removed)")
+
     return cleaned.strip()
+
+
+# Keep old name as alias for backwards compatibility
+strip_think_blocks = strip_reasoning_blocks
 
 
 def strip_markdown_fences(text: str) -> str:
@@ -128,11 +124,10 @@ def strip_markdown_fences(text: str) -> str:
     return text
 
 
-def _needs_think_stripping(response: str, model_id: str) -> bool:
-    """Check if response contains <think> blocks that need stripping."""
-    # Always check for <think> blocks regardless of model ID
-    # (some models produce them unexpectedly)
-    return '<think>' in response.lower()
+def _needs_reasoning_stripping(response: str, model_id: str) -> bool:
+    """Check if response contains <think> or <reasoning> blocks."""
+    lower = response.lower()
+    return '<think>' in lower or '<reasoning>' in lower
 
 
 def _needs_fence_stripping(response: str, model_id: str) -> bool:

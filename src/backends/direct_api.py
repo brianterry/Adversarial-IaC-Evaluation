@@ -18,7 +18,9 @@ import re
 from openai import OpenAI
 from src.backends.base import BackendConfig, ModelBackend, ModelResponse
 
-THINK_PATTERN = re.compile(r"<think>(.*?)</think>", re.DOTALL)
+THINK_PATTERN = re.compile(
+    r"<think>(.*?)</think>|<reasoning>(.*?)</reasoning>", re.DOTALL
+)
 
 
 class DirectAPIBackend(ModelBackend):
@@ -86,11 +88,12 @@ class DirectAPIBackend(ModelBackend):
 
     def _extract_thinking(self, raw: str) -> tuple[str | None, str]:
         """
-        Extract <think>...</think> block.
-        Backend owns think-tag extraction.
+        Extract <think>/<reasoning> block.
+        Backend owns tag extraction.
         response_sanitizer.py handles markdown fences separately — no overlap.
         """
         match = THINK_PATTERN.search(raw)
         if match:
-            return match.group(1).strip(), THINK_PATTERN.sub("", raw).strip()
+            thinking = (match.group(1) or match.group(2) or "").strip()
+            return thinking, THINK_PATTERN.sub("", raw).strip()
         return None, raw.strip()

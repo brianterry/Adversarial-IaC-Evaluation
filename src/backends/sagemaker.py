@@ -17,7 +17,9 @@ import re
 import boto3
 from src.backends.base import BackendConfig, ModelBackend, ModelResponse
 
-THINK_PATTERN = re.compile(r"<think>(.*?)</think>", re.DOTALL)
+THINK_PATTERN = re.compile(
+    r"<think>(.*?)</think>|<reasoning>(.*?)</reasoning>", re.DOTALL
+)
 
 
 class SageMakerBackend(ModelBackend):
@@ -84,5 +86,6 @@ class SageMakerBackend(ModelBackend):
     def _extract_thinking(self, raw: str) -> tuple[str | None, str]:
         match = THINK_PATTERN.search(raw)
         if match:
-            return match.group(1).strip(), THINK_PATTERN.sub("", raw).strip()
+            thinking = (match.group(1) or match.group(2) or "").strip()
+            return thinking, THINK_PATTERN.sub("", raw).strip()
         return None, raw.strip()

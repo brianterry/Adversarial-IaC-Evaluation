@@ -5,6 +5,7 @@ the BackendChatModel adapter, which calls this backend.
 Standardizing on Converse API for better reasoning model support.
 """
 import logging
+import re
 
 import boto3
 from botocore.config import Config
@@ -13,6 +14,12 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from src.backends.base import BackendConfig, ModelBackend, ModelResponse
 
 logger = logging.getLogger(__name__)
+
+# Matches <think>...</think> or <reasoning>...</reasoning> in plain-text responses
+REASONING_TAG_PATTERN = re.compile(
+    r"<think>(.*?)</think>|<reasoning>(.*?)</reasoning>",
+    re.DOTALL,
+)
 
 # Reasoning models (Kimi K2, DeepSeek-R1, Qwen thinking) can take several minutes
 READ_TIMEOUT_THINKING = 900  # 15 minutes
@@ -70,14 +77,14 @@ class BedrockBackend(ModelBackend):
     def _extract_content(raw) -> tuple[str, str | None]:
         """Extract text and thinking from Converse API response content.
 
-        Thinking models (Kimi K2, DeepSeek-R1, Qwen3) return a list of
-        content blocks rather than a plain string. Separate reasoning
-        blocks from text so downstream consumers always get a clean string.
+        Two formats:
+        1. List of content blocks (Kimi K2, Qwen3 with thinking_mode=True)
+        2. Plain string with <think>/<reasoning> tags (DeepSeek-R1, GPT-OSS)
         """
         if isinstance(raw, str):
-            return raw, None
+            return BedrockBackend._strip_reasoning_tags(raw)
         if not isinstance(raw, list):
-            return str(raw), None
+            return BedrockBackend._strip_reasoning_tags(str(raw))
 
         text_parts = []
         thinking_parts = []
@@ -95,6 +102,16 @@ class BedrockBackend(ModelBackend):
         content = "\n".join(text_parts) if text_parts else str(raw)
         thinking = "\n".join(thinking_parts) if thinking_parts else None
         return content, thinking
+
+    @staticmethod
+    def _strip_reasoning_tags(text: str) -> tuple[str, str | None]:
+        """Strip <think> or <reasoning> tags from plain-text responses."""
+        match = REASONING_TAG_PATTERN.search(text)
+        if match:
+            thinking = (match.group(1) or match.group(2) or "").strip()
+            cleaned = REASONING_TAG_PATTERN.sub("", text).strip()
+            return cleaned, thinking
+        return text, None
 
     def _to_langchain(self, messages, system_prompt):
         result = []
