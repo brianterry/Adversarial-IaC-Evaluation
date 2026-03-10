@@ -1,0 +1,58 @@
+{
+  "experiment_id": "exp1s2_qwen35_thinking",
+  "total_games": 90,
+  "completed_games": 87,
+  "failed_games": 3,
+  "metrics": {
+    "avg_precision": 0.5189392025598921,
+    "std_precision": 0.1099673263469392,
+    "avg_recall": 0.979310344827586,
+    "std_recall": 0.11425993522979491,
+    "avg_f1_score": 0.6731100692561133,
+    "std_f1_score": 0.10771832503100312,
+    "avg_evasion_rate": 0.02068965517241379,
+    "std_evasion_rate": 0.11425993522979491,
+    "total_vulnerabilities": 429,
+    "total_findings": 823
+  },
+  "by_difficulty": {
+    "hard": {
+      "count": 87,
+      "precision": 45.14771062271062,
+      "recall": 85.19999999999999,
+      "f1": 58.560576025281854,
+      "evasion": 1.7999999999999998,
+      "avg_precision": 0.5189392025598921,
+      "avg_recall": 0.979310344827586,
+      "avg_f1": 0.6731100692561133,
+      "avg_evasion": 0.02068965517241379
+    }
+  },
+  "by_condition": {
+    "batch": {
+      "count": 87,
+      "precision": 45.14771062271062,
+      "recall": 85.19999999999999,
+      "f1": 58.560576025281854,
+      "evasion": 1.7999999999999998,
+      "avg_precision": 0.5189392025598921,
+      "avg_recall": 0.979310344827586,
+      "avg_f1": 0.6731100692561133,
+      "avg_evasion": 0.02068965517241379
+    }
+  },
+  "by_vuln_source": {
+    "database": {
+      "count": 87,
+      "precision": 45.14771062271062,
+      "recall": 85.19999999999999,
+      "f1": 58.560576025281854,
+      "evasion": 1.7999999999999998,
+      "avg_precision": 0.5189392025598921,
+      "avg_recall": 0.979310344827586,
+      "avg_f1": 0.6731100692561133,
+      "avg_evasion": 0.02068965517241379
+    }
+  },
+  "completed_at": "2026-03-08T23:54:44.460752"
+}
