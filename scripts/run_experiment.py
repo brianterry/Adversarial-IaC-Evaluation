@@ -287,8 +287,9 @@ class ExperimentRunner:
                 difficulty=config.difficulty,
             )
             
-            # Run game
-            engine = GameEngine()
+            # Run game — save artifacts inside the experiment directory
+            games_dir = str(self.experiment_dir / "games")
+            engine = GameEngine(output_dir=games_dir, region=self.region)
             result = await engine.run_game(scenario, config)
             
             # Save result
