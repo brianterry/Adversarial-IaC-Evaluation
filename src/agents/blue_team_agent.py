@@ -685,9 +685,9 @@ Respond with JSON:
                         text_parts.append(block)
                     elif isinstance(block, dict):
                         block_type = block.get('type', '')
-                        if block_type in ('thinking', 'reasoning', 'reasoningContent'):
+                        if block_type in ('thinking', 'reasoning', 'reasoningContent', 'reasoning_content'):
                             continue
-                        if 'reasoningContent' in block:
+                        if 'reasoningContent' in block or 'reasoning_content' in block:
                             continue
                         if 'text' in block:
                             text_parts.append(block['text'])
@@ -827,35 +827,80 @@ Respond with JSON:
         return severity_map.get(severity.upper(), "medium")
 
     def _extract_json(self, text: str) -> Optional[str]:
-        """Extract JSON object from text."""
-        # Try multiple strategies
+        """Extract JSON object from text.
+
+        Reasoning models (Kimi K2, DeepSeek-R1) often embed code fences
+        inside JSON string values (e.g. remediation fields containing
+        ```terraform ...```).  Simple split-on-backtick strategies break
+        on these, so we prefer brace-matching with lenient parsing.
+        """
         strategies = [
-            lambda t: t.split("```json")[1].split("```")[0] if "```json" in t else None,
-            lambda t: t.split("```")[1].split("```")[0] if t.count("```") >= 2 else None,
-            lambda t: self._find_json_object(t),
-            lambda t: t if t.strip().startswith("{") else None,
+            self._find_json_object,
+            lambda t: t.strip() if t.strip().startswith("{") else None,
+            self._extract_outermost_fenced_json,
         ]
-        
+
         for strategy in strategies:
             try:
                 result = strategy(text)
                 if result:
-                    # Validate it's parseable
-                    json.loads(result.strip())
-                    return result.strip()
-            except (json.JSONDecodeError, IndexError, TypeError):
+                    cleaned = self._lenient_json_loads(result.strip())
+                    if cleaned is not None:
+                        return json.dumps(cleaned)
+            except (IndexError, TypeError):
                 continue
-        
+
         return None
 
+    @staticmethod
+    def _lenient_json_loads(text: str):
+        """Parse JSON, tolerating literal newlines in string values.
+
+        Reasoning models often produce JSON with unescaped newlines inside
+        string values (e.g. remediation fields containing code blocks).
+        strict=False tells Python's JSON parser to accept control chars.
+        """
+        try:
+            return json.loads(text, strict=False)
+        except json.JSONDecodeError:
+            return None
+
+    @staticmethod
+    def _extract_outermost_fenced_json(text: str) -> Optional[str]:
+        """Extract JSON from outermost code fence, ignoring inner fences."""
+        import re
+        # Find the first ```json and the LAST ``` to handle inner fences
+        start_match = re.search(r'```(?:json|JSON)?\s*\n', text)
+        if not start_match:
+            return None
+        content_start = start_match.end()
+        # Find last ``` in the text
+        last_fence = text.rfind('```', content_start)
+        if last_fence <= content_start:
+            return None
+        return text[content_start:last_fence].strip()
+
     def _find_json_object(self, text: str) -> Optional[str]:
-        """Find JSON object using brace matching."""
+        """Find JSON object using brace matching (handles nested braces)."""
         start = text.find("{")
         if start == -1:
             return None
-        
+
         depth = 0
+        in_string = False
+        escape_next = False
         for i, char in enumerate(text[start:], start):
+            if escape_next:
+                escape_next = False
+                continue
+            if char == '\\' and in_string:
+                escape_next = True
+                continue
+            if char == '"' and not escape_next:
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
             if char == "{":
                 depth += 1
             elif char == "}":

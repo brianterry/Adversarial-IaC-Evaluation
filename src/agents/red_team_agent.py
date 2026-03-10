@@ -735,9 +735,9 @@ BLUE TEAM PROFILE: Ensemble of specialist agents
                         text_parts.append(block)
                     elif isinstance(block, dict):
                         block_type = block.get('type', '')
-                        if block_type in ('thinking', 'reasoning', 'reasoningContent'):
+                        if block_type in ('thinking', 'reasoning', 'reasoningContent', 'reasoning_content'):
                             continue
-                        if 'reasoningContent' in block:
+                        if 'reasoningContent' in block or 'reasoning_content' in block:
                             continue
                         if 'text' in block:
                             text_parts.append(block['text'])
