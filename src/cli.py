@@ -862,9 +862,9 @@ def score(red_dir: str, blue_dir: str, output_dir: str):
 )
 @click.option(
     "--blue-strategy",
-    type=click.Choice(["comprehensive", "targeted", "iterative", "threat_model", "compliance"]),
+    type=click.Choice(["comprehensive", "targeted", "iterative", "threat_model", "compliance", "precise"]),
     default="comprehensive",
-    help="Blue Team defense strategy",
+    help="Blue Team defense strategy (precise = two-pass verification filter)",
 )
 @click.option(
     "--blue-target-type",

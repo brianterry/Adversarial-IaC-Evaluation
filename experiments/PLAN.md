@@ -83,25 +83,18 @@ echo "backend: Agg" > ~/.config/matplotlib/matplotlibrc
 ### Step 5: Verify All Python Dependencies
 
 ```bash
-# Quick import check for every critical package
+# Quick import check for every critical package (uses importlib.metadata for packages
+# like langchain_aws that don't expose __version__)
 python -c "
-import langchain; print(f'langchain:        {langchain.__version__}')
-import langchain_aws; print(f'langchain-aws:    {langchain_aws.__version__}')
-import langchain_openai; print(f'langchain-openai: {langchain_openai.__version__}')
-import langchain_google_genai; print(f'langchain-google: {langchain_google_genai.__version__}')
-import langgraph; print(f'langgraph:        {langgraph.__version__}')
-import openai; print(f'openai:           {openai.__version__}')
-import boto3; print(f'boto3:            {boto3.__version__}')
-import click; print(f'click:            {click.__version__}')
-import rich; print(f'rich:             {rich.__version__}')
-import pydantic; print(f'pydantic:         {pydantic.__version__}')
-import yaml; print(f'PyYAML:           {yaml.__version__}')
-import pandas; print(f'pandas:           {pandas.__version__}')
-import numpy; print(f'numpy:            {numpy.__version__}')
-import scipy; print(f'scipy:            {scipy.__version__}')
-import matplotlib; print(f'matplotlib:       {matplotlib.__version__}')
-import seaborn; print(f'seaborn:          {seaborn.__version__}')
-import questionary; print(f'questionary:      {questionary.__version__}')
+import importlib.metadata
+pkgs = [
+    'langchain', 'langchain-aws', 'langchain-openai', 'langchain-google-genai',
+    'langgraph', 'openai', 'boto3', 'click', 'rich', 'pydantic', 'PyYAML',
+    'pandas', 'numpy', 'scipy', 'matplotlib', 'seaborn', 'questionary',
+]
+for pkg in pkgs:
+    v = importlib.metadata.version(pkg)
+    print(f'{pkg:25} {v}')
 print('\n✓ All Python dependencies OK')
 "
 ```
@@ -182,9 +175,8 @@ adversarial-iac game \
   --blue-model us.anthropic.claude-3-5-haiku-20241022-v1:0 \
   -d hard \
   --red-vuln-source mixed \
-  --precision-strategy precise \
-  --use-trivy --use-checkov \
-  --use-cross-provider-judge
+  --blue-strategy precise \
+  --use-trivy --use-checkov
 ```
 Verify output contains: `scored_manifest.json`, `phantom_manifest.json`,
 `precision_stats` in game_result.json, and `phantom_concordance_rate`.
