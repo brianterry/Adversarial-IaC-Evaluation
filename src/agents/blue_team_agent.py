@@ -118,7 +118,7 @@ class BlueTeamAgent:
             language: IaC language (terraform, cloudformation)
             use_trivy: Whether to use Trivy scanner
             use_checkov: Whether to use Checkov scanner
-            strategy: Defense strategy - "comprehensive", "targeted", "iterative", "threat_model", "compliance"
+            strategy: Defense strategy - "comprehensive", "targeted", "iterative", "threat_model", "compliance", "precise"
             target_type: For "targeted" strategy - "encryption", "iam", "network", "logging", "access_control"
             compliance_framework: For "compliance" strategy - "hipaa", "pci_dss", "soc2", "cis"
             iterations: For "iterative" strategy - number of analysis passes
@@ -135,6 +135,10 @@ class BlueTeamAgent:
         self.iterations = iterations
         self.scenario_description = scenario_description
         self.logger = logging.getLogger("BlueTeamAgent")
+        
+        # Detect reasoning architecture (DeepSeek-R1, etc.)
+        model_id = getattr(self.llm, 'model_id', '') or getattr(self.llm, 'model', '') or ''
+        self._is_reasoning_model = any(k in model_id.lower() for k in ["deepseek-r1", "claude-3-opus", "gpt-4o"])
         
         # Validate strategy
         valid_strategies = ["comprehensive", "targeted", "iterative", "threat_model", "compliance", "precise"]

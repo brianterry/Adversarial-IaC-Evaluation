@@ -14,15 +14,17 @@ This benchmark is for **LLM evaluators**, **multi-agent researchers**, and **AWS
 ```mermaid
 flowchart LR
     S[Scenario] --> R[Red Team]
-    R --> B[Blue Team]
+    R --> V[Validator]
+    V --> B[Blue Team]
     B --> J[Judge]
     J --> S2[Scores]
 ```
 
 1. **Scenario** — "Create an S3 bucket for healthcare PHI data"
 2. **Red Team** — Generates code with hidden vulnerabilities
-3. **Blue Team** — Analyzes code to find them
-4. **Judge** — Scores precision, recall, F1, evasion rate
+3. **Validator** — Trivy/Checkov corroborate Red Team claims; unconfirmed entries are excluded from scoring (phantom concordance mitigation)
+4. **Blue Team** — Analyzes code to find them; precision verification filter removes unsubstantiated findings
+5. **Judge** — Scores precision, recall, F1, evasion rate using cross-provider consensus for novel vulnerabilities
 
 ## Get Started
 

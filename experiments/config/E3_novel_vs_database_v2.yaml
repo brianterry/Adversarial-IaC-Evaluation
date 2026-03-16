@@ -70,6 +70,7 @@ blue_settings:
   blue_team_mode: single
   blue_strategy: comprehensive
   detection_mode: llm_only
+  precision_strategy: "precise"      # NEW: Fix precision bottleneck
 
 judge_settings:
   use_llm_judge: true

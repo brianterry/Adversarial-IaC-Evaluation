@@ -58,10 +58,19 @@ scenarios:
 # Game configuration
 game:
   rounds_per_game: 1
-  red_team_timeout: 120
-  blue_team_timeout: 120
+  red_team_timeout: 180
+  blue_team_timeout: 180
   max_retries: 1
   retry_delay: 3
+  
+  # NEW: Framework fix parameters
+  precision_strategy: "precise"    # Enable verification filter
+  blue_specialists: 3               # Reduced for small test (matches pipeline)
+  use_cross_provider_judge: true   # Requires OpenAI + Google APIs (optional)
+  
+  # Vulnerability source control
+  vulnerability_source: "mixed"     # Test novel reasoning
+  novel_ratio: 0.5
 
 # Experiment matrix
 # =================

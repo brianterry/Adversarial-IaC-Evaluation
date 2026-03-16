@@ -18,9 +18,22 @@ adversarial-iac game \
   -d hard \
   -l terraform \
   --red-strategy stealth \
-  --blue-strategy comprehensive \
-  --use-trivy
+  --blue-strategy precise \
+  --red-vuln-source mixed \
+  --precision-strategy precise \
+  --use-trivy \
+  --use-checkov \
+  --use-cross-provider-judge
 ```
+
+## v2.3 Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--precision-strategy` | precise | `standard` or `precise` (two-pass verification) |
+| `--red-vuln-source` | mixed | `database`, `novel`, or `mixed` |
+| `--use-cross-provider-judge` | enabled | Cross-provider consensus for novel vulns |
+| `--blue-specialists N` | 4 | Number of Blue ensemble specialists |
 
 ## Output
 
@@ -28,8 +41,10 @@ Results are saved to `output/games/G-YYYYMMDD_HHMMSS/`:
 
 - `code/main.tf` — Red Team's generated code
 - `red_team_manifest.json` — Hidden vulnerabilities
-- `blue_team_findings.json` — Blue Team's detections
-- `game_result.json` — Scores (precision, recall, F1, evasion)
+- `scored_manifest.json` — Tool-confirmed entries used for scoring (v2.3)
+- `phantom_manifest.json` — Unconfirmed entries excluded from scoring (v2.3)
+- `blue_team_findings.json` — Blue Team's verified detections
+- `game_result.json` — Scores (precision, recall, F1, evasion, phantom concordance rate)
 - `game.log` — Execution log
 
 ## Replay Results

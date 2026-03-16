@@ -20,13 +20,16 @@ adversarial-iac game -s "Create S3 bucket" --red-team-mode pipeline
 | Mode | Description |
 |------|-------------|
 | single | One agent analyzes (default) |
-| ensemble | 3 specialists (security, compliance, architecture) + consensus |
+| ensemble | Specialists (security, compliance, architecture) + consensus. Count auto-matches Red pipeline stages for balanced coordination. |
 
 ### Ensemble (better detection)
 
 ```bash
 adversarial-iac game -s "Create S3 bucket" --blue-team-mode ensemble --consensus-method vote
 ```
+
+!!! note "Balanced coordination (v2.3)"
+    When facing a 4-stage Red pipeline, the Blue ensemble automatically uses 4 specialists to ensure fair competition. Override with `--blue-specialists N`.
 
 ### Consensus Methods
 

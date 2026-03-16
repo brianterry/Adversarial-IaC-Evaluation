@@ -58,7 +58,9 @@ scenarios:
     - network
     - iam
     - multi_service
-  scenarios_per_domain: 2  # Total: 5 domains × 2 = 10 scenarios
+    - compliance_hipaa     # NEW
+    - compliance_pci       # NEW
+  scenarios_per_domain: 3  # Total: 7 domains × 3 = 21 scenarios
 
 # Game configuration
 game:
@@ -66,12 +68,21 @@ game:
   rounds_per_game: 1
   
   # Time limits (seconds)
-  red_team_timeout: 120
-  blue_team_timeout: 120
+  red_team_timeout: 180
+  blue_team_timeout: 180
   
   # Retry settings
   max_retries: 2
   retry_delay: 5
+  
+  # NEW: Framework fix parameters
+  precision_strategy: "precise"          # "standard" | "precise"
+  blue_specialists: 4                     # Match Red pipeline stages
+  use_cross_provider_judge: true         # Requires OpenAI + Google APIs
+  
+  # Vulnerability source control
+  vulnerability_source: "mixed"           # "database" | "novel" | "mixed"
+  novel_ratio: 0.5                        # When mixed: fraction of novel vulns
 
 # Evaluation metrics
 metrics:

@@ -117,21 +117,23 @@ cloud_provider: aws
 red_settings:
   red_team_mode: single
   red_strategy: balanced
-  red_vuln_source: database
-
-blue_team_profile: null
+  red_vuln_source: mixed          # CHANGED: Test novel reasoning
+  novel_ratio: 0.5                 # NEW
+  blue_team_profile: null
 
 blue_settings:
   blue_team_mode: single
   blue_strategy: comprehensive
   detection_mode: llm_only
+  precision_strategy: "precise"      # NEW: Fix precision bottleneck
 
 judge_settings:
   use_llm_judge: true
   judge_model: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
   use_consensus_judge: false
-  use_trivy: false
-  use_checkov: false
+  use_trivy: true                 # NEW: Manifest validation gate
+  use_checkov: true                # NEW
+  use_cross_provider_judge: true   # NEW: Phantom concordance mitigation
   verification_mode: standard
 
 settings:

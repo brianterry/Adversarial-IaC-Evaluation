@@ -60,6 +60,7 @@ class BlueTeamEnsemble:
         llm: BaseChatModel,
         language: str = "terraform",
         specialists: Optional[List[str]] = None,
+        specialist_count: int = 3,  # NEW: Allow specifying number of specialists
         consensus_method: str = "debate",
         run_parallel: bool = True,
     ):
@@ -69,13 +70,14 @@ class BlueTeamEnsemble:
         Args:
             llm: LangChain chat model for all agents
             language: IaC language (terraform, cloudformation)
-            specialists: Which specialists to use (default: all)
+            specialists: Which specialists to use (default: first N from available)
+            specialist_count: Number of specialists to use (default: 3)
             consensus_method: How to synthesize findings
             run_parallel: Whether to run specialists concurrently
         """
         self.llm = llm
         self.language = language
-        self.specialists_config = specialists or self.AVAILABLE_SPECIALISTS
+        self.specialist_count = specialist_count
         self.consensus_method = consensus_method
         self.run_parallel = run_parallel
         self.logger = logging.getLogger("BlueTeamEnsemble")
@@ -83,6 +85,12 @@ class BlueTeamEnsemble:
         # Validate inputs
         if consensus_method not in self.CONSENSUS_METHODS:
             raise ValueError(f"Invalid consensus method. Choose from: {self.CONSENSUS_METHODS}")
+        
+        # Determine specialists to use (first N from available)
+        if specialists is None:
+            self.specialists_config = self.AVAILABLE_SPECIALISTS[:specialist_count]
+        else:
+            self.specialists_config = specialists
         
         for spec in self.specialists_config:
             if spec not in self.AVAILABLE_SPECIALISTS:

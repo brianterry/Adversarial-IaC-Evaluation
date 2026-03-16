@@ -34,12 +34,16 @@ adversarial-iac game -s "Create S3 bucket" --red-strategy stealth
 | iterative | Multiple analysis passes (use `--blue-iterations`) |
 | threat_model | STRIDE-based analysis |
 | compliance | Framework-specific audit (use `--compliance-framework`) |
+| precise | Two-pass verification: detect then verify against code evidence (v2.3 default) |
 
 ### Examples
 
 ```bash
 # Comprehensive (default)
 adversarial-iac game -s "Create S3 bucket" --blue-strategy comprehensive
+
+# Precise (v2.3 default — two-pass verification)
+adversarial-iac game -s "Create S3 bucket" --blue-strategy precise
 
 # Targeted at IAM
 adversarial-iac game -s "Create S3 bucket" --blue-strategy targeted --blue-target-type iam
